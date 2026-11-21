@@ -23,9 +23,12 @@
     document.querySelectorAll(".enter,.drawer,.corner,.moth,.dots,.hint").forEach((e) => e.remove());
     data = d;
     const p = d.profile, c = p.colors, R = document.documentElement.style;
+    // optional Discord banner and accent colour
+    if (p.discordSync.banner && d.discordX && d.discordX.banner) p.banner = d.discordX.banner;
+    if (p.discordSync.accent && d.discordX && d.discordX.accent) c.accent = d.discordX.accent;
 
     // fonts
-    const fams = [...new Set([p.fonts.body, p.fonts.name || p.fonts.body])];
+    const fams = [...new Set([p.fonts.body, p.fonts.name || p.fonts.body, p.fonts.bio, p.fonts.buttons, p.fonts.widgets].filter(Boolean))];
     const fl = document.getElementById("fontlink");
     if (fl) fl.href = "https://fonts.googleapis.com/css2?" + fams.map((f) => "family=" + (SAFE_FONTS[f] || f.replace(/ /g, "+")) + (/(Inter|Outfit|Sora|Space Grotesk|Syne|Unbounded|JetBrains Mono|Bricolage Grotesque)/.test(f) ? ":wght@400;600;800" : "")).join("&") + "&display=swap";
     const stack = (f) => `"${f}",${/Mono|VT323|Silkscreen|Press/.test(f) ? "ui-monospace,monospace" : /Serif|Playfair/.test(f) ? "Georgia,serif" : "system-ui,sans-serif"}`;
@@ -38,10 +41,24 @@
     R.setProperty("--cards", c.cards ? hexA(c.cards, p.card.darkness / 100) : `rgba(14,12,18,${p.card.darkness / 100})`);
     set("--card-border", p.card.borderColor);
     R.setProperty("--card-blur", p.card.blur + "px"); R.setProperty("--radius", p.card.radius + "px");
+    // per-element fonts, uploaded font, name shadow and outline, bio text, radius, opacity, selection
+    { let ff = document.getElementById("dose-font"); if (!ff) { ff = document.createElement("style"); ff.id = "dose-font"; document.head.appendChild(ff); }
+      ff.textContent = p.fonts.custom && p.fonts.useCustom !== "none" ? `@font-face{font-family:"DoseCustom";src:url("${p.fonts.custom.replace(/"/g, "")}");font-display:swap}` : ""; }
+    const cust = p.fonts.custom && p.fonts.useCustom !== "none" ? `"DoseCustom",` : "";
+    set("--bio-font", p.fonts.bio ? stack(p.fonts.bio) : ""); set("--btn-font", p.fonts.buttons ? stack(p.fonts.buttons) : ""); set("--wg-font", p.fonts.widgets ? stack(p.fonts.widgets) : "");
+    const nm = p.name;
+    set("--name-shadow", nm.shadowBlur || nm.shadowX || nm.shadowY ? `${nm.shadowX}px ${nm.shadowY}px ${nm.shadowBlur}px ${nm.shadowColor || "rgba(0,0,0,.6)"}` : "");
+    set("--name-outline", nm.outlineWidth ? `${nm.outlineWidth}px ${nm.outlineColor || "#000"}` : "");
+    R.setProperty("--bio-ls", p.bioText.spacing / 100 + "em"); R.setProperty("--bio-lh", p.bioText.lineHeight / 10);
+    if (p.radius.custom) { R.setProperty("--btn-radius-x", p.radius.buttons + "px"); R.setProperty("--ic-radius", p.radius.icons + "px"); R.setProperty("--wg-radius", p.radius.widgets + "px"); }
+    else ["--btn-radius-x", "--ic-radius", "--wg-radius"].forEach((k) => R.removeProperty(k));
+    R.setProperty("--op-btn", p.opacity.buttons / 100); R.setProperty("--op-ic", p.opacity.icons / 100); R.setProperty("--op-wg", p.opacity.widgets / 100);
+    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection);
+    R.setProperty("--fx-k", p.fx.intensity / 100);
     R.setProperty("--btn-radius", { rounded: "14px", pill: "999px", square: "4px" }[p.buttons.shape]);
     R.setProperty("--gap", { compact: "10px", normal: "16px", airy: "24px" }[p.layout.spacing]);
     R.setProperty("--width", p.layout.width + "px");
-    R.setProperty("--font", stack(p.fonts.body)); R.setProperty("--name-font", stack(p.fonts.name || p.fonts.body));
+    R.setProperty("--font", (["body", "all"].includes(p.fonts.useCustom) ? cust : "") + stack(p.fonts.body)); R.setProperty("--name-font", (["name", "all"].includes(p.fonts.useCustom) ? cust : "") + stack(p.fonts.name || p.fonts.body));
     R.setProperty("--name-size", p.name.autoSize ? "clamp(28px,8vw,42px)" : p.name.size + "px");
     R.setProperty("--name-weight", p.name.weight); R.setProperty("--name-spacing", p.name.spacing / 100 + "em");
     R.setProperty("--g1", p.name.from); R.setProperty("--g2", p.name.to);
@@ -55,7 +72,9 @@
     const cc = document.getElementById("custom-css"); if (cc && d.__css !== undefined) cc.textContent = d.__css;
 
     const b = document.body;
-    b.className = [`cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
+    b.className = [`hv-ic-${p.hover.icons}`, `hv-bd-${p.hover.badges}`, `hv-wg-${p.hover.widgets}`, `sfx-${p.scrollFx}`, `bb-${p.bioText.box}`, `cd-${p.card.decor}`, `cf-${p.card.frame}`,
+      p.name.preset !== "none" && `np-${p.name.preset}`, (p.name.shadowBlur || p.name.shadowX || p.name.shadowY) && "nshadow", p.name.outlineWidth && "noutline", `sb-${p.fx.scrollbar}`, p.buttons.tilt && "btilt", p.buttons.shiny && "bshine", p.fx.layer === "front" && "fx-front", p.radius.custom && "rcustom", `term-${p.terminal.theme}`,
+      p.live.artSpin && "artspin", p.live.lyricsGlow && "lyglow", `cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border", p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
@@ -67,7 +86,7 @@
 
     root.innerHTML = `
       ${backgroundHtml(p)}
-      <canvas class="fx" aria-hidden="true"></canvas>
+      <canvas class="fx" aria-hidden="true"></canvas>${p.fx.overlay2 !== "none" ? `<canvas class="fx fx2" aria-hidden="true"></canvas>` : ""}
       ${p.texture !== "none" ? `<div class="texture tx-${p.texture}"></div>` : ""}
       <div class="vignette"></div>
       <div class="scroller ${p.scroll.transition === "snap" && pagesN > 1 ? "snap" : ""}">
@@ -86,6 +105,8 @@
 
     setupBackground(p);
     setupOverlay(p.overlay, p);
+    if (p.fx.overlay2 !== "none" && p.fx.overlay2 !== p.overlay) setupOverlay(p.fx.overlay2, p, root.querySelector("canvas.fx2"));
+    if (window.__doseExtras) window.__doseExtras(p, data, { root, onCleanup, listen, every, reduce, coarse, esc, svgIcon, PREVIEW, getAudio: () => audio });
     setupNameEffect(p);
     setupBio(p);
     setupTaglines(p);
@@ -264,7 +285,7 @@
     switch (s.id) {
       case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${redactHtml(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
-      case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""}">${l.icon ? icon(l.icon) : ""}<span>${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
+      case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""} ${l.hoverLabel ? "hl" : ""}">${l.icon ? icon(l.icon) : ""}<span>${l.hoverLabel ? `<i class="l1">${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</i><i class="l2">${esc(l.hoverLabel)}</i>` : esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
       case "widgets": return `<div>${h}<div class="widgets ws-${p.widgetStyle}">${p.widgets.map((w) => widgetHtml(w, p, d)).join("")}</div></div>`;
       case "presence": return `<div data-sec="presence" hidden>${h}<div class="pstack"></div></div>`;
       case "projects": return `<div>${h}<div class="projects">${p.projects.map((x) => `<${x.url ? `a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer"` : "div"} class="box project">
@@ -619,7 +640,10 @@
 
   /* cursor + clicks */
   function setupCursor(cur) {
+    // the original effects live here; the newer cursors, trails, clicks and sounds live in extras.js
     document.body.style.cursor = cur.image ? `url("${cur.image}") 4 4, auto` : "";
+    const OLD = ["sparkle", "snow", "pixels", "bubbles", "ribbon", "moth"];
+    cur = { ...cur, effect: OLD.includes(cur.effect) ? cur.effect : "none", click: ["burst", "ripple", "hearts", "confetti", "stars"].includes(cur.click) ? cur.click : "none", sound: ["click", "bubble", "chime", "custom"].includes(cur.sound) ? cur.sound : "none" };
     if (!reduce && !coarse && cur.effect !== "none") {
       if (cur.effect === "ribbon") ribbon();
       else if (cur.effect === "moth") moth();
@@ -744,92 +768,164 @@
     if (!p.discord.id) return;
     const COLORS = { online: "#3ba55d", idle: "#faa61a", dnd: "#ed4245", offline: "#747f8d" };
     const WORDS = { online: "online", idle: "away", dnd: "do not disturb", offline: "offline" };
-    let lyricsFor = null, lyricLines = [], lyricTimer;
+    const hide = p.live.hideApps.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+    const rename = (n) => { const r = p.live.renames.find((x) => x.from && String(n).toLowerCase().includes(x.from.toLowerCase())); return r && r.to ? r.to : n; };
+    let lyricsFor = null, lyricLines = [], lastSp = null, lastSpAt = 0, lastTrack = null, recentCache = null;
+    const avatar = root.querySelector(".avatar");
+    // song progress ring around the picture
+    if (p.live.progressRing && avatar) avatar.insertAdjacentHTML("beforeend", `<svg class="pring" viewBox="0 0 100 100" aria-hidden="true" hidden><circle cx="50" cy="50" r="48"/></svg>`);
+    // subtitle-style lyrics live at the bottom of the screen
+    if (p.live.lyrics && p.live.lyricsStyle === "subtitles") { const s = document.createElement("div"); s.className = "lysub"; s.hidden = true; document.body.appendChild(s); onCleanup(() => s.remove()); }
+    const gameRank = (name) => {
+      if (!p.live.gameRank) return "";
+      const n = String(name).toLowerCase(), T = window.GAME_TRACKERS || {};
+      const w = p.widgets.find((x) => (x.type === "gamerank" && T[x.label] && n.includes(T[x.label][0].toLowerCase().split(" ")[0])) || (x.type === "valorant" && n.includes("valorant")) || (x.type === "apex" && n.includes("apex")));
+      if (!w) return "";
+      if (w.type === "gamerank") return `<span class="grank">${svgIcon("trophy")}${esc(w.value || "ranked")}</span>`;
+      return `<span class="grank" data-rank="${w.type}" data-q="${esc(w.value)}" data-e="${esc(w.extra || "")}">${svgIcon("trophy")}…</span>`;
+    };
     const poll = async () => {
       try {
         const r = await fetch(`https://api.lanyard.rest/v1/users/${p.discord.id}`); const j = await r.json(); if (!j.success) return;
-        lanyard = j.data; const L = lanyard;
-        const dot = root.querySelector(".avatar .dot"), st = root.querySelector(".line .status");
-        if (dot) { dot.hidden = false; dot.style.background = COLORS[L.discord_status]; dot.title = WORDS[L.discord_status]; }
-        if (st) { st.hidden = false; st.querySelector(".sdot").style.background = COLORS[L.discord_status]; st.querySelector("em").textContent = WORDS[L.discord_status]; }
+        lanyard = j.data; const L = lanyard; window.__lanyard = L;
+        const custom = (L.activities || []).find((x) => x.type === 4);
+        const emo = custom && custom.emoji ? (custom.emoji.id ? `<img class="emj" alt="" src="https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? "gif" : "webp"}?size=48">` : `<span class="emj">${esc(custom.emoji.name)}</span>`) : "";
+        const dot = root.querySelector(".avatar .dot"), st = root.querySelector(".line .status"), col = COLORS[L.discord_status] || COLORS.offline;
+        if (dot) { dot.hidden = false; dot.style.background = col; dot.title = WORDS[L.discord_status]; }
+        if (st) { st.hidden = false; st.querySelector(".sdot").style.background = col; st.querySelector("em").textContent = WORDS[L.discord_status]; }
+        // status emoji on the picture, or a bubble next to it
+        if (dot && avatar) {
+          avatar.querySelectorAll(".sbadge,.sbubble").forEach((x) => x.remove()); dot.classList.remove("swapped");
+          const text = custom && custom.state ? custom.state : "";
+          if (p.live.statusBadge === "emoji" && emo) { dot.classList.add("swapped"); avatar.insertAdjacentHTML("beforeend", `<span class="sbadge" tabindex="0" style="--sc:${col}" title="${esc(text || WORDS[L.discord_status])}">${emo}${text ? `<i class="sbtip">${esc(text)}</i>` : ""}</span>`); }
+          if (p.live.statusBadge === "bubble" && (emo || text)) avatar.insertAdjacentHTML("beforeend", `<span class="sbubble" title="${esc(text)}">${emo}<span>${esc(text)}</span><i></i><i></i></span>`);
+        }
         const dd = root.querySelector(".ddeco"), deco = L.discord_user && L.discord_user.avatar_decoration_data;
         if (dd && deco) { dd.src = `https://cdn.discordapp.com/avatar-decoration-presets/${deco.asset}.png?size=240&passthrough=true`; dd.hidden = false; }
-        const custom = (L.activities || []).find((x) => x.type === 4);
         const cs = root.querySelector(".bio.cstatus");
         if (cs && p.live.customStatus && custom && custom.state) { cs.textContent = custom.state; cs.hidden = false; }
 
         const sec = root.querySelector('[data-sec="presence"]'), stack = sec && sec.querySelector(".pstack");
+        const ring = avatar && avatar.querySelector(".pring"); if (ring) ring.hidden = !(L.listening_to_spotify && L.spotify);
         if (!stack) return;
-        const blocks = [], W = p.live.style === "widget";
+        const blocks = [], W = p.live.style === "widget", STRIP = p.live.style === "strip";
         const label = (txt, extra) => `<div class="plabel"><span>${esc(txt)}</span>${extra || ""}</div>`;
-        if (W && p.live.discordCard) {
-          const du = L.discord_user || {}, st = L.discord_status || "offline";
-          const av = du.avatar ? `https://cdn.discordapp.com/avatars/${du.id}/${du.avatar}.${du.avatar.startsWith("a_") ? "gif" : "webp"}?size=128` : "";
-          const em = custom && custom.emoji ? (custom.emoji.id ? `<img class="emj" alt="" src="https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? "gif" : "webp"}?size=32">` : `<span class="emj">${esc(custom.emoji.name)}</span>`) : "";
-          const devs = [["desktop", L.active_on_discord_desktop], ["mobile", L.active_on_discord_mobile], ["web", L.active_on_discord_web]].filter((x) => x[1]).map((x) => x[0]);
-          const DEV = { desktop: "M3 4h18v12H3zM8 20h8M12 16v4", mobile: "M7 2h10v20H7zM11 18h2", web: "M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" };
-          blocks.push(`<div class="pcard dc st-${st}">${label("discord", `<em class="pst"><i class="sdot" style="background:${COLORS[st]}"></i>${WORDS[st]}</em>`)}
-            <div class="part av">${av ? `<img src="${esc(av)}" alt="">` : svgIcon("discord")}<i class="adot" style="background:${COLORS[st]}"></i></div>
-            <div class="pbody"><div class="dname"><b class="mq"><span>${esc(du.global_name || du.display_name || du.username || data.username)}</span></b>${p.live.discordBadges ? guildTag(du) : ""}</div>
-              <span class="sub">@${esc(du.username || "")}</span>${p.live.discordBadges ? discordBadges(du, data.discordX && data.discordX.id === p.discord.id ? data.discordX : null) : ""}
-              ${custom && (custom.state || em) && p.live.customStatus ? `<span class="cstat">${em}${esc(custom.state || "")}</span>` : ""}
-              ${devs.length ? `<span class="devs">${devs.map((x) => `<svg viewBox="0 0 24 24" aria-label="on ${x}"><path d="${DEV[x]}"/></svg>`).join("")}<span>on ${devs.join(" & ")}</span></span>` : ""}</div></div>`);
+        const acts = (L.activities || []).filter((x) => (x.type === 0 || x.type === 1 || x.type === 3) && !hide.some((h) => String(x.name).toLowerCase().includes(h))).slice(0, 2);
+        const playing = p.live.spotify && L.listening_to_spotify && L.spotify;
+        if (playing) { lastSp = L.spotify; lastSpAt = Date.now(); }
+        if (STRIP) {
+          const bits = [];
+          if (p.live.discordCard) bits.push(`<span class="ps-i"><i class="sdot" style="background:${col}"></i>${WORDS[L.discord_status]}${custom && (custom.state || emo) && p.live.customStatus ? ` · ${emo}${esc(custom.state || "")}` : ""}</span>`);
+          if (playing) bits.push(`<a class="ps-i sp" href="https://open.spotify.com/track/${esc(L.spotify.track_id || "")}" target="_blank" rel="noopener noreferrer">${L.spotify.album_art_url ? `<img src="${esc(L.spotify.album_art_url)}" alt="">` : svgIcon("spotify")}<b>${esc(L.spotify.song)}</b><span>${esc(L.spotify.artist.split(";")[0])}</span><i class="psbar"><i class="spbar"></i></i></a>`);
+          if (p.live.games) for (const a of acts) bits.push(`<span class="ps-i">${svgIcon("game")}<b>${esc(rename(a.name))}</b>${a.timestamps && a.timestamps.start ? `<span class="elapsed" data-start="${a.timestamps.start}"></span>` : ""}</span>`);
+          stack.innerHTML = bits.length ? `<div class="pstrip">${bits.join(`<i class="ps-sep"></i>`)}</div>` : ""; sec.hidden = !bits.length;
+        } else {
+          if (W && p.live.discordCard) {
+            const du = L.discord_user || {}, stt = L.discord_status || "offline";
+            const av = du.avatar ? `https://cdn.discordapp.com/avatars/${du.id}/${du.avatar}.${du.avatar.startsWith("a_") ? "gif" : "webp"}?size=128` : "";
+            const devs = [["desktop", L.active_on_discord_desktop], ["mobile", L.active_on_discord_mobile], ["web", L.active_on_discord_web]].filter((x) => x[1]).map((x) => x[0]);
+            const DEV = { desktop: "M3 4h18v12H3zM8 20h8M12 16v4", mobile: "M7 2h10v20H7zM11 18h2", web: "M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" };
+            blocks.push(`<div class="pcard dc st-${stt}">${label("discord", `<em class="pst"><i class="sdot" style="background:${COLORS[stt]}"></i>${WORDS[stt]}</em>`)}
+              <div class="part av">${av ? `<img src="${esc(av)}" alt="">` : svgIcon("discord")}<i class="adot" style="background:${COLORS[stt]}"></i></div>
+              <div class="pbody"><div class="dname"><b class="mq"><span>${esc(du.global_name || du.display_name || du.username || data.username)}</span></b>${p.live.discordBadges ? guildTag(du) : ""}</div>
+                <span class="sub">@${esc(du.username || "")}</span>${p.live.discordBadges ? discordBadges(du, data.discordX && data.discordX.id === p.discord.id ? data.discordX : null) : ""}
+                ${custom && (custom.state || emo) && p.live.customStatus ? `<span class="cstat">${emo}${esc(custom.state || "")}</span>` : ""}
+                ${devs.length ? `<span class="devs">${devs.map((x) => `<svg viewBox="0 0 24 24" aria-label="on ${x}"><path d="${DEV[x]}"/></svg>`).join("")}<span>on ${devs.join(" & ")}</span></span>` : ""}</div></div>`);
+          }
+          const spCard = (sp, mode) => {
+            const ly = mode === "live" && p.live.lyrics && p.live.lyricsStyle !== "subtitles" ? `<div class="lyrics in ly-${p.live.lyricsStyle} ${p.live.lyricsGlow ? "glow" : ""}" hidden><div></div></div>` : "";
+            const lbl = mode === "paused" ? "paused" : mode === "recent" ? "last played" : p.live.listeningLabel;
+            const swap = mode === "live" && p.live.songAnim && lastTrack && lastTrack !== sp.track_id ? "swap" : "";
+            return `<div class="box presence-wrap pcard-wrap"><div class="pcard sp ${mode !== "live" ? "idle" : ""} ${p.live.artSpin && mode === "live" ? "spin" : ""} ${swap}">${label(lbl, mode === "live" ? `<i class="eq"><b></b><b></b><b></b><b></b></i><span class="onrep" hidden><svg viewBox="0 0 24 24"><path d="M7 7h10l-2-2 1.4-1.4L20.8 8l-4.4 4.4L15 11l2-2H7a3 3 0 0 0-3 3H2a5 5 0 0 1 5-5zm10 10H7l2 2-1.4 1.4L3.2 16l4.4-4.4L9 13l-2 2h10a3 3 0 0 0 3-3h2a5 5 0 0 1-5 5z"/></svg><em></em></span>` : mode === "paused" ? `<i class="pz">${svgIcon("pause")}</i>` : "")}
+              <a class="part" href="https://open.spotify.com/track/${esc(sp.track_id || "")}" target="_blank" rel="noopener noreferrer" title="Open in Spotify">${sp.album_art_url || sp.art ? `<img src="${esc(sp.album_art_url || sp.art)}" alt="">` : svgIcon("spotify")}</a>
+              <div class="pbody"><b class="mq"><span>${esc(sp.song)}</span></b><span class="sub mq"><span>${esc(String(sp.artist || "").replace(/;/g, ","))}</span></span>
+              ${mode === "live" ? `<div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div><div class="spx"></div>` : `<span class="ago">${since(mode === "paused" ? lastSpAt : sp.started)}</span>`}</div>
+              ${ly}</div></div>`;
+          };
+          if (playing) {
+            const sp = L.spotify;
+            if (W) blocks.push(spCard(sp, "live"));
+            else blocks.push(`<div class="box presence-wrap"><div class="presence"><div class="art">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</div>
+              <div class="txt"><small class="lbl">${esc(p.live.listeningLabel)}</small><b>${esc(sp.song)}</b><span class="sub">${esc(sp.artist)}</span>
+              <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
+              ${p.live.lyrics && p.live.lyricsStyle !== "subtitles" ? `<div class="lyrics ly-${p.live.lyricsStyle} ${p.live.lyricsGlow ? "glow" : ""}" hidden><div></div></div>` : ""}</div>`);
+            if (p.background.type === "auto" && p.background.albumArt && sp.album_art_url) { const img = root.querySelector(".bg .auto"); if (img) { img.src = sp.album_art_url; img.hidden = false; } }
+          } else {
+            if (p.background.type === "auto") { const img = root.querySelector(".bg .auto"); if (img && p.avatar.src && img.getAttribute("src") !== p.avatar.src) img.src = p.avatar.src; }
+            if (W && p.live.spotify) {
+              if (p.live.pausedCard && lastSp && Date.now() - lastSpAt < 15 * 60000) blocks.push(spCard(lastSp, "paused"));
+              else if (p.live.recentWhenIdle && !PREVIEW) {
+                if (!recentCache || Date.now() - recentCache.at > 60000) recentCache = { at: Date.now(), p: fetch(`/api/live/${encodeURIComponent(data.username)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) };
+                const rc = await recentCache.p; const last = rc && rc.recent && rc.recent[0];
+                if (last) blocks.push(spCard(last, "recent"));
+              }
+            }
+          }
+          if (p.live.games) for (const a of acts) {
+            const img = a.assets && a.assets.large_image;
+            const asset = (k) => k ? (k.startsWith("mp:") ? `https://media.discordapp.net/${k.slice(3)}` : a.application_id && !k.includes(":") ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${k}.png` : "") : "";
+            const src = asset(img), small = asset(a.assets && a.assets.small_image), name = rename(a.name);
+            const start = a.timestamps && a.timestamps.start, verb = a.type === 1 ? "streaming" : a.type === 3 ? "watching" : p.live.playingLabel;
+            const needArt = !src && p.live.gameArt && a.application_id ? `data-app="${esc(a.application_id)}"` : "";
+            if (W) blocks.push(`<div class="pcard gm">${label(verb, `<i class="gic">${svgIcon("game")}</i>`)}
+              <div class="part" ${needArt}>${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:svgIcon('game')}))">` : svgIcon("game")}${small ? `<img class="psmall" src="${esc(small)}" alt="" title="${esc((a.assets && a.assets.small_text) || "")}" onerror="this.remove()">` : ""}</div>
+              <div class="pbody"><b class="mq"><span>${esc(name)}</span></b>${a.details ? `<span class="sub mq"><span>${esc(a.details)}</span></span>` : ""}${a.state ? `<span class="sub">${esc(a.state)}</span>` : ""}
+              <div class="gfoot">${start ? `<span class="elapsed" data-start="${start}">0:00 elapsed</span>` : ""}${gameRank(a.name)}</div></div></div>`);
+            else blocks.push(`<div class="box presence"><div class="art" ${needArt}>${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(verb)}</small><b>${esc(name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);
+          }
+          stack.innerHTML = W && p.live.combine && blocks.length > 1 ? `<div class="pcombo">${blocks.join("")}</div>` : blocks.join(""); sec.hidden = !blocks.length;
         }
-        if (p.live.spotify && L.listening_to_spotify && L.spotify) {
-          const sp = L.spotify;
-          if (W) blocks.push(`<div class="box presence-wrap pcard-wrap"><div class="pcard sp">${label(p.live.listeningLabel, `<i class="eq"><b></b><b></b><b></b><b></b></i><span class="onrep" hidden><svg viewBox="0 0 24 24"><path d="M7 7h10l-2-2 1.4-1.4L20.8 8l-4.4 4.4L15 11l2-2H7a3 3 0 0 0-3 3H2a5 5 0 0 1 5-5zm10 10H7l2 2-1.4 1.4L3.2 16l4.4-4.4L9 13l-2 2h10a3 3 0 0 0 3-3h2a5 5 0 0 1-5 5z"/></svg><em></em></span>`)}
-            <a class="part" href="https://open.spotify.com/track/${esc(sp.track_id || "")}" target="_blank" rel="noopener noreferrer" title="Open in Spotify">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</a>
-            <div class="pbody"><b class="mq"><span>${esc(sp.song)}</span></b><span class="sub mq"><span>${esc(sp.artist.replace(/;/g, ","))}</span></span>
-            <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div>
-            ${p.live.lyrics ? `<div class="lyrics in" hidden><div></div></div>` : ""}</div></div>`);
-          else blocks.push(`<div class="box presence-wrap"><div class="presence"><div class="art">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</div>
-            <div class="txt"><small class="lbl">${esc(p.live.listeningLabel)}</small><b>${esc(sp.song)}</b><span class="sub">${esc(sp.artist)}</span>
-            <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
-            ${p.live.lyrics ? `<div class="lyrics" hidden><div></div></div>` : ""}</div>`);
-          if (p.background.type === "auto" && p.background.albumArt && sp.album_art_url) { const img = root.querySelector(".bg .auto"); if (img) { img.src = sp.album_art_url; img.hidden = false; } }
-        } else if (p.background.type === "auto") { const img = root.querySelector(".bg .auto"); if (img && p.avatar.src && img.getAttribute("src") !== p.avatar.src) img.src = p.avatar.src; }
-        if (p.live.games) for (const a of (L.activities || []).filter((x) => x.type === 0 || x.type === 1 || x.type === 3).slice(0, 2)) {
-          const img = a.assets && a.assets.large_image;
-          const asset = (k) => k ? (k.startsWith("mp:") ? `https://media.discordapp.net/${k.slice(3)}` : a.application_id && !k.includes(":") ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${k}.png` : "") : "";
-          const src = asset(img), small = asset(a.assets && a.assets.small_image);
-          const start = a.timestamps && a.timestamps.start, verb = a.type === 1 ? "streaming" : a.type === 3 ? "watching" : p.live.playingLabel;
-          if (W) blocks.push(`<div class="pcard gm">${label(verb, `<i class="gic">${svgIcon("game")}</i>`)}
-            <div class="part">${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:svgIcon('game')}))">` : svgIcon("game")}${small ? `<img class="psmall" src="${esc(small)}" alt="" title="${esc((a.assets && a.assets.small_text) || "")}" onerror="this.remove()">` : ""}</div>
-            <div class="pbody"><b class="mq"><span>${esc(a.name)}</span></b>${a.details ? `<span class="sub mq"><span>${esc(a.details)}</span></span>` : ""}${a.state ? `<span class="sub">${esc(a.state)}</span>` : ""}
-            ${start ? `<span class="elapsed" data-start="${start}">0:00 elapsed</span>` : ""}</div></div>`);
-          else blocks.push(`<div class="box presence"><div class="art">${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(verb)}</small><b>${esc(a.name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);
-        }
-        stack.innerHTML = W && p.live.combine && blocks.length > 1 ? `<div class="pcombo">${blocks.join("")}</div>` : blocks.join(""); sec.hidden = !blocks.length;
-        if (W && p.live.onRepeat && L.listening_to_spotify && L.spotify && !PREVIEW) liveInfo(data.username).then((j) => {
-          const el = stack.querySelector(".onrep"); if (!el || !j || j.track_id !== L.spotify.track_id) return;
-          if (j.repeat >= p.live.repeatAt) { el.hidden = false; el.querySelector("em").textContent = `on repeat ×${j.repeat}`; el.title = `played ${j.repeat} times in a row`; }
+        if (playing) lastTrack = L.spotify.track_id;
+        // fill in game pictures Discord didn't send
+        stack.querySelectorAll("[data-app]").forEach((el) => fetch(`/api/appicon/${el.dataset.app}`).then((r) => r.json()).then((j) => { if (j.icon) { const sm = el.querySelector(".psmall"); el.innerHTML = `<img src="${esc(j.icon)}" alt="">`; if (sm) el.appendChild(sm); } }).catch(() => {}));
+        stack.querySelectorAll(".grank[data-rank]").forEach((el) => fetch(`/api/widget/${el.dataset.rank}?q=${encodeURIComponent(el.dataset.q)}${el.dataset.e ? "&platform=" + encodeURIComponent(el.dataset.e) : ""}`).then((r) => r.json()).then((j) => { el.innerHTML = svgIcon("trophy") + esc(j && j.rank ? j.rank + (j.rr != null ? ` · ${j.rr} RR` : "") : "ranked"); }).catch(() => el.remove()));
+        if (W && playing && !PREVIEW && (p.live.onRepeat || p.live.upNext || p.live.friends)) liveInfoFor(data.username, L.spotify.track_id).then((j) => {
+          if (!j) return;
+          const el = stack.querySelector(".onrep");
+          if (el && p.live.onRepeat && j.track_id === L.spotify.track_id && j.repeat >= p.live.repeatAt) { el.hidden = false; el.querySelector("em").textContent = `on repeat ×${j.repeat}`; el.title = `played ${j.repeat} times in a row`; }
+          const x = stack.querySelector(".spx"); if (!x) return;
+          x.innerHTML = (p.live.upNext && j.upNext ? `<span class="upnext">up next, probably: <b>${esc(j.upNext.song)}</b></span>` : "") + (p.live.friends && j.alsoListening && j.alsoListening.length ? `<span class="friends">${j.alsoListening.map((u) => `<a href="/${esc(u)}">${esc(u)}</a>`).join(", ")} ${j.alsoListening.length === 1 ? "is" : "are"} listening too</span>` : "");
         });
-        if (W && p.live.albumColor && L.listening_to_spotify && L.spotify && L.spotify.album_art_url) albumColour(L.spotify.album_art_url).then((c) => { const el = stack.querySelector(".pcard.sp"); if (c && el) { el.style.setProperty("--pc", c); el.classList.add("tinted"); } });
+        if (W && (p.live.albumColor || p.live.lyricsAlbumColor) && playing && L.spotify.album_art_url) albumColour(L.spotify.album_art_url).then((c) => {
+          if (!c) return; const el = stack.querySelector(".pcard.sp");
+          if (el && p.live.albumColor) { el.style.setProperty("--pc", c); el.classList.add("tinted"); }
+          if (p.live.lyricsAlbumColor) { document.body.style.setProperty("--lyc", c); }
+        });
         requestAnimationFrame(() => stack.querySelectorAll(".mq").forEach((m) => { const over = m.firstElementChild.scrollWidth - m.clientWidth; if (over > 4) { m.classList.add("go"); m.style.setProperty("--mqx", -over - 12 + "px"); m.style.setProperty("--mqd", Math.max(6, over / 18) + "s"); } }));
-        if (p.live.lyrics && L.listening_to_spotify && L.spotify) {
+        if (p.live.lyrics && playing) {
           const key = L.spotify.track_id;
           if (lyricsFor !== key) { lyricsFor = key; lyricLines = []; loadLyrics(L.spotify).then((ls) => { if (lyricsFor === key) lyricLines = ls; }); }
-        }
+        } else { const sub = document.querySelector(".lysub"); if (sub) sub.hidden = true; }
       } catch (e) { if (window.__DEBUG) console.error(e); }
     };
     every(poll, 10000);
-    // progress + lyrics tick
+    // progress, ring, lyrics tick
+    let lastLine = -2;
     every(() => {
-      root.querySelectorAll(".elapsed[data-start]").forEach((e) => { const ms = Date.now() - Number(e.dataset.start), h = Math.floor(ms / 3600000); e.textContent = (h ? h + ":" + String(Math.floor(ms / 60000) % 60).padStart(2, "0") + ":" + String(Math.floor(ms / 1000) % 60).padStart(2, "0") : fmt(ms)) + " elapsed"; });
+      root.querySelectorAll(".elapsed[data-start]").forEach((e) => { const ms = Date.now() - Number(e.dataset.start), h = Math.floor(ms / 3600000); e.textContent = (h ? h + ":" + String(Math.floor(ms / 60000) % 60).padStart(2, "0") + ":" + String(Math.floor(ms / 1000) % 60).padStart(2, "0") : fmt(ms)) + (e.closest(".pstrip") ? "" : " elapsed"); });
       if (!lanyard || !lanyard.listening_to_spotify || !lanyard.spotify) return;
-      const ts = lanyard.spotify.timestamps, pos = Date.now() - ts.start, len = ts.end - ts.start;
-      const bar = root.querySelector(".spbar"), cur = root.querySelector(".tcur");
-      if (bar) bar.style.width = Math.min(100, (pos / len) * 100) + "%"; if (cur) cur.textContent = fmt(Math.min(pos, len));
-      const box = root.querySelector(".lyrics");
-      if (box && lyricLines.length) {
-        box.hidden = false;
-        let i = lyricLines.findIndex((l) => l.t > pos) - 1; if (i < -1) i = lyricLines.length - 1; if (i < 0) i = 0;
-        const inner = box.firstElementChild;
-        if (inner.dataset.for !== lyricsFor) { inner.dataset.for = lyricsFor; inner.innerHTML = lyricLines.map((l) => `<p>${esc(l.text) || "♪"}</p>`).join(""); }
-        inner.querySelectorAll("p").forEach((el, j) => el.classList.toggle("on", j === i));
-        inner.style.transform = `translateY(${20 - i * 20}px)`;
+      const ts = lanyard.spotify.timestamps, pos = Date.now() - ts.start, len = ts.end - ts.start, frac = Math.min(1, pos / len);
+      root.querySelectorAll(".spbar").forEach((bar) => (bar.style.width = frac * 100 + "%"));
+      const cur = root.querySelector(".tcur"); if (cur) cur.textContent = fmt(Math.min(pos, len));
+      const ring = root.querySelector(".pring circle"); if (ring) ring.style.strokeDashoffset = String(301.6 * (1 - frac));
+      if (!lyricLines.length) return;
+      let i = lyricLines.findIndex((l) => l.t > pos) - 1; if (i < -1) i = lyricLines.length - 1; if (i < 0) i = 0;
+      const line = lyricLines[i], next = lyricLines[i + 1], within = next ? Math.max(0, Math.min(1, (pos - line.t) / (next.t - line.t))) : 1;
+      if (p.live.lyricsStyle === "subtitles") {
+        const sub = document.querySelector(".lysub"); if (!sub) return;
+        sub.hidden = false; if (i !== lastLine) { sub.innerHTML = `<span>${esc(line.text) || "♪"}</span>`; lastLine = i; }
+        return;
       }
-    }, 250);
+      const box = root.querySelector(".lyrics"); if (!box) return;
+      box.hidden = false;
+      const inner = box.firstElementChild;
+      if (inner.dataset.for !== lyricsFor) { inner.dataset.for = lyricsFor; inner.innerHTML = lyricLines.map((l) => `<p>${p.live.lyricsStyle === "karaoke" ? (esc(l.text) || "♪").split(" ").map((w) => `<w>${w}</w>`).join(" ") : esc(l.text) || "♪"}</p>`).join(""); lastLine = -2; }
+      const ps = inner.querySelectorAll("p");
+      if (i !== lastLine) { ps.forEach((el, j) => el.classList.toggle("on", j === i)); lastLine = i; }
+      if (p.live.lyricsStyle === "karaoke" && ps[i]) { const ws = ps[i].querySelectorAll("w"), n = Math.ceil(within * ws.length * 1.05); ws.forEach((w, k) => w.classList.toggle("sung", k < n)); }
+      const h = p.live.lyricsStyle === "line" ? 34 : 20;
+      inner.style.transform = `translateY(${(p.live.lyricsStyle === "line" ? 0 : 20) - i * h}px)`;
+    }, 200);
   }
   /* Discord's public badges (from public_flags) and the server tag next to the name */
   const DBADGES = [[0, "Discord Staff", "5e74e9b61934fc1f67c65515d1f7e60d"], [1, "Partnered Server Owner", "3f9748e53446a137a052f3454e2de41e"], [18, "Moderator Programs Alumni", "fee1624003e2fee35cb398e125dc479b"],
@@ -857,8 +953,8 @@
     const icon = g.badge && g.identity_guild_id ? `<img src="https://cdn.discordapp.com/clan-badges/${g.identity_guild_id}/${g.badge}.png?size=16" alt="" onerror="this.remove()">` : "";
     return `<span class="gtag" title="Server tag">${icon}${esc(g.tag)}</span>`;
   }
-  let liveCache = { at: 0, p: null };
-  const liveInfo = (u) => { if (Date.now() - liveCache.at < 20000 && liveCache.p) return liveCache.p; liveCache = { at: Date.now(), p: fetch(`/api/live/${encodeURIComponent(u)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) }; return liveCache.p; };
+  let liveCache = { at: 0, key: "", p: null };
+  const liveInfoFor = (u, track) => { const key = u + track; if (Date.now() - liveCache.at < 20000 && liveCache.key === key && liveCache.p) return liveCache.p; liveCache = { at: Date.now(), key, p: fetch(`/api/live/${encodeURIComponent(u)}?track=${encodeURIComponent(track || "")}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) }; return liveCache.p; };
   /* the most colourful shade in an album cover */
   const albumCache = {};
   function albumColour(url) {
@@ -883,6 +979,7 @@
       img.onerror = () => res(null); img.src = url;
     }));
   }
+  const since = (t) => { const s2 = Math.max(0, (Date.now() - t) / 1000); return s2 < 60 ? "just now" : s2 < 3600 ? `${Math.floor(s2 / 60)}m ago` : s2 < 86400 ? `${Math.floor(s2 / 3600)}h ago` : `${Math.floor(s2 / 86400)}d ago`; };
   const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
   async function loadLyrics(sp) {
     try {
@@ -898,7 +995,7 @@
     if (!p.playlist.length) return;
     let order = p.playlist.map((_, i) => i); if (p.music.shuffle) order.sort(() => Math.random() - 0.5);
     let idx = 0;
-    audio = new Audio(p.playlist[order[0]].src); audio.volume = p.music.volume / 100; audio.loop = p.playlist.length === 1;
+    audio = new Audio(p.playlist[order[0]].src); window.__doseAudio = audio; audio.volume = p.music.volume / 100; audio.loop = p.playlist.length === 1;
     const P = root.querySelector(".player");
     const pp = root.querySelector(".player .pp"), nx = root.querySelector(".player .nx"), pr = root.querySelector(".player .pr"), prog = root.querySelector(".player .prog i"), vol = root.querySelector(".player input"), tr = root.querySelector(".player .track");
     const sync = () => { if (pp) { pp.innerHTML = svgIcon(audio.paused ? "play" : "pause"); pp.setAttribute("aria-label", audio.paused ? "Play music" : "Pause music"); } if (P) P.classList.toggle("playing", !audio.paused); };
@@ -915,7 +1012,7 @@
     const bar = P && P.querySelector(".prog"); if (bar) bar.addEventListener("click", (e) => { const r = bar.getBoundingClientRect(); if (audio.duration) audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration; });
     const viz = root.querySelector(".player .viz");
     const vsync = () => viz && viz.classList.toggle("on", !audio.paused);
-    if ((p.music.pulse || (p.background.type === "animated" && p.background.animated === "music")) && !reduce) {
+    if ((p.music.pulse || p.fx.visualizer || (p.background.type === "animated" && p.background.animated === "music")) && !reduce) {
       let an, buf, raf, level = 0, energy = 0, hue = 0;
       const loop = () => {
         an.getByteFrequencyData(buf); let sum = 0, all = 0; for (let i = 1; i < 8; i++) sum += buf[i]; for (let i = 0; i < buf.length; i++) all += buf[i];
@@ -926,7 +1023,7 @@
       };
       audio.addEventListener("play", () => {
         try {
-          if (!an) { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = ctx.createMediaElementSource(audio); an = ctx.createAnalyser(); an.fftSize = 256; buf = new Uint8Array(an.frequencyBinCount); src.connect(an); an.connect(ctx.destination); audio.__ctx = ctx; }
+          if (!an) { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = ctx.createMediaElementSource(audio); an = ctx.createAnalyser(); an.fftSize = 256; buf = new Uint8Array(an.frequencyBinCount); src.connect(an); an.connect(ctx.destination); audio.__ctx = ctx; window.__doseAnalyser = an; }
           if (audio.__ctx.state === "suspended") audio.__ctx.resume();
           cancelAnimationFrame(raf); loop();
         } catch {}
@@ -1022,9 +1119,30 @@
     el.className = `enter e-${en.type}`; el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", en.text);
     const panes = { curtain: 2, slice: 3, shutter: 8 }[en.type] || 0;
     const warn = en.warning ? `<span class="warn">${esc(en.warningText)}</span>` : "";
-    el.innerHTML = en.type === "boot" ? `<pre></pre>` : en.type === "bottle" ? `<div class="bottle"><div class="cap"><i></i></div><div class="neck"></div><div class="jar"><div class="blabel"><b><i>Rx</i> ${esc(d.displayName || p.displayName || d.username)}</b><span>${esc(en.text)}</span><small>No. ${String(d.memberNo).padStart(4, "0")} · take one</small></div></div>${Array.from({ length: 10 }, (_, i) => `<em class="pl" style="--dx:${Math.round((Math.random() - 0.5) * 70)}vw;--dy:${Math.round(-20 - Math.random() * 60)}vh;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(i * 0.03).toFixed(2)}s;--c:${["var(--accent)", "#fff", "#ffd27a", "#9ad8ff"][i % 4]}"></em>`).join("")}</div>${warn ? `<span class="label" style="position:absolute;bottom:8vh">${warn}</span>` : ""}` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${esc(en.text)}${warn}</span>`;
+    el.innerHTML = en.type === "hack" ? `<div class="hk"><div class="hkbar"><span>root@${esc(window.__SITE)}:~</span><i></i><i></i><i></i></div><pre class="hklog"></pre><div class="hkprog"><i></i><span>0%</span></div><div class="hkgo" hidden>${esc(en.text)}</div>${warn ? `<div class="hkwarn">${warn}</div>` : ""}</div>` : en.type === "boot" ? `<pre></pre>` : en.type === "bottle" ? `<div class="bottle"><div class="cap"><i></i></div><div class="neck"></div><div class="jar"><div class="blabel"><b><i>Rx</i> ${esc(d.displayName || p.displayName || d.username)}</b><span>${esc(en.text)}</span><small>No. ${String(d.memberNo).padStart(4, "0")} · take one</small></div></div>${Array.from({ length: 10 }, (_, i) => `<em class="pl" style="--dx:${Math.round((Math.random() - 0.5) * 70)}vw;--dy:${Math.round(-20 - Math.random() * 60)}vh;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(i * 0.03).toFixed(2)}s;--c:${["var(--accent)", "#fff", "#ffd27a", "#9ad8ff"][i % 4]}"></em>`).join("")}</div>${warn ? `<span class="label" style="position:absolute;bottom:8vh">${warn}</span>` : ""}` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${esc(en.text)}${warn}</span>`;
     document.body.appendChild(el);
-    let ready = en.type !== "boot";
+    let ready = en.type !== "boot" && en.type !== "hack";
+    if (en.type === "hack") {
+      const who = p.displayName || d.username, no = String(d.memberNo).padStart(4, "0");
+      const PRE = {
+        dose: [`connecting to ${window.__SITE}.network`, `locating patient #${no}`, "decrypting prescription", "bypassing the pharmacist", `loading ${d.badges.length} badge(s)`, "dispensing page", "ACCESS GRANTED"],
+        breach: ["scanning ports 1-65535", "port 443 open", "injecting payload", "bypassing firewall", "escalating privileges", "dumping /etc/shadow… just kidding", "ACCESS GRANTED"],
+        mainframe: ["initialising uplink", "routing through 7 proxies", "cracking 256-bit encryption", "hacking the mainframe", `downloading ${who}.exe`, "covering tracks", "ACCESS GRANTED"],
+      };
+      const lines = en.hackPreset === "custom" && en.hackLines.trim() ? en.hackLines.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 20) : PRE[en.hackPreset] || PRE.dose;
+      const log = el.querySelector(".hklog"), bar = el.querySelector(".hkprog i"), pct = el.querySelector(".hkprog span");
+      let i = 0;
+      const hex = () => Array.from({ length: 6 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, "0")).join(" ");
+      const step = () => {
+        if (i >= lines.length) { ready = true; el.querySelector(".hkgo").hidden = false; el.classList.add("done"); return; }
+        const last = i === lines.length - 1, ln = lines[i];
+        log.insertAdjacentHTML("beforeend", `<div class="${last ? "ok" : ""}"><b>${last ? "✔" : ">"}</b> ${esc(ln)}${last ? "" : ` <span class="hx">[${hex()}]</span>`}</div>`);
+        log.scrollTop = log.scrollHeight;
+        const v = Math.round(((i + 1) / lines.length) * 100); bar.style.width = v + "%"; pct.textContent = v + "%";
+        i++; setTimeout(step, last ? 200 : 220 + Math.random() * 260);
+      };
+      setTimeout(step, 250);
+    }
     if (en.type === "boot") {
       const lines = [`[ ok ] mounting /${d.username}`, `[ ok ] loading member #${d.memberNo}`, `[ ok ] ${d.badges.length} badges verified`, `[ ok ] ${p.socials.length + p.linkButtons.length} links ready`, en.warning ? `[warn] ${en.warningText}` : "", "", `> ${en.text}_`].filter((x, i, a) => x !== "" || i === a.length - 2);
       const pre = el.querySelector("pre"); let i = 0;
@@ -1067,7 +1185,7 @@
   /* ---------- extra atmospheres: 3D pills, fizz, liquid, ink, warp, pixel rain, link constellation ---------- */
   function fancyOverlay(kind, cv, p) {
     const ctx = cv.getContext("2d");
-    const acc = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#5ef2b0";
+    const acc = (p.fx && p.fx.atmoColor) || getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#5ef2b0";
     const rgb = hexToRgb(acc);
     const dpr = Math.min(1.5, devicePixelRatio || 1);
     const rand = (a, b) => a + Math.random() * (b - a);
@@ -1212,29 +1330,30 @@
     const loop = (t) => { raf = requestAnimationFrame(loop); if (document.hidden || t - last < 28) return; last = t; DRAW[kind](t); };
     raf = requestAnimationFrame(loop); onCleanup(() => cancelAnimationFrame(raf));
   }
-  function setupOverlay(kind, prof) {
-    const cv = root.querySelector("canvas.fx");
-    if (kind === "none") return;
+  function setupOverlay(kind, prof, cvIn) {
+    const cv = cvIn || root.querySelector("canvas.fx");
+    if (!cv || kind === "none" || prof.fx.intensity === 0) return;
     if (["pills3d", "bubbles", "liquid", "ink", "warp", "pixelrain", "constellation"].includes(kind)) return fancyOverlay(kind, cv, prof);
     const ctx = cv.getContext("2d");
-    const rgb = hexToRgb(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
+    const rgb = hexToRgb(prof.fx.atmoColor || getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
+    const dens = (prof.fx.density / 100) * Math.min(1.5, prof.fx.intensity / 100), spd = prof.fx.speed / 100, tint = prof.fx.atmoColor && kind !== "matrix" ? prof.fx.atmoColor : "";
     let W, H, dpr = Math.min(2, devicePixelRatio || 1), parts = [], raf, mx = -1e4, my = -1e4, t0 = performance.now(), flash = 0;
     const rand = (a, b) => a + Math.random() * (b - a);
     function init() {
       W = cv.width = innerWidth * dpr; H = cv.height = innerHeight * dpr;
       const area = innerWidth * innerHeight;
       const n = { particles: area / 9000, stars: area / 3500, comets: 4, snow: area / 7000, pixelsnow: area / 9000, rain: area / 5000, storm: area / 3500, blossom: area / 22000,
-        fireflies: area / 25000, matrix: innerWidth / 16, aurora: 0, fog: 7 }[kind] | 0;
+        fireflies: area / 25000, matrix: innerWidth / 16, aurora: 0, fog: 7 }[kind] * (kind === "matrix" ? 1 : dens) | 0;
       parts = Array.from({ length: Math.min(n, 300) }, (_, i) => ({
-        x: kind === "matrix" ? i * 16 * dpr : rand(0, W), y: rand(0, H), vx: rand(-0.3, 0.3),
-        vy: { snow: rand(0.4, 1.4), pixelsnow: rand(0.5, 1.2), rain: rand(8, 14), storm: rand(12, 18), matrix: rand(2, 5), blossom: rand(0.4, 1) }[kind] ?? rand(-0.3, 0.3),
+        x: kind === "matrix" ? i * 16 * dpr : rand(0, W), y: rand(0, H), vx: rand(-0.3, 0.3) * spd,
+        vy: ({ snow: rand(0.4, 1.4), pixelsnow: rand(0.5, 1.2), rain: rand(8, 14), storm: rand(12, 18), matrix: rand(2, 5), blossom: rand(0.4, 1) }[kind] ?? rand(-0.3, 0.3)) * spd,
         r: kind === "fog" ? rand(200, 420) : rand(0.4, 2), ph: rand(0, 6.3), life: rand(0, 1),
       }));
     }
     listen(window, "mousemove", (e) => { mx = e.clientX * dpr; my = e.clientY * dpr; });
     const dot = (x, y, r, c) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fillStyle = c; ctx.fill(); };
     function frame(t) {
-      const time = (t - t0) / 1000;
+      const time = ((t - t0) / 1000) * spd;
       if (kind === "matrix") { ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
       if (kind === "aurora") for (let k = 0; k < 3; k++) {
         ctx.beginPath();
@@ -1284,6 +1403,7 @@
           if (d < L) { ctx.strokeStyle = `rgba(${rgb},${(1 - d / L) * 0.3})`; ctx.lineWidth = 0.6 * dpr; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); }
         }
       }
+      if (tint) { ctx.save(); ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = tint; ctx.fillRect(0, 0, W, H); ctx.restore(); }
       if (!reduce) raf = requestAnimationFrame(frame);
     }
     init(); listen(window, "resize", init);

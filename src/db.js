@@ -115,6 +115,8 @@ CREATE INDEX IF NOT EXISTS idx_comments_page ON comments(page_id, ts);
 if (!cols.includes("last_seen")) db.exec("ALTER TABLE users ADD COLUMN last_seen INTEGER");
 if (!cols.includes("premium_until")) db.exec("ALTER TABLE users ADD COLUMN premium_until INTEGER");
 if (!cols.includes("note")) db.exec("ALTER TABLE users ADD COLUMN note TEXT");
+if (!cols.includes("discord_banner")) db.exec("ALTER TABLE users ADD COLUMN discord_banner TEXT");
+if (!cols.includes("discord_accent")) db.exec("ALTER TABLE users ADD COLUMN discord_accent INTEGER");
 if (!cols.includes("discord_premium")) db.exec("ALTER TABLE users ADD COLUMN discord_premium INTEGER NOT NULL DEFAULT 0");
 if (!cols.includes("discord_flags")) db.exec("ALTER TABLE users ADD COLUMN discord_flags INTEGER NOT NULL DEFAULT 0");
 if (!cols.includes("name_locked_until")) db.exec("ALTER TABLE users ADD COLUMN name_locked_until INTEGER");

@@ -437,3 +437,16 @@ a.vrow:hover{background:rgba(255,255,255,.04)}
 .sw{width:30px;height:30px;border-radius:9px;border:2px solid rgba(255,255,255,.2);cursor:pointer;transition:transform .15s}.sw:hover{transform:scale(1.12)}
 .sw.big{width:22px;height:22px;border-radius:7px;cursor:default}
 .palto{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding:10px;border-radius:12px;border:1px dashed var(--line)}
+.pv-cur svg{width:34px;height:34px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6))}
+.npv{background:linear-gradient(90deg,var(--np1),var(--np2),var(--np3));-webkit-background-clip:text;background-clip:text;color:transparent!important;font-weight:800}
+.np-sunset{--np1:#ff5f6d;--np2:#ffc371;--np3:#ff8fb3}.np-ocean{--np1:#00c6ff;--np2:#0072ff;--np3:#6ef2ff}.np-toxic{--np1:#a8ff3e;--np2:#32ff7e;--np3:#e8ff3e}
+.np-candy{--np1:#ff9ad5;--np2:#b28dff;--np3:#8ff7ff}.np-ice{--np1:#ffffff;--np2:#9be7ff;--np3:#c5d8ff}.np-fire{--np1:#ff3d00;--np2:#ffb300;--np3:#ff6a00}
+.pv-arr-terminal{width:76%;height:56px;border-radius:5px;background:#03100a;border:1px solid #1f5a35;display:block;padding:12px 6px 4px;position:relative}
+.pv-arr-terminal::before{content:"$ neofetch";position:absolute;left:6px;top:4px;font:9px monospace;color:#7dffa1}
+.pv-arr-terminal .pv-av{width:14px;height:14px;font-size:0;margin-top:4px}.pv-arr-terminal>span{display:none}
+.hovlbl{max-width:220px;height:30px!important;font-size:12px!important}
+.pv-sb{position:relative;width:44px;height:44px}
+.pv-sb .f{position:absolute;inset:0;border-radius:50%;background:#2a2d33}
+.pv-sb .d{position:absolute;right:1px;bottom:1px;width:12px;height:12px;border-radius:50%;background:#3ba55d;box-shadow:0 0 0 3px #0c0d10}
+.pv-sb .e{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;background:#15111a;box-shadow:0 0 0 2px #3ba55d;font-size:11px;display:grid;place-items:center;font-style:normal}
+.pv-sb .b{position:absolute;left:36px;top:-8px;white-space:nowrap;font-size:9px;font-style:normal;padding:3px 7px;border-radius:10px;background:#1c1b22;border:1px solid rgba(255,255,255,.15);color:#ddd}

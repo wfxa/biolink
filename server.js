@@ -175,8 +175,10 @@ setTimeout(warmBoosts, 5000).unref(); setInterval(warmBoosts, 55 * 60000).unref(
 const live = { ws: null, hb: null, ids: "", map: new Map(), retry: 0 };
 const insPlay = db.prepare("INSERT OR IGNORE INTO spotify_plays (user_id, track_id, song, artist, art, started, ends) VALUES (?,?,?,?,?,?,?)");
 const lastPlay = db.prepare("SELECT * FROM spotify_plays WHERE user_id = ? ORDER BY started DESC LIMIT 1");
+const nowPlaying = new Map(); // userId -> { track_id, until }
 function recordPlay(userId, sp) {
   if (!sp || !sp.track_id || !sp.timestamps) return;
+  nowPlaying.set(userId, { track_id: sp.track_id, until: Number(sp.timestamps.end) || now() + 300000 });
   const start = Number(sp.timestamps.start), end = Number(sp.timestamps.end) || start;
   const last = lastPlay.get(userId);
   // Seeking moves the start time; only count it as a new play once the previous one would have finished.
@@ -203,7 +205,7 @@ function liveConnect() {
       ws.send(JSON.stringify({ op: 2, d: { subscribe_to_ids: [...live.map.keys()] } })); live.retry = 0;
     }
     if (m.op === 0 && m.t === "INIT_STATE") for (const [id, pr] of Object.entries(m.d || {})) { const uid = live.map.get(id); if (uid && pr && pr.listening_to_spotify) recordPlay(uid, pr.spotify); }
-    if (m.op === 0 && m.t === "PRESENCE_UPDATE") { const id = m.d && (m.d.user_id || (m.d.discord_user && m.d.discord_user.id)); const uid = live.map.get(id); if (uid && m.d.listening_to_spotify) recordPlay(uid, m.d.spotify); }
+    if (m.op === 0 && m.t === "PRESENCE_UPDATE") { const id = m.d && (m.d.user_id || (m.d.discord_user && m.d.discord_user.id)); const uid = live.map.get(id); if (uid && m.d.listening_to_spotify) recordPlay(uid, m.d.spotify); else if (uid) nowPlaying.delete(uid); }
   };
   ws.onclose = () => { clearInterval(live.hb); if (live.ws === ws) { live.ws = null; setTimeout(liveConnect, Math.min(120000, 5000 * 2 ** live.retry++)).unref(); } };
   ws.onerror = () => { try { ws.close(); } catch {} };
@@ -223,7 +225,9 @@ function repeatInfo(userId) {
 function discordExtras(u) {
   const hit = u.discord_id && boostCache.get(u.discord_id);
   if (u.discord_id && (!hit || hit.until < now())) boostSince(u.discord_id).catch(() => {}); // warms the cache for next visit
-  return u.discord_id ? { id: u.discord_id, nitro: u.discord_premium || 0, boostSince: hit ? hit.v : null } : null;
+  return u.discord_id ? { id: u.discord_id, nitro: u.discord_premium || 0, boostSince: hit ? hit.v : null,
+    banner: u.discord_banner ? `https://cdn.discordapp.com/banners/${u.discord_id}/${u.discord_banner}.${u.discord_banner.startsWith("a_") ? "gif" : "png"}?size=600` : null,
+    accent: u.discord_accent != null ? "#" + Number(u.discord_accent).toString(16).padStart(6, "0") : null } : null;
 }
 function publicUser(u) {
   return {
@@ -234,9 +238,9 @@ function publicUser(u) {
 }
 
 /* ---------------- uploads ---------------- */
-const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
+const EXT = { "font/woff2": "woff2", "font/woff": "woff", "font/ttf": "ttf", "font/otf": "otf", "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
   "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/wav": "wav", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac" };
-const MIME = { png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm",
+const MIME = { woff2: "font/woff2", woff: "font/woff", ttf: "font/ttf", otf: "font/otf", png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm",
   mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac",
   html: "text/html; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", svg: "image/svg+xml", ico: "image/x-icon", json: "application/json", txt: "text/plain" };
 
@@ -386,6 +390,7 @@ function suggestName(d) {
 const authPage = (res, msg) => redirect(res, "/login?error=" + encodeURIComponent(msg));
 
 const widgetCache = new Map();
+const appIconCache = new Map();
 const inviteCache = new Map();
 
 /* ---------------- router ---------------- */
@@ -429,12 +434,12 @@ async function route(req, res) {
       if (existing && existing.id !== me.id) return redirect(res, "/dashboard?discord=taken#account");
       const prof = Profile.load(me.profile, { premium: !!me.premium });
       if (!prof.discord.id) prof.discord.id = String(d.id);
-      db.prepare("UPDATE users SET discord_id = ?, discord_name = ?, profile = ?, discord_premium = ?, discord_flags = ? WHERE id = ?").run(String(d.id), dname, JSON.stringify(prof), Number(d.premium_type) || 0, Number(d.public_flags) || 0, me.id);
+      db.prepare("UPDATE users SET discord_id = ?, discord_name = ?, profile = ?, discord_premium = ?, discord_flags = ?, discord_banner = ?, discord_accent = ? WHERE id = ?").run(String(d.id), dname, JSON.stringify(prof), Number(d.premium_type) || 0, Number(d.public_flags) || 0, d.banner || null, d.accent_color ?? null, me.id);
       return redirect(res, "/dashboard?discord=linked#account");
     }
     if (existing) {
       if (existing.banned) return authPage(res, "This account is banned" + (existing.ban_until ? ` until ${new Date(existing.ban_until).toLocaleDateString("en-GB")}` : "") + (existing.ban_reason ? `: ${existing.ban_reason}` : "."));
-      db.prepare("UPDATE users SET discord_name = ?, discord_premium = ?, discord_flags = ? WHERE id = ?").run(dname, Number(d.premium_type) || 0, Number(d.public_flags) || 0, existing.id);
+      db.prepare("UPDATE users SET discord_name = ?, discord_premium = ?, discord_flags = ?, discord_banner = ?, discord_accent = ? WHERE id = ?").run(dname, Number(d.premium_type) || 0, Number(d.public_flags) || 0, d.banner || null, d.accent_color ?? null, existing.id);
       res.removeHeader("Set-Cookie");
       createSession(res, req, existing.id);
       res.setHeader("Set-Cookie", [res.getHeader("Set-Cookie"), clear]);
@@ -445,7 +450,7 @@ async function route(req, res) {
     const token = crypto.randomBytes(24).toString("hex");
     db.prepare("DELETE FROM pending_discord WHERE expires_at < ?").run(now());
     db.prepare("INSERT INTO pending_discord (token,discord_id,name,avatar,expires_at) VALUES (?,?,?,?,?)")
-      .run(token, String(d.id), dname, JSON.stringify({ id: String(d.id), avatar: d.avatar || null, username: d.username, global_name: d.global_name || null, premium_type: Number(d.premium_type) || 0, public_flags: Number(d.public_flags) || 0 }), now() + 30 * 60000);
+      .run(token, String(d.id), dname, JSON.stringify({ id: String(d.id), avatar: d.avatar || null, username: d.username, global_name: d.global_name || null, premium_type: Number(d.premium_type) || 0, public_flags: Number(d.public_flags) || 0, banner: d.banner || null, accent_color: d.accent_color ?? null }), now() + 30 * 60000);
     return redirect(res, `/signup?discord=${token}&name=${encodeURIComponent(suggestName(d))}`);
   }
   if (p.startsWith("/api/auth/discord-pending/") && method === "GET") {
@@ -482,7 +487,7 @@ async function route(req, res) {
     if (pending) {
       db.prepare("DELETE FROM pending_discord WHERE token = ?").run(pending.token);
       const pd = JSON.parse(pending.avatar || "{}");
-      db.prepare("UPDATE users SET discord_premium = ?, discord_flags = ? WHERE id = ?").run(pd.premium_type || 0, pd.public_flags || 0, newId);
+      db.prepare("UPDATE users SET discord_premium = ?, discord_flags = ?, discord_banner = ?, discord_accent = ? WHERE id = ?").run(pd.premium_type || 0, pd.public_flags || 0, pd.banner || null, pd.accent_color ?? null, newId);
       const avatar = await saveDiscordAvatar(newId, pd);
       if (avatar) { profile.avatar.src = avatar; db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(profile), newId); }
     }
@@ -544,7 +549,30 @@ async function route(req, res) {
     const u = db.prepare("SELECT id FROM users WHERE username = ? AND banned = 0").get(lm[1]);
     if (!u) return fail(res, 404, "Not found");
     const recent = db.prepare("SELECT song, artist, art, track_id, started FROM spotify_plays WHERE user_id = ? ORDER BY started DESC LIMIT 10").all(u.id);
-    return send(res, 200, { ...repeatInfo(u.id), recent }, { "Cache-Control": "no-store" });
+    const cur = url.searchParams.get("track"), out = { ...repeatInfo(u.id), recent };
+    if (cur && /^[A-Za-z0-9]{10,40}$/.test(cur)) {
+      // what this person usually plays after this song
+      const rows = db.prepare(`SELECT n.track_id, n.song, n.artist, COUNT(*) c FROM spotify_plays p JOIN spotify_plays n ON n.user_id = p.user_id AND n.started = (SELECT MIN(started) FROM spotify_plays WHERE user_id = p.user_id AND started > p.started)
+        WHERE p.user_id = ? AND p.track_id = ? AND n.track_id != p.track_id GROUP BY n.track_id ORDER BY c DESC LIMIT 1`).all(u.id, cur);
+      out.upNext = rows[0] ? { song: rows[0].song, artist: rows[0].artist, times: rows[0].c } : null;
+      // other dose pages playing the same song right now
+      const others = [];
+      for (const [uid, np] of nowPlaying) if (uid !== u.id && np.track_id === cur && np.until > now() - 5000) { const o = db.prepare("SELECT username FROM users WHERE id = ? AND banned = 0").get(uid); if (o) others.push(o.username); }
+      out.alsoListening = others.slice(0, 5);
+    }
+    return send(res, 200, out, { "Cache-Control": "no-store" });
+  }
+  const ai = p.match(/^\/api\/appicon\/(\d{15,21})$/);
+  if (ai && method === "GET") {
+    const hit = appIconCache.get(ai[1]);
+    if (hit && hit.until > now()) return send(res, 200, hit.body, { "Cache-Control": "public, max-age=3600" });
+    let body = { icon: null, name: null };
+    try {
+      const r = await fetch(`https://discord.com/api/v10/applications/${ai[1]}/rpc`, { signal: AbortSignal.timeout(4000) });
+      if (r.ok) { const j = await r.json(); body = { icon: j.icon ? `https://cdn.discordapp.com/app-icons/${ai[1]}/${j.icon}.png?size=256` : null, name: j.name || null }; }
+    } catch {}
+    appIconCache.set(ai[1], { body, until: now() + 24 * 3600000 });
+    return send(res, 200, body, { "Cache-Control": "public, max-age=3600" });
   }
   if (p === "/api/leaderboard" && method === "GET") {
     const rows = db.prepare("SELECT * FROM users WHERE banned = 0").all().map((u) => ({ u, views: totalViews(u.id) }))

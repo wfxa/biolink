@@ -28,6 +28,7 @@ module.exports = {
     cursor:     { free: 1,  premium: 1,  types: ["image/png", "image/gif", "image/webp"] },
     sound:      { free: 1,  premium: 2,  types: ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/x-m4a", "audio/aac"] },
     banner:     { free: 6,  premium: 12, types: ["image/png", "image/jpeg", "image/gif", "image/webp"] },
+    font:       { free: 2,  premium: 4,  types: ["font/woff2", "font/woff", "font/ttf", "font/otf"] },
   },
   RESERVED: new Set([
     "admin", "owner", "dashboard", "login", "logout", "signup", "register", "api", "u", "uploads",

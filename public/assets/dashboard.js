@@ -131,6 +131,7 @@
       ].join("")}</div>`;
     } catch { out.innerHTML = row(false, "Couldn't reach Lanyard", "Try again in a moment."); }
   }
+  const curPv = (v) => (window.__doseCursorSvg ? window.__doseCursorSvg(v, "default", v === "default" ? "#ffffff" : (draft.colors.accent || "#5ef2b0")) : "");
   const PET_EMO = { none: "—", cat: "🐈‍⬛", dog: "🐕", pill: "💊", ghost: "👻", duck: "🦆", frog: "🐸" };
   /* colours pulled out of the profile picture */
   function bindPalette() {
@@ -225,7 +226,8 @@
       ]),
       P("Banner", "A strip of image along the top of your card.", [F.upload("banner", "banner", "Banner", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp", note: "a wide image works best" })], { adv: true }),
       P("Background", "", [
-        F.chips("background.type", "Type", [["auto", "Auto"], ["color", "Colour"], ["image", "Image"], ["video", "Video"], ["animated", "Animated"]], { premium: ["video"], rerender: true, hint: "Auto blurs your picture, then swaps to album art while you listen" }),
+        F.chips("background.type", "Type", [["auto", "Auto"], ["color", "Colour"], ["image", "Image"], ["video", "Video"], ["animated", "Animated"]], { premium: ["video"], rerender: true, hint: "Auto blurs your picture (and can swap to album art while you listen)" }),
+        ...(draft.background.type === "auto" ? [F.toggle("background.albumArt", "Switch to album art while I listen", { hint: "off = always your blurred picture" })] : []),
         ...(draft.background.type === "color" ? [F.color("background.color", "Colour", { noClear: true })] : []),
         ...(draft.background.type === "image" ? [F.upload("background.image", "background", "Image", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp" })] : []),
         ...(draft.background.type === "video" ? (premium ? [F.upload("background.video", "background", "Video", { accept: "video/mp4,video/webm", note: "plays muted, on loop" }), F.toggle("background.videoSound", "Let visitors turn the sound on", { hint: "a small speaker button in the corner" })] : [F.note("Video backgrounds come with Premium.")]) : []),
@@ -245,6 +247,8 @@
         F.toggle("card.frostedEdges", "Frosted edges", { hint: "the card fades into the background, no hard border" }),
         F.toggle("card.mouseShadow", "Shadow follows the mouse", { hint: "like a light at the cursor" }),
         F.toggle("card.reflection", "Reflection", { hint: "a faint mirror image under the card" }),
+        F.chips("card.frame", "Frame", [["none", "None"], ["polaroid", "Polaroid"], ["film", "Film strip"], ["gold", "Gold"], ["pixel", "Pixel"]]),
+        F.chips("card.decor", "Corner decorations", [["none", "None"], ["tape", "Tape"], ["pins", "Pins"], ["stickers", "Stickers"]]),
         F.toggle("card.oneCard", "Everything on one card", { hint: "off = each section gets its own card", wide: true }),
         F.range("card.darkness", "Tint", 0, 100, "%"), F.range("card.blur", "Blur", 0, 40, "px"),
         F.range("card.radius", "Corners", 0, 40, "px", { adv: true }), F.range("card.borderWidth", "Border width", 0, 4, "px", { adv: true }),
@@ -267,12 +271,25 @@
         F.toggle("colors.nameGlow", "Name glow"), F.toggle("colors.iconGlow", "Icon glow", { adv: true }),
       ]),
       P("Fonts", "", [F.chips("fonts.body", "Body font", fontChips(), { cards: true }),
-        F.select("fonts.name", "Name font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true })]),
+        F.select("fonts.name", "Name font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
+        F.select("fonts.bio", "Bio font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
+        F.select("fonts.buttons", "Button font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
+        F.select("fonts.widgets", "Widget font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
+        ...(premium ? [F.upload("fonts.custom", "font", "Your own font", { accept: ".woff2,.woff,.ttf,.otf", note: "woff2, woff, ttf or otf" }), F.chips("fonts.useCustom", "Use it for", [["none", "Nothing"], ["name", "My name"], ["body", "Everything else"], ["all", "Everything"]])] : [F.note("Upload your own font with Premium.")]),
+      ]),
+      P("Bio text", "", [
+        F.chips("bioText.box", "Bio style", [["plain", "Plain"], ["quote", "Quote"], ["bubble", "Speech bubble"], ["terminal", "Terminal"], ["note", "Sticky note"]]),
+        F.range("bioText.spacing", "Letter spacing", -2, 10, ""), F.range("bioText.lineHeight", "Line height", 12, 24, ""),
+      ], { adv: true }),
       P("Name", "Size and finish of your name.", [
         F.toggle("name.autoSize", "Automatic size", { hint: "scales with the screen" }),
         ...(draft.name.autoSize ? [] : [F.range("name.size", "Size", 20, 80, "px")]),
         F.range("name.weight", "Weight", 300, 900, "", { adv: true }), F.range("name.spacing", "Letter spacing", -8, 12, "", { adv: true }),
         F.toggle("name.uppercase", "Uppercase", { adv: true }), F.toggle("name.gradient", "Gradient colour"),
+        F.chips("name.preset", "Moving gradient", [["none", "Off"], ["sunset", "Sunset"], ["ocean", "Ocean"], ["toxic", "Toxic"], ["candy", "Candy"], ["ice", "Ice"], ["fire", "Fire"]].map(([v, l]) => [v, l, v === "none" ? `<span class="aa">Aa</span>` : `<span class="aa npv np-${v}">Aa</span>`]), { cards: true }),
+        F.color("name.outlineColor", "Outline colour", { adv: true, ph: "black" }), F.range("name.outlineWidth", "Outline thickness", 0, 6, "px", { adv: true }),
+        F.color("name.shadowColor", "Shadow colour", { adv: true, ph: "dark" }), F.range("name.shadowBlur", "Shadow blur", 0, 40, "px", { adv: true }),
+        F.range("name.shadowX", "Shadow left / right", -20, 20, "px", { adv: true }), F.range("name.shadowY", "Shadow up / down", -20, 20, "px", { adv: true }),
         F.toggle("name.showUid", "Show uid on hover", { hint: "a small tag with your number when someone hovers your name" }),
       ]),
       P("Name cycling", "Your name switches between a few names. Leave it empty to keep one name.", [
@@ -293,18 +310,35 @@
         F.chips("buttons.shape", "Shape", [["rounded", "Rounded"], ["pill", "Pill"], ["square", "Square"]].map(([v, l]) => [v, l, PV.btn(draft.buttons.style, v)]), { pv: true, rerender: true }),
         F.chips("buttons.hover", "On hover", pvOpts([["glow", "Glow"], ["lift", "Lift"], ["fill", "Fill"], ["slide", "Slide"], ["none", "Nothing"]], PV.bhover), { pv: true, hint: "hover a tile to try it", adv: true }),
         F.chips("buttons.align", "Text", [["center", "Centred"], ["left", "Left"]], { adv: true }),
+        F.toggle("buttons.shiny", "Shine across buttons", { hint: "a light sweeps over them every few seconds" }), F.toggle("buttons.tilt", "Tilt toward the cursor"),
+        F.range("buttons.iconSize", "Icon size", 12, 28, "px", { adv: true }),
         F.toggle("buttons.arrow", "Arrow on the right", { adv: true }),
       ]),
       P("Social icons", "The row of little icons.", [
         F.chips("icons.style", "Style", pvOpts([["boxed", "Boxed"], ["round", "Round"], ["plain", "Plain"]], PV.icons), { pv: true }),
         F.range("icons.size", "Size", 34, 64, "px"), F.range("icons.gap", "Spacing", 4, 20, "px", { adv: true }),
       ]),
+      P("Hover effects", "What happens when the pointer goes over things.", [
+        F.chips("hover.icons", "Social icons", [["lift", "Lift"], ["glow", "Glow"], ["wobble", "Wobble"], ["spin", "Spin"], ["none", "Nothing"]]),
+        F.chips("hover.badges", "Badges", [["lift", "Lift"], ["glow", "Glow"], ["wobble", "Wobble"], ["spin", "Spin"], ["none", "Nothing"]]),
+        F.chips("hover.widgets", "Widgets", [["lift", "Lift"], ["glow", "Glow"], ["wobble", "Wobble"], ["spin", "Tilt"], ["none", "Nothing"]]),
+      ], { adv: true }),
+      P("Corners and see-through", "", [
+        F.toggle("radius.custom", "Set corners for each part", { wide: true }),
+        ...(draft.radius.custom ? [F.range("radius.buttons", "Button corners", 0, 30, "px"), F.range("radius.icons", "Icon corners", 0, 30, "px"), F.range("radius.widgets", "Widget corners", 0, 30, "px")] : []),
+        F.range("opacity.buttons", "Buttons", 10, 100, "%"), F.range("opacity.icons", "Icons", 10, 100, "%"), F.range("opacity.widgets", "Widgets", 10, 100, "%"),
+        F.color("colors.selection", "Highlight colour", { ph: "accent", hint: "when visitors select text" }),
+      ], { adv: true }),
       P("Hover labels", "The little labels on badges and your uid.", [
         F.chips("tooltip.style", "Look", [["dark", "Dark"], ["glass", "Glass"], ["solid", "Accent"], ["pill", "Pill"]].map(([v, l]) => [v, l, `<span class="pv pv-scene"><span class="pv-tip pv-tip-${v}">verified</span></span>`]), { pv: true }),
         F.color("tooltip.color", "Background colour", { ph: "default" }), F.color("tooltip.text", "Text colour", { ph: "default" }),
       ], { adv: true }),
       P("Layout", "", [
-        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"], ["bento", "Bento grid"], ["rx", "Prescription"]], PV.arr), { pv: true }),
+        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"], ["bento", "Bento grid"], ["rx", "Prescription"], ["terminal", "Terminal"]], PV.arr), { pv: true, rerender: true }),
+        ...(draft.layout.arrangement === "terminal" ? [F.chips("terminal.theme", "Terminal colour", [["green", "Green"], ["amber", "Amber"], ["accent", "My accent"], ["white", "White"]]),
+          F.text("terminal.prompt", "Prompt", { ph: me.username + "@" + me.site + ":~$", max: 30 }), F.text("terminal.autorun", "Runs first", { ph: "neofetch", max: 60, hint: "a command typed by itself when the page opens" }),
+          F.text("terminal.motd", "Welcome line", { ph: "welcome to " + me.site, max: 200, wide: true }), F.toggle("terminal.typing", "Typing animation"), F.toggle("terminal.sounds", "Keyboard sounds"),
+          F.note("Visitors can type commands or tap the buttons under the terminal: help, whoami, ls links, socials, neofetch, np, play…")] : []),
         F.chips("layout.spacing", "Spacing", [["compact", "Compact"], ["normal", "Normal"], ["airy", "Airy"]]),
         F.range("layout.width", "Page width", 340, 760, "px", { adv: true }),
         F.select("layout.entrance", "How the card arrives", [["rise", "Rise"], ["fade", "Fade"], ["zoom", "Zoom"], ["none", "None"]], { adv: true }),
@@ -316,17 +350,24 @@
         F.chips("pet.type", "", [["none", "None"], ["cat", "Cat"], ["dog", "Dog"], ["pill", "Pill buddy"], ["ghost", "Ghost"], ["duck", "Duck"], ["frog", "Frog"]].map(([v, l]) => [v, l, `<span class="pv pv-dots"><span class="pv-pet">${PET_EMO[v]}</span></span>`]), { pv: true, rerender: true }),
         ...(draft.pet.type !== "none" ? [F.toggle("pet.follow", "Follows the cursor", { hint: "off = wanders on its own" }), F.range("pet.size", "Size", 28, 72, "px")] : []),
       ]),
-      P("Atmosphere", "Drifts over your background.", [F.chips("overlay", "", O.OVERLAYS.map((x) => [x, OVERLAY_NAMES[x]]), { premium: O.PREMIUM_OVERLAYS })]),
+      P("Atmosphere", "Drifts over your background.", [F.chips("overlay", "", O.OVERLAYS.map((x) => [x, OVERLAY_NAMES[x]]), { premium: O.PREMIUM_OVERLAYS }),
+        F.select("fx.overlay2", "Second layer", O.OVERLAYS.map((x) => [x, x === "none" ? "None" : OVERLAY_NAMES[x]]), { hint: "stack two, like rain and fog" }),
+        F.color("fx.atmoColor", "Atmosphere colour", { ph: "default colours" }),
+        F.range("fx.density", "Amount", 25, 200, "%"), F.range("fx.speed", "Speed", 25, 200, "%"),
+      ]),
+      P("Overall", "One place to tone everything up or down.", [
+        F.range("fx.intensity", "Effect strength", 0, 200, "%", { hint: "0 turns trails and atmosphere off" }),
+        F.chips("fx.layer", "Effects sit", [["behind", "Behind the card"], ["front", "In front of the card"]]),
+        F.toggle("fx.calmToggle", "Let visitors switch effects off", { hint: "a small \"effects on\" button in the corner" }),
+        F.chips("fx.soundTheme", "Sound theme", [["none", "Silent"], ["soft", "Soft"], ["arcade", "Arcade"], ["glass", "Glass"], ["pill", "Pill bottle"]], { hint: "hover, click, enter and leave sounds together" }),
+        F.toggle("fx.visualizer", "Music visualiser", { hint: "big faint bars behind your card that move with the song" }),
+        F.toggle("fx.streams", "Data streams", { hint: "scrolling hacker code down the sides" }),
+        F.chips("scrollFx", "Sections appear", [["none", "Instantly"], ["fade", "Fade in"], ["slide", "Slide up"], ["zoom", "Zoom in"], ["tilt", "Tilt in"]]),
+        F.chips("fx.scrollbar", "Scrollbar", [["default", "Default"], ["thin", "Thin"], ["accent", "Accent"], ["hidden", "Hidden"]], { adv: true }),
+      ]),
       P("Texture & counter", "", [
         F.select("texture", "Texture", [["none", "None"], ["grain", "Film grain"], ["scanlines", "Scanlines"], ["dots", "Halftone"], ["grid", "Graph paper"], ["vhs", "Tape"], ["crt", "Old monitor"]], { hint: "laid over the whole page" }),
         F.select("viewCounter", "Visit counter", [["off", "Hidden"], ["inline", "In the info row"], ["pill", "As a chip"], ["corner", "Top corner"], ["counter", "Rolls up on load"]]),
-      ]),
-      P("Cursor", "", [
-        F.chips("cursor.effect", "Trail", [["none", "None"], ["sparkle", "Glitter"], ["snow", "Flurry"], ["ribbon", "Light ribbon"], ["pixels", "Pixel dust"], ["moth", "Moth"], ["bubbles", "Fizz"]], { cards: true }),
-        F.upload("cursor.image", "cursor", "Your own pointer", { link: true, accept: "image/png,image/gif,image/webp", note: "a small 32×32 png", adv: true }),
-        F.select("cursor.click", "On click", [["none", "Nothing"], ["burst", "Pop"], ["ripple", "Ring"], ["hearts", "Hearts"], ["confetti", "Confetti"], ["stars", "Stars"]]),
-        F.chips("cursor.sound", "Click sound", [["none", "Silent"], ["click", "Tick"], ["bubble", "Blip"], ["chime", "Bell"], ["custom", "Upload my own"]], { rerender: true, adv: true }),
-        ...(draft.cursor.sound === "custom" ? [F.upload("cursor.soundFile", "sound", "Your click sound", { accept: "audio/*" })] : []),
       ]),
       P("Bio entrance", "How your bio appears.", [F.select("bioEffect", "Entrance", [["none", "Just there"], ["typewriter", "Typed out"], ["fade", "Fades in"], ["blurin", "Comes into focus"], ["scramble", "Decodes"], ["words", "Word by word"], ["rotate", "Types, then cycles your rotating lines"]])], { adv: true }),
       P("Motion", "", [
@@ -336,7 +377,9 @@
       ]),
       P("Opening screen", "Visitors tap through it before your page appears, which also lets your music play straight away.", [
         F.toggle("enter.show", "Use an opening screen", { wide: true }),
-        F.chips("enter.type", "Style", [["fade", "Fade"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["glitch", "Glitch"], ["boot", "Boot up"], ["zoom", "Zoom"], ["bottle", "Pill bottle"]]),
+        F.chips("enter.type", "Style", [["fade", "Fade"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["glitch", "Glitch"], ["boot", "Boot up"], ["zoom", "Zoom"], ["bottle", "Pill bottle"], ["hack", "Hacking"]], { rerender: true }),
+        ...(draft.enter.type === "hack" ? [F.chips("enter.hackPreset", "Hack script", [["dose", "Dose"], ["breach", "Breach"], ["mainframe", "Mainframe"], ["custom", "Write my own"]], { rerender: true }),
+          ...(draft.enter.hackPreset === "custom" ? [F.area("enter.hackLines", "Your lines", { rows: 5, max: 800, ph: "one line each\nbypassing firewall\nACCESS GRANTED" })] : [])] : []),
         F.text("enter.text", "Words on it", { ph: "click to enter", max: 40 }),
         F.toggle("enter.warning", "Heads-up notice", { hint: "for flashing lights or loud audio" }),
         ...(draft.enter.warning ? [F.text("enter.warningText", "Notice text", { max: 120, wide: true })] : []),
@@ -344,6 +387,42 @@
       ]),
     ] },
 
+    cursor: { title: "Cursor", icon: "star", lead: "The pointer, the trail behind it, and what happens when people click.", panels: () => [
+      P("Pointer", "", [
+        F.chips("cursor.pack", "Pointer pack", O.CURSOR_PACKS.map((v) => [v, { default: "Default", pill: "Pill", syringe: "Syringe", pixel: "Pixel", neon: "Neon", y2k: "Y2K chrome", anime: "Anime", dot: "Dot", hand: "Hand-drawn", win98: "Windows 98" }[v], `<span class="pv pv-dots"><span class="pv-cur">${curPv(v)}</span></span>`]), { pv: true }),
+        F.chips("cursor.style", "Style", [["normal", "Normal"], ["dotring", "Dot + ring"], ["blend", "Colour flip"], ["spotlight", "Spotlight"], ["torch", "Torch"], ["crosshair", "Crosshair"]], { rerender: true }),
+        ...(draft.cursor.style === "crosshair" ? [F.range("cursor.crossGap", "Gap", 0, 12, "px"), F.range("cursor.crossLen", "Length", 3, 20, "px"), F.range("cursor.crossThick", "Thickness", 1, 5, "px"), F.toggle("cursor.crossDot", "Centre dot"), F.toggle("cursor.recoil", "Recoil on click")] : []),
+        F.color("cursor.color", "Colour", { ph: "pack colours" }), F.range("cursor.size", "Size", 60, 200, "%"),
+        F.toggle("cursor.rotate", "Points where it moves"), F.toggle("cursor.magnet", "Snaps to buttons", { hint: "buttons lean toward it too" }),
+        F.toggle("cursor.sizeHover", "Grows on links, shrinks on text"), F.toggle("cursor.brandHover", "Takes each link's colour", { hint: "Spotify green, TikTok pink…" }),
+        F.toggle("cursor.hitmarker", "Hit marker on links", { hint: "an X and a tick when someone clicks a link" }), F.toggle("cursor.laser", "Laser pointer", { hint: "a line from the corner to the cursor" }),
+        ...(draft.cursor.style !== "crosshair" ? [F.toggle("cursor.recoil", "Recoil on click")] : []),
+        F.text("cursor.label", "Word on links", { ph: "open", max: 16, hint: "shows next to the cursor over links (empty = off)" }),
+        F.chips("cursor.follower", "Something follows it", [["none", "Nothing"], ["bug", "Ladybird"], ["butterflies", "Butterflies"], ["fish", "Fish"], ["planets", "Planets"]]),
+      ]),
+      P("Your own pointer pictures", "PNG, GIF or WebP, about 32×32. GIFs animate.", [
+        F.upload("cursor.image", "cursor", "Normal", { link: true, accept: "image/png,image/gif,image/webp" }),
+        F.upload("cursor.imageHover", "cursor", "Over links", { link: true, accept: "image/png,image/gif,image/webp" }),
+        F.upload("cursor.imageDown", "cursor", "While clicking", { link: true, accept: "image/png,image/gif,image/webp" }),
+      ], { adv: true }),
+      P("Trail", "", [
+        F.chips("cursor.effect", "", [["none", "None"], ["sparkle", "Glitter"], ["snow", "Flurry"], ["ribbon", "Light ribbon"], ["pixels", "Pixel dust"], ["moth", "Moth"], ["bubbles", "Fizz"],
+          ["comet", "Comet"], ["pills", "Pills"], ["rainbow", "Rainbow"], ["fire", "Fire"], ["ghost", "Ghost cursors"], ["ink", "Ink"], ["wand", "Bubble wand"], ["emoji", "Emoji"], ["constellation", "Constellation"],
+          ["leaves", "Leaves"], ["petals", "Petals"], ["lightning", "Lightning"], ["neon", "Neon tube"], ["notes", "Music notes"], ["hearts", "Hearts"], ["coins", "Coins"], ["chalk", "Chalk"], ["worm", "Glow worm"], ["capsule", "Two-colour"], ["smoke", "Smoke"]], { rerender: true }),
+        ...(draft.cursor.effect === "emoji" ? [F.text("cursor.trailEmoji", "Emoji (up to 3)", { max: 16, ph: "💊✨🔥" })] : []),
+        ...(!["none", "sparkle", "snow", "ribbon", "pixels", "moth", "bubbles"].includes(draft.cursor.effect) ? [
+          F.color("cursor.trailColor", "Colour", { ph: "accent" }), ...(["capsule", "worm", "pills"].includes(draft.cursor.effect) ? [F.color("cursor.trailColor2", "Second colour", { ph: "white" })] : []),
+          F.range("cursor.trailSize", "Size", 50, 200, "%"), F.range("cursor.trailLength", "Length", 5, 60, ""), F.range("cursor.trailSpeed", "Speed", 50, 200, "%"),
+          F.chips("cursor.trailFade", "Ends by", [["fade", "Fading"], ["shrink", "Shrinking"]]), F.toggle("cursor.trailMusic", "Only while music plays")] : []),
+      ]),
+      P("Clicks", "", [
+        F.chips("cursor.click", "Effect", [["none", "Nothing"], ["burst", "Pop"], ["ripple", "Ring"], ["hearts", "Hearts"], ["confetti", "Confetti"], ["stars", "Stars"], ["pillpop", "Pill pop"], ["shockwave", "Shockwave"], ["textpop", "Text pop"], ["splat", "Ink splat"], ["firework", "Firework"], ["snowball", "Snowball"], ["pixelburst", "Pixel burst"]], { rerender: true }),
+        ...(draft.cursor.click === "textpop" ? [F.text("cursor.clickText", "Text", { max: 16, ph: "+1" })] : []),
+        F.chips("cursor.sound", "Sound", [["none", "Silent"], ["click", "Tick"], ["bubble", "Blip"], ["chime", "Bell"], ["pop", "Pop"], ["keyboard", "Keyboard"], ["coin", "Coin"], ["bubblewrap", "Bubble wrap"], ["shutter", "Camera"], ["rattle", "Pill bottle"], ["custom", "Upload my own"]], { rerender: true }),
+        ...(draft.cursor.sound === "custom" ? [F.upload("cursor.soundFile", "sound", "Your click sound", { accept: "audio/*" })] : []),
+        F.toggle("cursor.combo", "Combo counter", { hint: "click fast for \"x5 combo!\"" }),
+      ]),
+    ] },
     widgets: { title: "Widgets", icon: "gem", lead: "Little live tiles: your time, weather, games, music and more. They sit together in one section you can move under Arrange.", panels: () => [
       P("Add a widget", `Up to 12. Tap one to add it.`, [F.custom("wpick", "Add a widget", () => widgetPicker(), bindWidgetPicker)]),
       P("Your widgets", "", [F.custom("widgets", "Your widgets", () => listWidgets(), bindWidgets),
@@ -383,7 +462,7 @@
       P("Presence", "", [
         ...(draft.discord.id ? [] : [F.note(`Add your Discord ID under <a href="#profile" data-go="profile">Profile</a> first, or sign in with Discord.`)]),
         ...(draft.discord.id ? [F.custom("lanyardCheck", "Check", () => `<div class="field wide"><div class="lcheck"><button class="btn small" id="lcheck">Check my Discord activity</button><span class="muted" style="font-size:12px">shows what your page can see right now</span></div><div id="lcout"></div></div>`, () => { const b = $("#lcheck"); if (b) b.onclick = lanyardCheck; })] : []),
-        F.chips("live.style", "Card style", [["widget", "Wide cards"], ["simple", "Simple"]], { rerender: true }),
+        F.chips("live.style", "Card style", [["widget", "Wide cards"], ["simple", "Simple"], ["strip", "Slim strip"]], { rerender: true }),
         ...(draft.live.style === "widget" ? [F.toggle("live.discordCard", "Discord status card", { hint: "your Discord picture, name, status, custom status and device" }),
           F.toggle("live.discordBadges", "Discord badges & server tag", { hint: "HypeSquad, Early Supporter, Active Developer, Nitro and boosting, plus your server tag" }),
           F.note(`Nitro shows when you sign in with Discord (or press <a href="/auth/discord?link=1">refresh from Discord</a> after you get it). The boost badge shows when you boost ${esc(me.site)}'s own Discord server: Discord doesn't let any site see boosts to other servers.`),
@@ -396,6 +475,28 @@
         F.toggle("live.lyrics", "Lyrics", { hint: "lines light up in time with the song" }), F.toggle("live.games", "Games & apps", { hint: "what's open right now" }),
         F.toggle("live.customStatus", "Status as bio", { hint: "your Discord status fills in when your bio is empty" }),
         F.note(`This reads your status through Lanyard. Join the <a href="https://discord.gg/lanyard" target="_blank" rel="noopener">Lanyard server</a> once and it works.`),
+      ]),
+      P("Status on my picture", "Your Discord custom status emoji on your picture, or a bubble next to it.", [
+        F.chips("live.statusBadge", "", [["dot", "Just the dot"], ["emoji", "Emoji on picture"], ["bubble", "Bubble"]].map(([v, l]) => [v, l, `<span class="pv pv-dots"><span class="pv-sb pv-sb-${v}"><i class="f"></i>${v === "dot" ? `<i class="d"></i>` : v === "emoji" ? `<i class="e">💊</i>` : `<i class="d"></i><i class="b">💊 locked in</i>`}</span></span>`]), { pv: true }),
+        F.note("Shows when your status dot is on. With the emoji, people hover it to read your status."),
+      ]),
+      P("Spotify", "", [
+        F.chips("live.lyricsStyle", "Lyrics look", [["list", "Scrolling list"], ["line", "One big line"], ["karaoke", "Karaoke"], ["subtitles", "Subtitles at the bottom"]]),
+        F.toggle("live.lyricsAlbumColor", "Lyrics glow in the album's colour"), F.toggle("live.lyricsGlow", "Current line glows"),
+        F.toggle("live.progressRing", "Song progress ring on my picture"), F.toggle("live.artSpin", "Album art spins like a record"),
+        F.toggle("live.songAnim", "Card flips when the song changes"), F.toggle("live.pausedCard", "Show \"paused\" instead of hiding", { hint: "for 15 minutes after you stop" }),
+        F.toggle("live.recentWhenIdle", "Show my last song when I'm not listening"), F.toggle("live.upNext", "\"Up next\" guess", { hint: "your usual next song, from your history" }),
+        F.toggle("live.friends", "Show other dose users on the same song"),
+      ]),
+      P("Games & apps", "", [
+        F.toggle("live.gameArt", "Fill in missing game pictures"), F.toggle("live.gameRank", "Show my rank in the game card", { hint: "from your Valorant, Apex or game rank widget" }),
+        F.text("live.hideApps", "Never show these", { ph: "medal, obs", max: 200, wide: true, hint: "names separated by commas" }),
+        F.custom("live.renames", "Rename activities", () => `<div class="field wide" data-key="live.renames">${lbl("Rename activities", "e.g. Roblox Studio → grinding")}<div class="list">${draft.live.renames.map((r, i) => `<div class="row" style="grid-template-columns:1fr 1fr auto"><input type="text" data-rn="from" data-i="${i}" value="${esc(r.from)}" placeholder="activity name" maxlength="60"><input type="text" data-rn="to" data-i="${i}" value="${esc(r.to)}" placeholder="show as" maxlength="40">${acts(i, draft.live.renames.length)}</div>`).join("")}</div>${draft.live.renames.length < 10 ? `<div><button class="btn small" id="addRn">+ Add a rename</button></div>` : ""}</div>`,
+          () => { const root = main.querySelector('[data-key="live.renames"]'); if (!root) return; $$("[data-rn]", root).forEach((x) => x.addEventListener("input", () => { draft.live.renames[Number(x.dataset.i)][x.dataset.rn] = x.value; changed(); })); bindList(root, "live.renames", reView); const a = $("#addRn"); if (a) a.onclick = () => { draft.live.renames.push({ from: "", to: "" }); changed(); reView(); }; }),
+      ]),
+      P("Copy from Discord", me.account.discordLinked ? "Uses the banner and profile colour from your Discord account." : "Sign in with Discord (Account page) to use these.", [
+        F.toggle("discordSync.banner", "Use my Discord banner"), F.toggle("discordSync.accent", "Use my Discord profile colour as my accent"),
+        F.note(`Changed them on Discord? <a href="/auth/discord?link=1">Refresh from Discord</a>.`),
       ]),
       P("Headings", "", [F.text("live.listeningLabel", "Above the song", { max: 30 }), F.text("live.playingLabel", "Above the game", { max: 30 })], { adv: true }),
     ] },
@@ -434,7 +535,7 @@
   const SIMPLE = {
     home: { title: "Home", icon: "eye" }, formulas: { title: "Formulas", icon: "flame" }, badges: { title: "Badges", icon: "gem" }, stats: { title: "Stats", icon: "trophy" }, account: { title: "Account", icon: "shield" },
   };
-  const NAV = [["", ["home", "formulas"]], ["Edit page", ["profile", "media", "style", "effects", "links", "widgets", "sections", "music", "live", "sharing"]], ["You", ["badges", "stats", "account"]]];
+  const NAV = [["", ["home", "formulas"]], ["Edit page", ["profile", "media", "style", "effects", "cursor", "links", "widgets", "sections", "music", "live", "sharing"]], ["You", ["badges", "stats", "account"]]];
 
   /* ================= rendering ================= */
   function renderSide() {
@@ -510,10 +611,12 @@
   async function upload(f, kind, k, done) {
     const lim = me.limits[kind], max = lim[premium ? "premium" : "free"];
     if (f.size > max * 1048576) return toast(`That file is too big. The limit here is ${max} MB.`, true);
-    if (!lim.types.includes(f.type)) return toast("That file type isn't supported here.", true);
+    let ftype = f.type;
+    if (kind === "font") { const ext = (f.name.split(".").pop() || "").toLowerCase(); ftype = { woff2: "font/woff2", woff: "font/woff", ttf: "font/ttf", otf: "font/otf" }[ext] || ""; }
+    if (!lim.types.includes(ftype)) return toast("That file type isn't supported here.", true);
     toast("Uploading…");
     try {
-      const r = await api(`/api/me/upload?kind=${kind}`, { method: "POST", body: f, raw: true, type: f.type });
+      const r = await api(`/api/me/upload?kind=${kind}`, { method: "POST", body: f, raw: true, type: ftype });
       if (done) done(r.url, f); else set(k, r.url);
       toast("Uploaded. Save to keep it."); show(view, true); if (kind === "avatar") renderSide();
     } catch (e) { toast(e.message, true); }
@@ -612,7 +715,7 @@
   const listButtons = () => `<div class="field wide" data-key="linkButtons"><div class="list">${draft.linkButtons.map((b, i) => `<div class="row" style="grid-template-columns:120px 1fr 1.3fr auto">
       <select data-f="icon" data-i="${i}">${iconOpts(b.icon)}</select><input type="text" data-f="label" data-i="${i}" value="${esc(b.label)}" placeholder="label" maxlength="40">
       <input type="url" data-f="url" data-i="${i}" value="${esc(b.url)}" placeholder="https://…">${acts(i, draft.linkButtons.length)}
-      <div class="rowfoot"><label class="toggle" style="padding:0;gap:8px"><input type="checkbox" data-hl="${i}" ${b.highlight ? "checked" : ""}><span style="font-weight:500;font-size:12px">Highlight</span></label>${taps(b.id)}</div></div>`).join("") || `<p class="muted">No link buttons yet.</p>`}</div>
+      <div class="rowfoot"><label class="toggle" style="padding:0;gap:8px"><input type="checkbox" data-hl="${i}" ${b.highlight ? "checked" : ""}><span style="font-weight:500;font-size:12px">Highlight</span></label><input type="text" data-f="hoverLabel" data-i="${i}" value="${esc(b.hoverLabel || "")}" placeholder="text on hover (optional)" maxlength="40" class="hovlbl">${taps(b.id)}</div></div>`).join("") || `<p class="muted">No link buttons yet.</p>`}</div>
     <div><button class="btn small primary" id="addBtn">+ Add link</button> <small class="muted">${draft.linkButtons.length}/${L("buttons")}</small></div></div>`;
   function bindButtons() {
     const root = main.querySelector('[data-key="linkButtons"]'); if (!root) return;
