@@ -85,7 +85,7 @@ h2{font-size:clamp(34px,5vw,56px)}
 .ing{position:relative;display:flex;gap:14px;align-items:flex-start;padding:20px;border-radius:22px;border:1px solid transparent;
   background:linear-gradient(180deg,rgba(22,27,31,.7),rgba(12,15,18,.7)) padding-box,linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)) border-box;backdrop-filter:blur(18px);transition:transform .25s}
 .ing:hover{transform:translateY(-3px);border-color:var(--line-2)}
-.ing .capsule{flex:none;margin-top:4px;rotate:-25deg}
+.ing .itile{margin-top:2px}
 .ing b{display:block;font-family:var(--display);font-size:17px;letter-spacing:-.02em;margin-bottom:4px}
 .ing p{font-size:13.5px;color:var(--muted);line-height:1.55}
 
@@ -124,12 +124,52 @@ h2{font-size:clamp(34px,5vw,56px)}
 .qa details[open] summary::after{rotate:45deg}
 .qa p{color:var(--muted);margin-top:10px;font-size:13.5px;line-height:1.6}
 
-footer{margin-top:100px;border-top:1px dashed var(--line-2);padding:28px 0 50px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--dim)}
-footer nav{display:flex;gap:18px}
-footer a{text-decoration:none}footer a:hover{color:var(--text)}
+/* headline: words rise in one after another */
+.words .w{display:inline-block;animation:wordin .9s cubic-bezier(.2,.8,.2,1) both}
+.words .w:nth-child(1){animation-delay:.05s}.words .w:nth-child(2){animation-delay:.12s}.words .w:nth-child(3){animation-delay:.19s}.words .w:nth-child(4){animation-delay:.26s}
+.words .hl .w:nth-child(1){animation-delay:.36s}.words .hl .w:nth-child(2){animation-delay:.44s}
+@keyframes wordin{from{opacity:0;transform:translateY(.35em);filter:blur(6px)}}
+.hero .hl{background:linear-gradient(100deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#fff) 60%,var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .hl .w{background:inherit;-webkit-background-clip:text;background-clip:text}
+/* just filled strip */
+.fresh{display:flex;align-items:center;gap:16px;margin-top:34px;padding:10px 10px 10px 18px;border-radius:999px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(20,25,29,.85),rgba(11,14,17,.85))}
+.fresh .tag-mono{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.live{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent);animation:live 2s infinite}
+@keyframes live{70%{box-shadow:0 0 0 8px transparent}}
+.fresh-track{flex:1;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.fresh-row{display:flex;gap:8px;width:max-content}
+.fresh-row.moving{animation:marq 40s linear infinite}
+.fresh:hover .fresh-row{animation-play-state:paused}
+@keyframes marq{to{transform:translateX(-50%)}}
+.fchip{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--line);text-decoration:none;font-size:12.5px;white-space:nowrap;transition:border-color .2s}
+.fchip:hover{border-color:color-mix(in srgb,var(--c) 60%,transparent)}
+.fav{width:26px;height:26px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 30%,#111);font-weight:700;font-size:11px;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--c) 70%,transparent)}
+.fav img{width:100%;height:100%;object-fit:cover}
+.fmeta{color:var(--dim);font-family:var(--mono);font-size:10.5px}
+/* big faint section numbers */
+section{position:relative}
+.secno{position:absolute;right:0;top:20px;font-family:var(--display);font-weight:800;font-size:clamp(90px,14vw,180px);line-height:1;letter-spacing:-.06em;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.07);pointer-events:none;user-select:none}
+/* feature cards: coloured top edge + icon tile */
+.ing{overflow:hidden}
+.ing::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--c),transparent);opacity:.7}
+.ing::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(260px circle at 0% 0%,color-mix(in srgb,var(--c) 10%,transparent),transparent 60%)}
+.ing:hover{border-color:transparent}
+/* closing call to action */
+.cta{padding-top:90px}
+.cta-box{position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;padding:56px 24px;border-radius:32px;border:1px solid transparent;
+  background:radial-gradient(60% 80% at 50% 0%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%),linear-gradient(180deg,rgba(20,25,29,.92),rgba(11,14,17,.92)) padding-box,
+    linear-gradient(180deg,color-mix(in srgb,var(--accent) 45%,rgba(255,255,255,.2)),rgba(255,255,255,.04)) border-box}
+.cta-box h2{font-size:clamp(32px,5vw,58px)}
+.cta-box .blister-strip{rotate:-2deg;margin-bottom:6px}
+/* footer */
+footer{margin-top:90px;border-top:1px solid var(--line);padding:40px 0 30px;display:grid;grid-template-columns:2fr 1fr 1fr;gap:24px;font-size:13px;color:var(--muted);position:relative;overflow:hidden}
+footer .fcol{display:flex;flex-direction:column;gap:10px}
+footer .fcol a:not(.logo){text-decoration:none;color:var(--muted)}footer .fcol a:hover{color:var(--text)}
+footer .fbig{grid-column:1/-1;font-family:var(--display);font-weight:800;font-size:clamp(90px,22vw,300px);line-height:.8;letter-spacing:-.07em;text-align:center;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.1);margin:30px 0 10px;user-select:none}
+footer .fbottom{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dim);border-top:1px dashed var(--line-2);padding-top:16px}
 .barcode{height:26px;width:140px;background:repeating-linear-gradient(90deg,var(--dim) 0 2px,transparent 2px 4px,var(--dim) 4px 5px,transparent 5px 8px,var(--dim) 8px 11px,transparent 11px 12px);opacity:.6}
 
-@media (max-width:960px){.hero,.facts-wrap{grid-template-columns:1fr}.mix{grid-template-columns:1fr}.mix aside{max-height:none}.cabinet{min-height:420px}.ingredients,.qa,.plans{grid-template-columns:1fr}}
+@media (max-width:960px){footer{grid-template-columns:1fr 1fr}.secno{display:none}.fresh{border-radius:22px;flex-direction:column;align-items:stretch}.hero,.facts-wrap{grid-template-columns:1fr}.mix{grid-template-columns:1fr}.mix aside{max-height:none}.cabinet{min-height:420px}.ingredients,.qa,.plans{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -149,7 +189,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   <div class="hero">
     <div>
       <span class="kicker tag-mono"><span class="capsule" style="--w:22px"></span> Rx · one page · no appointment</span>
-      <h1>Everything you are, in <span class="hl">one dose.</span></h1>
+      <h1 class="words"><span class="w">Everything</span> <span class="w">you</span> <span class="w">are,</span> <span class="w">in</span> <span class="hl"><span class="w">one</span> <span class="w">dose.</span></span></h1>
       <p class="lead">Fill one prescription and get a page that holds your links, your songs and your Discord, styled exactly how you like it. Free to fill, refills forever.</p>
       <form class="label-rx claim" id="claim">
         <header><span><span class="rx">Rx</span> new prescription</span><span style="font-size:11px;font-weight:600">No. <span id="nextRx">0001</span></span></header>
@@ -157,7 +197,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
         <div class="claim-status" id="claimStatus"></div>
         <small>Take as needed. Share with everyone. Refill whenever you feel like it.</small>
       </form>
-      <div class="vitals"><div><b id="sMembers">–</b><span>patients</span></div><div><b id="sViews">–</b><span>visits filled</span></div><div><b id="sNext">#–</b><span>next number</span></div></div>
+      <div class="vitals"><div><b id="sMembers">0</b><span>patients</span></div><div><b id="sViews">0</b><span>visits filled</span></div><div><b id="sNext">#1</b><span>next number</span></div></div>
     </div>
     <div class="cabinet" aria-hidden="true">
       <span class="capsule fl" style="--w:108px;top:14%;left:6%;rotate:-28deg"></span>
@@ -190,7 +230,12 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
     </div>
   </div>
 
-  <section id="mix">
+  <div class="fresh" id="fresh" hidden>
+    <span class="tag-mono"><i class="live"></i>just filled</span>
+    <div class="fresh-track"><div class="fresh-row" id="freshRow"></div></div>
+  </div>
+
+  <section id="mix"><span class="secno" aria-hidden="true">01</span>
     <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--mint)"></span> no account needed</span>
     <h2>Shake the bottle.</h2>
     <p class="sub">A working {{SITE}} page sits below. Mix the ingredients on the right and it changes in front of you.</p>
@@ -204,7 +249,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   </section>
 
   <div class="divider" aria-hidden="true"><div class="blister-strip"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i><i class="t"></i><i style="--c:#ff8fb1"></i></div></div>
-  <section id="facts">
+  <section id="facts"><span class="secno" aria-hidden="true">02</span>
     <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--amber)"></span> read the label</span>
     <h2>What's in the bottle.</h2>
     <p class="sub">Every page comes with the full formula. Nothing to unlock for the basics, nothing to install.</p>
@@ -230,7 +275,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   </section>
 
   <div class="divider" aria-hidden="true"><div class="blister-strip"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i><i class="t"></i><i style="--c:#ff8fb1"></i></div></div>
-  <section id="shelf">
+  <section id="shelf"><span class="secno" aria-hidden="true">03</span>
     <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--violet)"></span> staff picks</span>
     <h2>On the shelf.</h2>
     <p class="sub">Pages the pharmacy is proud of. Tap one to see it in full.</p>
@@ -238,7 +283,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   </section>
 
   <div class="divider" aria-hidden="true"><div class="blister-strip"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i><i class="t"></i><i style="--c:#ff8fb1"></i></div></div>
-  <section id="dosage">
+  <section id="dosage"><span class="secno" aria-hidden="true">04</span>
     <span class="kicker tag-mono"><span class="capsule" style="--w:22px"></span> pick a strength</span>
     <h2>Dosage.</h2>
     <p class="sub">Regular strength does everything most people need. Extra strength is for heavy users.</p>
@@ -254,7 +299,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
     </div>
   </section>
 
-  <section id="ask">
+  <section id="ask"><span class="secno" aria-hidden="true">05</span>
     <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--mint)"></span> questions</span>
     <h2>Ask the pharmacist.</h2>
     <div class="qa" data-reveal style="margin-top:28px">
@@ -267,9 +312,20 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
     </div>
   </section>
 
+  <section class="cta">
+    <div class="cta-box">
+      <div class="blister-strip" aria-hidden="true"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i style="--c:#ffc35c"></i><i class="t"></i><i style="--c:#7cc8ff"></i></div>
+      <h2>Your page is one name away.</h2>
+      <p class="muted">Pick a name, fill the prescription, and make it yours in a few minutes.</p>
+      <a class="btn primary" href="/signup">Fill my prescription</a>
+    </div>
+  </section>
   <footer>
-    <div style="display:flex;flex-direction:column;gap:8px"><span class="barcode"></span><span>© <span id="yr"></span> {{SITE}} · dispensed with care · keep within reach of friends</span></div>
-    <nav><a href="/leaderboard">Top shelf</a><a href="/dashboard">Dashboard</a><a href="/signup">New prescription</a></nav>
+    <div class="fcol"><a class="logo" href="/"><i></i>{{SITE}}</a><span>Everything you are, in one dose.</span><span class="barcode"></span></div>
+    <div class="fcol"><span class="tag-mono">pharmacy</span><a href="#mix">Mix one</a><a href="#facts">Ingredients</a><a href="#dosage">Dosage</a><a href="/leaderboard">Top shelf</a></div>
+    <div class="fcol"><span class="tag-mono">patients</span><a href="/signup">New prescription</a><a href="/login">Sign in</a><a href="/dashboard">Dashboard</a></div>
+    <div class="fbig" aria-hidden="true">{{SITE}}</div>
+    <div class="fbottom"><span>© <span id="yr"></span> {{SITE}} · dispensed with care</span><span>keep within reach of friends</span></div>
   </footer>
 </main>
 
@@ -289,7 +345,8 @@ const ING = [
   ["#5ef2b0", "Know your visitors", "Visits and unique visitors against the previous period, plus your top links, devices and countries."],
   ["#b9a7ff", "Formulas", "One-tap style mixes to start from, then change any ingredient yourself."],
 ];
-document.getElementById("ingredients").innerHTML = ING.map(([c, t, d]) => `<div class="ing"><span class="capsule" style="--w:30px;--a:${c}"></span><div><b>${t}</b><p>${d}</p></div></div>`).join("");
+const ING_ICONS = ["bolt", "discord", "star", "heart", "repo", "website", "eye", "flame"];
+document.getElementById("ingredients").innerHTML = ING.map(([c, t, d], i) => `<div class="ing" style="--c:${c}"><span class="itile lg" style="--c:${c}">${svgIcon(ING_ICONS[i])}</span><div><b>${t}</b><p>${d}</p></div></div>`).join("");
 
 /* shake the bottle: restyle the demo page through the same live preview the dashboard uses */
 const demo = document.getElementById("demo");
@@ -337,9 +394,17 @@ if ("IntersectionObserver" in window) new IntersectionObserver(([en]) => {
 }, { threshold: 0.05 }).observe(demo);
 
 api("/api/site").then((s) => {
-  document.getElementById("sMembers").textContent = s.members.toLocaleString();
-  document.getElementById("sViews").textContent = s.views.toLocaleString();
-  document.getElementById("sNext").textContent = "#" + (s.members + 1);
+  const setCount = (id, n, pre = "") => { const el = document.getElementById(id); el.dataset.count = n; el.dataset.pre = pre; };
+  setCount("sMembers", s.members); setCount("sViews", s.views); setCount("sNext", s.members + 1, "#");
+  if (window.__countUp) window.__countUp(); else document.addEventListener("DOMContentLoaded", () => window.__countUp && window.__countUp());
+  if (s.recent && s.recent.length) {
+    const ago = (t) => { const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago"; };
+    const chip = (r) => `<a class="fchip" href="/${esc(r.username)}" style="--c:${esc(r.accent || "#5ef2b0")}"><span class="fav">${r.avatar ? `<img src="${esc(r.avatar)}" alt="">` : esc((r.displayName || r.username).slice(0, 1))}</span><b>${esc(r.displayName || r.username)}</b><span class="fmeta">Rx #${r.memberNo} · ${ago(r.at)}</span></a>`;
+    const items = s.recent.map(chip).join("");
+    document.getElementById("freshRow").innerHTML = items + (s.recent.length > 3 ? items : "");
+    document.getElementById("freshRow").classList.toggle("moving", s.recent.length > 3);
+    document.getElementById("fresh").hidden = false;
+  }
   document.getElementById("nextRx").textContent = String(s.members + 1).padStart(4, "0");
   if (s.announcement) document.getElementById("announce").innerHTML = `<div class="announce">${esc(s.announcement)}</div>`;
   if (s.me) document.getElementById("authNav").innerHTML = `<a class="btn small primary" href="/dashboard">Dashboard</a>`;

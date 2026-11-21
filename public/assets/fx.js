@@ -8,7 +8,7 @@
   // Inline so the layer never takes up space, even if an old cached stylesheet is in use.
   layer.style.cssText = "position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden";
   layer.setAttribute("aria-hidden", "true");
-  layer.innerHTML = `<div class="blobs"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div><canvas class="pillfx"></canvas><div class="grain"></div><div class="cglow"></div>`;
+  layer.innerHTML = `<div class="dotgrid"></div><div class="blobs"><i class="b1"></i><i class="b2"></i><i class="b3"></i><i class="b4"></i></div><canvas class="pillfx"></canvas><div class="grain"></div><div class="cglow"></div>`;
   document.body.prepend(layer);
 
   // cursor glow
@@ -32,7 +32,7 @@
   }, { passive: true });
   addEventListener("pointerout", (e) => { const b = e.target.closest && e.target.closest(".btn.primary"); if (b && !b.contains(e.relatedTarget)) b.style.transform = ""; });
   addEventListener("pointerdown", (e) => {
-    const b = e.target.closest && e.target.closest(".btn, .chip"); if (!b || reduce) return;
+    const b = e.target.closest && e.target.closest(".btn"); if (!b || reduce) return; // buttons only; option chips stay still
     const r = b.getBoundingClientRect(), size = Math.max(r.width, r.height) * 2.2, s = document.createElement("span");
     s.className = "rip"; s.style.cssText = `width:${size}px;height:${size}px;left:${e.clientX - r.left - size / 2}px;top:${e.clientY - r.top - size / 2}px`;
     if (getComputedStyle(b).position === "static") b.style.position = "relative";
@@ -48,6 +48,20 @@
   };
   decorate(document);
   new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) decorate(n.parentNode || n); }).observe(document.body, { childList: true, subtree: true });
+
+  // numbers count up the first time they scroll into view: <b data-count="1234">
+  const countUp = (el) => {
+    const end = Number(el.dataset.count) || 0, pre = el.dataset.pre || "", t0 = performance.now(), dur = 1100;
+    if (reduce || !end) { el.textContent = pre + end.toLocaleString(); return; }
+    const step = (t) => { const k = Math.min(1, (t - t0) / dur), v = Math.round(end * (1 - Math.pow(1 - k, 3))); el.textContent = pre + v.toLocaleString(); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  };
+  window.__countUp = (root = document) => {
+    const els = root.querySelectorAll("[data-count]:not([data-counted])");
+    if (!("IntersectionObserver" in window)) return els.forEach(countUp);
+    const io = new IntersectionObserver((es) => es.forEach((en) => { if (en.isIntersecting) { en.target.dataset.counted = 1; countUp(en.target); io.unobserve(en.target); } }));
+    els.forEach((el) => io.observe(el));
+  };
 
   // reveal sections as they scroll into view
   if ("IntersectionObserver" in window && !reduce) {

@@ -400,6 +400,11 @@ async function route(req, res) {
       signupsOpen: getSetting("signupsOpen", true),
       discordLogin: discordOn(),
       inviteOnly: getSetting("inviteOnly", false),
+      recent: db.prepare("SELECT * FROM users WHERE banned = 0 ORDER BY created_at DESC LIMIT 12").all().map((u) => {
+        const pr = Profile.load(u.profile, { premium: !!u.premium });
+        if (pr.visibility.hidden) return null;
+        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, memberNo: u.member_no, at: u.created_at };
+      }).filter(Boolean),
       featured: getSetting("featured", []).map((id) => db.prepare("SELECT * FROM users WHERE id = ? AND banned = 0").get(id)).filter(Boolean).map((u) => {
         const pr = Profile.load(u.profile, { premium: !!u.premium });
         return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, bio: pr.bio.split("\n")[0] || pr.taglines[0] || "", memberNo: u.member_no, views: totalViews(u.id) };
@@ -650,7 +655,12 @@ async function route(req, res) {
         series,
         settings: {
           signupsOpen: getSetting("signupsOpen", true), announcement: getSetting("announcement", ""), dashAnnouncement: getSetting("dashAnnouncement", ""),
-          inviteOnly: getSetting("inviteOnly", false), maintenance: getSetting("maintenance", false), maintenanceMsg: getSetting("maintenanceMsg", ""),
+          inviteOnly: getSetting("inviteOnly", false),
+      recent: db.prepare("SELECT * FROM users WHERE banned = 0 ORDER BY created_at DESC LIMIT 12").all().map((u) => {
+        const pr = Profile.load(u.profile, { premium: !!u.premium });
+        if (pr.visibility.hidden) return null;
+        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, memberNo: u.member_no, at: u.created_at };
+      }).filter(Boolean), maintenance: getSetting("maintenance", false), maintenanceMsg: getSetting("maintenanceMsg", ""),
           blockedWords: getSetting("blockedWords", []), siteAccent: getSetting("siteAccent", ""),
           featured: getSetting("featured", []).map((id) => (db.prepare("SELECT username FROM users WHERE id = ?").get(id) || {}).username).filter(Boolean),
         },

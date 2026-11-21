@@ -296,6 +296,7 @@
     side.innerHTML = `<a class="logo" href="/"><i></i>${esc(me.site)}</a>` + NAV.map(([g, ids]) => (g ? `<div class="grp">${g}</div>` : "") + ids.map((id) => {
       const v = VIEWS[id] || SIMPLE[id]; return `<button data-s="${id}" aria-current="${id === view}">${svgIcon(v.icon)}${v.title}</button>`;
     }).join("")).join("") + (isStaff ? `<div class="grp">Site</div><button onclick="location.href='/admin'">${svgIcon("crown")}Owner panel</button>` : "") +
+      (premium ? "" : `<div class="upsell"><span class="capsule" style="--w:34px"></span><b>Extra strength</b><small>Video backgrounds, your own CSS, more songs and links.</small></div>`) +
       `<div class="me"><span class="av">${draft.avatar.src ? `<img src="${esc(draft.avatar.src)}" alt="">` : esc(me.username.slice(0, 2))}</span><span style="min-width:0;flex:1"><b>${esc(me.username)}</b><span class="muted">#${me.memberNo}${premium ? " · premium" : " · free"}</span></span></div>`;
     $$("[data-s]", side).forEach((b) => (b.onclick = () => show(b.dataset.s)));
   }
@@ -309,7 +310,7 @@
     main.classList.toggle("nofx", !!keep);
     if (VIEWS[id]) {
       const panels = v.panels().filter((p) => mode === "all" || !p.o.adv);
-      main.innerHTML = `<h1>${v.title}</h1><p class="lead">${v.lead}</p><div class="stack">${panels.map((p) => `<section class="panel ${p.o.lock ? "locked" : ""}">
+      main.innerHTML = `<div class="vhead"><span class="itile lg">${svgIcon(v.icon)}</span><div><h1>${v.title}</h1><p class="lead">${v.lead}</p></div></div><div class="stack">${panels.map((p) => `<section class="panel ${p.o.lock ? "locked" : ""}">
         <h3>${p.title}${p.o.adv ? ` <span class="pill">advanced</span>` : ""}${p.o.lock ? ` <span class="pill warn">premium</span>` : ""}</h3>${p.desc ? `<p class="pdesc">${p.desc}</p>` : ""}
         <div class="fields" ${p.o.lock ? 'style="opacity:.45;pointer-events:none"' : ""}>${p.fields.filter((f) => mode === "all" || !(f.o && f.o.adv)).map((f) => f.html()).join("")}</div></section>`).join("")}</div>`;
       bind(main);
@@ -497,8 +498,15 @@
 
   /* ================= home, badges, stats, account ================= */
   const url = () => `${location.origin}/${me.username}`;
+  const greet = () => { const h = new Date().getHours(); return h < 5 ? "up late" : h < 12 ? "good morning" : h < 18 ? "good afternoon" : "good evening"; };
   const SIMPLE_VIEWS = {
-    home: () => `${me.announcement ? `<div class="banner-note">${svgIcon("bolt")}<span>${esc(me.announcement)}</span></div>` : ""}<h1>Hi, ${esc(draft.displayName || me.username)}</h1><p class="lead">Your page, your numbers and your card.</p><div class="stack">
+    home: () => `${me.announcement ? `<div class="banner-note">${svgIcon("bolt")}<span>${esc(me.announcement)}</span></div>` : ""}<div class="stack">
+      <div class="welcome">
+        <span class="wav">${draft.avatar.src ? `<img src="${esc(draft.avatar.src)}" alt="">` : esc((draft.displayName || me.username).slice(0, 2))}</span>
+        <div class="wtxt"><span class="tag-mono">${greet()} · patient #${me.memberNo}</span><h1>${esc(draft.displayName || me.username)}</h1>
+          <div class="wbadges">${me.badges.slice(0, 6).map((b) => `<span class="itile" style="--c:${esc(b.color)};width:26px;height:26px;border-radius:8px" title="${esc(b.name)}">${svgIcon(b.icon)}</span>`).join("")}</div></div>
+        <div class="wspark"><span class="tag-mono">visits · 7 days</span><b id="wk">–</b><svg id="spark" viewBox="0 0 160 44" preserveAspectRatio="none" aria-hidden="true"></svg></div>
+      </div>
       <div class="urlbox"><a href="/${esc(me.username)}" target="_blank" rel="noopener">${esc(url())}</a><button class="btn small" id="copyUrl">Copy link</button></div>
       <div class="kpis"><div class="kpi"><small>visits, all time</small><b>${me.views.toLocaleString()}</b></div><div class="kpi"><small>patient no.</small><b>#${me.memberNo}</b></div>
         <div class="kpi"><small>links on page</small><b>${draft.socials.length + draft.linkButtons.length}</b></div><div class="kpi"><small>strength</small><b style="color:${premium ? "var(--accent)" : "inherit"}">${premium ? "Extra" : "Regular"}</b>${me.premiumUntil ? `<small>until ${new Date(me.premiumUntil).toLocaleDateString("en-GB")}</small>` : ""}</div></div>
@@ -565,6 +573,12 @@
       }));
     },
     home() {
+      api("/api/me/analytics?days=7").then((d) => {
+        const v = d.series.map((x) => x.views), max = Math.max(1, ...v), pts = v.map((n, i) => [(i / (v.length - 1)) * 160, 40 - (n / max) * 34]);
+        const line = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
+        $("#wk").textContent = d.cur.views.toLocaleString();
+        $("#spark").innerHTML = `<path d="${line} L160,44 L0,44Z" fill="var(--accent)" opacity=".12"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/><circle cx="${pts[pts.length - 1][0]}" cy="${pts[pts.length - 1][1]}" r="3" fill="var(--accent)"/>`;
+      }).catch(() => {});
       $$("[data-go]", main).forEach((a) => (a.onclick = (e) => { e.preventDefault(); show(a.dataset.go); }));
       $("#copyUrl").onclick = () => navigator.clipboard.writeText(url()).then(() => toast("Link copied.")).catch(() => toast("Couldn't copy. Select the link and copy it.", true));
       if (window.QRCode) { new QRCode($("#qr"), { text: url(), width: 232, height: 232, colorDark: "#0a090c", colorLight: "#ffffff" });
