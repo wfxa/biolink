@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · {{SITE}}</title>
+<link rel="icon" href="/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+body{display:grid;place-items:center;min-height:100vh;padding:16px}
+.box .panel{padding:22px}
+.box{width:min(400px,100%);display:flex;flex-direction:column;gap:16px}
+.box .logo{justify-content:center;font-size:30px;margin-bottom:6px}
+.box .hero-cap{display:flex;justify-content:center;gap:12px;margin-bottom:4px}
+.box .hero-cap .capsule{animation:bob 3s ease-in-out infinite}
+.box .hero-cap .capsule:nth-child(2){animation-delay:-1s}.box .hero-cap .capsule:nth-child(3){animation-delay:-2s}
+@keyframes bob{50%{transform:translateY(-8px) rotate(10deg)}}
+.rxhead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed var(--line-2);padding-bottom:10px;margin-bottom:14px;font-size:12px;color:var(--muted)}
+.rxhead .rx{font-size:22px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:999px;background:rgba(20,10,30,.55);backdrop-filter:blur(14px);border:1px solid var(--line-2)}
+.tabs a{text-align:center;padding:8px;border-radius:999px;text-decoration:none;color:var(--muted);font-size:13px}
+.tabs a[aria-current=page]{background:var(--accent);color:var(--on-accent);font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 6px 18px -8px color-mix(in srgb,var(--accent) 90%,transparent)}
+form{display:flex;flex-direction:column;gap:12px}
+.prefix{display:flex;align-items:center;border:1px solid var(--line-2);border-radius:14px;background:rgba(8,4,14,.55);transition:border-color .2s,box-shadow .2s}
+.prefix:focus-within{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 15%,transparent)}
+.prefix input,.prefix input:focus{border:0!important;box-shadow:none!important;background:transparent!important}
+.prefix:focus-within{border-color:var(--accent)}
+.prefix span{padding-left:12px;color:var(--dim);white-space:nowrap}
+.prefix input{border:0;padding-left:2px}
+.hint{font-size:11.5px;color:var(--dim)}
+.discord{background:#5865f2;border-color:#5865f2;color:#fff;width:100%;box-shadow:0 8px 24px -8px rgba(88,101,242,.9)}
+.discord:hover{background:#4752c4!important;border-color:#4752c4!important}
+.discord svg{width:18px;height:18px;fill:#fff}
+.or{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:11px;margin:14px 0}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.dnote{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,#5865f2 15%,transparent);border:1px solid color-mix(in srgb,#5865f2 50%,transparent);font-size:12.5px;display:flex;gap:8px;align-items:center}
+.dnote svg{width:16px;height:16px;fill:#8b95ff;flex:none}
+.closed{padding:12px;border-radius:10px;border:1px solid var(--warn);color:var(--warn);font-size:13px}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="hero-cap" aria-hidden="true"><span class="capsule" style="--w:46px;rotate:-30deg"></span><span class="tablet" style="--w:30px"></span><span class="capsule" style="--w:40px;--a:var(--mint);rotate:-60deg"></span></div>
+  <a class="logo" href="/"><i></i>{{SITE}}</a>
+  <div class="tabs">
+    <a href="/login" id="tLogin">Sign in</a>
+    <a href="/signup" id="tSignup">Create account</a>
+  </div>
+  <div class="panel">
+    <div class="rxhead"><span class="rx">Rx</span><span id="rxwhat">refill your page</span></div>
+    <div id="discordBox" hidden><a class="btn discord" id="discordBtn" href="/auth/discord"></a><div class="or">or with a username</div></div>
+    <div class="dnote" id="dnote" hidden></div>
+    <form id="form" novalidate>
+      <label class="f"><span>Username</span>
+        <div class="prefix"><span id="host"></span><input id="username" type="text" autocomplete="username" maxlength="20" required spellcheck="false"></div>
+      </label>
+      <div class="hint" id="nameHint"></div>
+      <label class="f" id="inviteField" hidden><span>Invite code</span><input id="invite" type="text" placeholder="RX-XXXXXXXX" autocomplete="off" spellcheck="false" style="text-transform:uppercase"></label>
+      <label class="f" id="pwField"><span>Password</span><input id="password" type="password" autocomplete="current-password" required></label>
+      <div class="err" id="err" role="alert"></div>
+      <button class="btn primary" type="submit" id="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+<script src="/assets/icons.js"></script>
+<script src="/assets/common.js"></script>
+<script>
+const signup = location.pathname === "/signup";
+const qs = new URLSearchParams(location.search);
+const discordToken = signup ? qs.get("discord") : null;
+if (qs.get("error")) document.getElementById("err").textContent = qs.get("error");
+document.getElementById(signup ? "tSignup" : "tLogin").setAttribute("aria-current", "page");
+document.getElementById("host").textContent = location.host + "/";
+const u = document.getElementById("username"), pw = document.getElementById("password"), err = document.getElementById("err"), btn = document.getElementById("submit"), hint = document.getElementById("nameHint");
+if (signup) {
+  document.title = "Create account · " + document.title.split("·")[1].trim();
+  btn.textContent = "Fill my prescription";
+  document.getElementById("rxwhat").textContent = "new patient";
+  pw.autocomplete = "new-password"; pw.placeholder = "at least 8 characters";
+  u.value = new URLSearchParams(location.search).get("name") || "";
+  let t;
+  const check = () => { clearTimeout(t); hint.textContent = ""; if (!u.value) return;
+    t = setTimeout(async () => { const r = await api("/api/check/" + encodeURIComponent(u.value)).catch(() => null);
+      if (r) hint.innerHTML = r.available ? `<span style="color:var(--ok)">${esc(u.value)} is free</span>` : `<span style="color:var(--bad)">${esc(r.reason)}</span>`; }, 300); };
+  u.addEventListener("input", () => { u.value = u.value.replace(/[^a-z0-9_.]/gi, ""); check(); });
+  check();
+  api("/api/site").then((s) => { if (!s.signupsOpen) document.querySelector(".panel").insertAdjacentHTML("afterbegin", `<p class="closed">Sign-ups are closed right now.</p><br>`); });
+}
+api("/api/site").then((s) => {
+  if (signup && s.inviteOnly) { document.getElementById("inviteField").hidden = false; document.getElementById("invite").value = qs.get("invite") || ""; }
+  if (s.discordLogin && !discordToken) {
+    document.getElementById("discordBox").hidden = false;
+    document.getElementById("discordBtn").innerHTML = svgIcon("discord") + "Continue with Discord";
+  }
+});
+if (discordToken) {
+  document.getElementById("pwField").hidden = true;
+  document.querySelector(".tabs").hidden = true;
+  btn.textContent = "Create my page";
+  api("/api/auth/discord-pending/" + encodeURIComponent(discordToken)).then((d) => {
+    const n = document.getElementById("dnote"); n.hidden = false;
+    n.innerHTML = svgIcon("discord") + `<span>Signing up with Discord as <b>${esc(d.name)}</b>. Pick your page name.</span>`;
+  }).catch((e) => { err.textContent = e.message; btn.disabled = true; });
+}
+(u.value && !discordToken ? pw : u).focus();
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault(); err.textContent = "";
+  if (!u.value || (!pw.value && !discordToken)) { err.textContent = discordToken ? "Pick a username." : "Fill in your username and password."; return; }
+  btn.disabled = true;
+  try {
+    await api(signup ? "/api/auth/signup" : "/api/auth/login", { method: "POST", body: discordToken ? { username: u.value, discordToken, invite: document.getElementById("invite").value } : { username: u.value, password: pw.value, invite: document.getElementById("invite").value } });
+    location.href = "/dashboard";
+  } catch (x) { err.textContent = x.message; btn.disabled = false; }
+});
+</script>
+<script src="/assets/fx.js"></script>
+</body>
+</html>

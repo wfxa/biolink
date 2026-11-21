@@ -1,0 +1,202 @@
+/* dose — site chrome. "Late-night pharmacy": deep ink, frosted glass, a capsule-pink accent with
+   mint and amber as supporting colours. Controls are drawn from the medicine cabinet:
+   capsule buttons, tablet toggles, syringe sliders, label-style cards. No rainbow gradients. */
+:root{
+  --ink:#06080a; --ink-2:#0e1114; --ink-3:#161a1f;
+  --line:rgba(255,255,255,.075); --line-2:rgba(255,255,255,.13);
+  --glass:rgba(255,255,255,.035); --glass-2:rgba(255,255,255,.06);
+  --text:#eef3f1; --muted:#97a3a0; --dim:#5f6a68;
+  /* the site colour; owners can change it in Settings, which overrides these three */
+  --accent:#5ef2b0; --accent-hi:color-mix(in srgb,var(--accent) 82%,#fff); --accent-lo:color-mix(in srgb,var(--accent) 75%,#000); --on-accent:#03170f;
+  --mint:#5ef2b0; --amber:#ffc35c; --violet:#b9a7ff; --rose:#ff8fb1; --sky:#7cc8ff; --cream:#f6f2ea; --cap-b:#f6f2ea;
+  --ok:#6fe3a8; --warn:#ffc65c; --bad:#ff6b7f;
+  --display:"Bricolage Grotesque","Geist",system-ui,sans-serif; --body:"Geist",system-ui,-apple-system,sans-serif; --mono:"Geist Mono",ui-monospace,monospace;
+  --r:20px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html{background:var(--ink)}
+html,body{min-height:100%}
+body{background:transparent;color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::selection{background:var(--accent);color:var(--on-accent)}
+a{color:inherit}
+img{max-width:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.035em;line-height:1.04;text-wrap:balance;color:#fff}
+code,kbd,.mono{font-family:var(--mono)}
+kbd{font-size:.85em;padding:1px 6px;border-radius:6px;border:1px solid var(--line-2);background:var(--glass)}
+.muted{color:var(--muted)}
+.err{color:var(--bad);font-size:12px;min-height:1.2em}
+.hl{color:var(--accent)}
+.tag-mono{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- atmosphere (fx.js) ---------- */
+.fxlayer{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+/* soft colour pools: plain radial gradients moved with transform only, so they're cheap to animate */
+.blobs{position:absolute;inset:-20%;opacity:.55}
+.blobs i{position:absolute;border-radius:50%;width:70vmax;height:70vmax;will-change:transform;animation:blob 40s ease-in-out infinite alternate}
+.blobs .b1{background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 60%);left:-25%;top:-25%}
+.blobs .b2{background:radial-gradient(circle,rgba(123,92,255,.18),transparent 60%);right:-25%;top:-5%;animation-delay:-13s}
+.blobs .b3{background:radial-gradient(circle,rgba(26,167,255,.12),transparent 60%);left:15%;bottom:-40%;animation-delay:-22s}
+.blobs .b4{display:none}
+@keyframes blob{33%{transform:translate(7%,9%) scale(1.12)}66%{transform:translate(-6%,4%) scale(.92)}100%{transform:translate(4%,-7%) scale(1.04)}}
+.pillfx{position:absolute;inset:0;width:100%;height:100%}
+.grain{position:absolute;inset:0;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.cglow{position:absolute;left:0;top:0;width:560px;height:560px;border-radius:50%;opacity:0;transition:opacity .4s;background:radial-gradient(circle,color-mix(in srgb,var(--accent) 8%,transparent),transparent 62%)}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:12px;z-index:20;display:flex;align-items:center;gap:20px;margin:12px auto 0;width:min(1120px,100% - 24px);padding:8px 8px 8px 18px;border-radius:999px;
+  background:rgba(12,10,16,.55);backdrop-filter:blur(20px) saturate(160%);-webkit-backdrop-filter:blur(20px) saturate(160%);border:1px solid var(--line-2);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.logo{font-family:var(--display);font-weight:700;font-size:20px;text-decoration:none;display:inline-flex;align-items:center;gap:10px;letter-spacing:-.04em}
+.logo i{width:26px;height:12px;border-radius:99px;background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%);rotate:-32deg;
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.18),inset 0 2px 0 rgba(255,255,255,.45),0 4px 14px color-mix(in srgb,var(--accent) 45%,transparent);transition:rotate .5s cubic-bezier(.3,1.6,.5,1)}
+.logo:hover i{rotate:148deg}
+.top nav{display:flex;gap:2px;margin-left:auto;align-items:center;flex-wrap:wrap}
+.top nav a:not(.btn){text-decoration:none;color:var(--muted);font-size:13px;padding:7px 12px;border-radius:999px;transition:background .2s,color .2s}
+.top nav a:not(.btn):hover{color:var(--text);background:var(--glass-2)}
+
+/* ---------- pharmacy objects ---------- */
+.capsule{--w:60px;display:inline-block;width:var(--w);height:calc(var(--w) * .42);border-radius:999px;position:relative;
+  background:linear-gradient(90deg,var(--a,var(--accent)) 50%,var(--b,var(--cream)) 50%);
+  box-shadow:inset 0 calc(var(--w) * -.05) 0 rgba(0,0,0,.2),inset 0 calc(var(--w) * .04) 0 rgba(255,255,255,.4),0 calc(var(--w) * .12) calc(var(--w) * .3) rgba(0,0,0,.35)}
+.capsule::after{content:"";position:absolute;left:12%;top:18%;width:30%;height:16%;border-radius:99px;background:rgba(255,255,255,.5)}
+.tablet{--w:36px;display:inline-block;width:var(--w);height:var(--w);border-radius:50%;position:relative;background:radial-gradient(circle at 35% 30%,#fff,#e5ddd3);box-shadow:inset 0 -3px 0 rgba(0,0,0,.12),0 6px 14px rgba(0,0,0,.35)}
+.tablet::after{content:"";position:absolute;left:18%;right:18%;top:calc(50% - 1px);height:2px;border-radius:2px;background:rgba(0,0,0,.14)}
+.rx{font-family:var(--display);font-weight:800;font-style:italic;color:color-mix(in srgb,var(--accent) 70%,#0a3)}
+.label-rx .rx{color:#0b8f5a}
+.label-rx{background:var(--cream);color:#1d1418;border-radius:16px;padding:16px 18px;font-family:var(--mono);position:relative;box-shadow:0 30px 60px -24px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.4)}
+.label-rx header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #1d1418;padding-bottom:6px;margin-bottom:10px;font-family:var(--display);font-weight:800}
+.label-rx .ln{display:flex;justify-content:space-between;gap:10px;font-size:12px;border-bottom:1px dashed rgba(29,20,24,.25);padding:5px 0}
+.label-rx .ln b{font-weight:600}
+.label-rx small{display:block;font-size:10.5px;color:#6b5e66;margin-top:8px}
+.perf{height:0;border-top:2px dashed var(--line-2);margin:4px 0}
+.spinner{width:34px;height:14px;border-radius:99px;background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%);animation:spin 1s cubic-bezier(.6,.2,.4,.8) infinite}
+@keyframes spin{to{rotate:1turn}}
+
+/* ---------- buttons: capsules ---------- */
+.btn{position:relative;isolation:isolate;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:999px;
+  border:1px solid var(--line-2);background:var(--glass);cursor:pointer;text-decoration:none;font-size:13px;font-weight:500;white-space:nowrap;color:var(--text);
+  backdrop-filter:blur(12px) saturate(140%);-webkit-backdrop-filter:blur(12px) saturate(140%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+  transition:background .25s,border-color .25s,transform .2s cubic-bezier(.3,1.4,.5,1),box-shadow .25s}
+.btn::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;z-index:-1;pointer-events:none;opacity:0;transition:opacity .3s;
+  background:radial-gradient(64px circle at var(--bx,50%) var(--by,50%),rgba(255,255,255,.75),transparent 70%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.btn:hover::before{opacity:1}
+.btn:hover{background:var(--glass-2);border-color:rgba(255,255,255,.2)}
+.btn:active{transform:scale(.97)}
+/* primary = a glossy capsule: solid pink, a soft highlight on top, a glint on hover */
+.btn.primary{background:var(--accent);border-color:var(--accent-lo);color:var(--on-accent);font-weight:600;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -2px 0 rgba(0,0,0,.15),0 8px 22px -10px color-mix(in srgb,var(--accent) 90%,transparent)}
+.btn.primary::after{content:"";position:absolute;left:10%;right:10%;top:2px;height:40%;border-radius:999px;z-index:-1;pointer-events:none;background:linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,0))}
+.btn.primary:hover{background:var(--accent-hi);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 0 rgba(0,0,0,.15),0 12px 30px -10px color-mix(in srgb,var(--accent) 100%,transparent)}
+.btn.primary .glint{position:absolute;top:0;bottom:0;width:35%;left:-50%;z-index:-1;background:linear-gradient(100deg,transparent,rgba(255,255,255,.4),transparent);transition:left .6s cubic-bezier(.3,.7,.3,1);pointer-events:none}
+.btn.primary:hover .glint{left:120%}
+.btn.mint{background:var(--violet);border-color:#8f7be0;color:#140b33;font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 8px 22px -12px rgba(125,240,200,.8)}
+.btn.danger{color:var(--bad);border-color:rgba(255,107,127,.4);background:rgba(255,107,127,.06)}
+.btn.small{padding:6px 13px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn svg{width:15px;height:15px;fill:currentColor}
+.btn .rip{position:absolute;border-radius:50%;pointer-events:none;background:currentColor;opacity:.22;transform:scale(0);animation:rip .6s ease-out forwards;z-index:-1}
+@keyframes rip{to{transform:scale(1);opacity:0}}
+
+/* ---------- inputs ---------- */
+input[type=text],input[type=password],input[type=url],input[type=search],input[type=datetime-local],input[type=number],select,textarea{
+  width:100%;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);outline:none;transition:border-color .2s,box-shadow .2s,background .2s}
+input:hover,select:hover,textarea:hover{border-color:rgba(255,255,255,.18)}
+input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--accent) 75%,transparent);background:rgba(255,255,255,.05);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 12%,transparent)}
+::placeholder{color:var(--dim)}
+select option{background:var(--ink-2)}
+textarea{resize:vertical;min-height:90px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+label.f > span{display:flex;justify-content:space-between;gap:8px}
+input[type=color]{width:42px;height:36px;border:1px solid var(--line-2);border-radius:12px;background:var(--ink);padding:3px;cursor:pointer}
+
+/* syringe slider: a graduated barrel, pink liquid up to the value, a plunger for the thumb */
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:24px;background:transparent;cursor:pointer;--fill:50%}
+input[type=range]::-webkit-slider-runnable-track{height:12px;border-radius:3px 7px 7px 3px;border:1px solid rgba(255,255,255,.22);
+  background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 85%,transparent) 0 var(--fill),transparent var(--fill)),
+    repeating-linear-gradient(90deg,transparent 0 9px,rgba(255,255,255,.22) 9px 10px) 0 0/100% 5px no-repeat,rgba(255,255,255,.05)}
+input[type=range]::-moz-range-track{height:12px;border-radius:3px 7px 7px 3px;border:1px solid rgba(255,255,255,.22);
+  background:repeating-linear-gradient(90deg,transparent 0 9px,rgba(255,255,255,.22) 9px 10px) 0 0/100% 5px no-repeat,rgba(255,255,255,.05)}
+input[type=range]::-moz-range-progress{height:12px;background:color-mix(in srgb,var(--accent) 85%,transparent);border-radius:3px 0 0 3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:24px;margin-top:-7px;border-radius:3px;background:linear-gradient(90deg,#e9e3ea,#fff,#d8d1da);
+  box-shadow:0 0 0 1px rgba(0,0,0,.25),0 2px 6px rgba(0,0,0,.4);transition:transform .15s}
+input[type=range]::-moz-range-thumb{width:10px;height:24px;border-radius:3px;border:0;background:linear-gradient(90deg,#e9e3ea,#fff,#d8d1da);box-shadow:0 0 0 1px rgba(0,0,0,.25),0 2px 6px rgba(0,0,0,.4)}
+input[type=range]:active::-webkit-slider-thumb{transform:scaleY(1.12)}
+
+/* tablet toggle: the knob is a scored tablet, the track fills like a capsule */
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;padding:6px 0;cursor:pointer}
+.toggle input{appearance:none;width:42px;height:22px;border-radius:22px;background:rgba(255,255,255,.1);border:1px solid var(--line-2);position:relative;cursor:pointer;flex:none;transition:background .25s,border-color .25s}
+.toggle input::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e1d9cf);
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.4);transition:left .3s cubic-bezier(.3,1.6,.5,1),rotate .3s}
+.toggle input::before{content:"";position:absolute;top:10px;left:6px;width:8px;height:1.5px;background:rgba(0,0,0,.18);z-index:1;transition:left .3s cubic-bezier(.3,1.6,.5,1),rotate .3s}
+.toggle input:checked{background:var(--accent);border-color:var(--accent-lo);box-shadow:0 0 14px -4px var(--accent)}
+.toggle input:checked::after{left:22px;rotate:90deg}
+.toggle input:checked::before{left:26px;rotate:90deg}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:11px;border:1px solid var(--line-2);color:var(--muted)}
+.pill.ok{color:var(--ok);border-color:rgba(111,227,168,.4)}
+.pill.bad{color:var(--bad);border-color:rgba(255,107,127,.4)}
+.pill.acc{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.pill.warn{color:var(--warn);border-color:rgba(255,198,92,.45)}
+.pill.mint{color:var(--mint);border-color:rgba(125,240,200,.4);background:rgba(125,240,200,.06)}
+
+/* ---------- glass surfaces ---------- */
+/* containers: frosted packaging. A light top edge, a soft inner glow, a fine grain,
+   and a border that's brighter at the top like light catching a box lid. */
+.panel{position:relative;isolation:isolate;border-radius:var(--r);padding:22px;border:1px solid transparent;
+  background:
+    linear-gradient(180deg,rgba(22,27,31,.72),rgba(12,15,18,.72)) padding-box,
+    linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 40%,rgba(255,255,255,.03)) border-box;
+  backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 30px 60px -40px rgba(0,0,0,.95),0 2px 6px rgba(0,0,0,.25)}
+.panel::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
+  background:radial-gradient(120% 60% at 0% 0%,color-mix(in srgb,var(--accent) 7%,transparent),transparent 60%),
+    radial-gradient(500px circle at var(--mx,50%) var(--my,-30%),rgba(255,255,255,.045),transparent 60%)}
+.panel::after{content:"";position:absolute;left:18px;right:18px;top:0;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent)}
+.panel:hover{background:
+    linear-gradient(180deg,rgba(24,30,34,.76),rgba(13,16,19,.76)) padding-box,
+    linear-gradient(180deg,color-mix(in srgb,var(--accent) 35%,rgba(255,255,255,.2)),rgba(255,255,255,.06) 45%,rgba(255,255,255,.03)) border-box}
+/* a blister strip: a row of pill pockets, used as a divider */
+.blister-strip{display:flex;gap:10px;padding:10px 14px;border-radius:16px;background:linear-gradient(180deg,#d9dee3,#b8bfc6);box-shadow:inset 0 1px 0 #fff,0 10px 30px -14px rgba(0,0,0,.8);width:max-content}
+.blister-strip i{width:34px;height:16px;border-radius:99px;background:radial-gradient(ellipse at 30% 30%,rgba(255,255,255,.7),transparent 50%),linear-gradient(90deg,var(--c,var(--accent)) 50%,var(--cream) 50%);
+  box-shadow:0 0 0 4px rgba(255,255,255,.55),0 0 0 5px rgba(0,0,0,.08),0 3px 6px rgba(0,0,0,.25)}
+.blister-strip i.t{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e2dbd2)}
+.blister-strip i.empty{background:rgba(0,0,0,.06);box-shadow:0 0 0 4px rgba(255,255,255,.35),inset 0 2px 3px rgba(0,0,0,.2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:7px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.1);background:var(--glass);cursor:pointer;font-size:12.5px;display:inline-flex;gap:6px;align-items:center;transition:all .2s cubic-bezier(.3,1.4,.5,1)}
+.chip:hover{border-color:rgba(255,255,255,.25);background:var(--glass-2)}
+.chip:active{transform:scale(.96)}
+.chip[aria-pressed=true]{border-color:var(--accent-lo);background:var(--accent);color:var(--on-accent);font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 6px 16px -8px color-mix(in srgb,var(--accent) 90%,transparent)}
+.chip .lock{font-size:10px;color:var(--warn)}
+.chip[aria-pressed=true] .lock{color:var(--on-accent)}
+.toast{position:fixed;bottom:22px;left:50%;translate:-50% 0;z-index:100;display:flex;align-items:center;gap:10px;padding:10px 18px 10px 12px;border-radius:999px;background:rgba(22,18,28,.85);backdrop-filter:blur(20px);
+  border:1px solid var(--line-2);font-size:13px;box-shadow:0 14px 40px rgba(0,0,0,.5);animation:tin .35s cubic-bezier(.3,1.5,.5,1)}
+.toast::before{content:"";width:20px;height:9px;border-radius:99px;background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%);rotate:-25deg;flex:none}
+.toast.bad{color:var(--bad);border-color:rgba(255,107,127,.5)}
+.toast.bad::before{background:linear-gradient(90deg,var(--bad) 50%,var(--cream) 50%)}
+@keyframes tin{from{opacity:0;translate:-50% 14px;scale:.95}}
+
+/* ---------- modal ---------- */
+.modal{position:fixed;inset:0;z-index:90;background:rgba(4,3,6,.6);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px;animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.modal .box{width:min(440px,100%);background:rgba(20,17,26,.88);backdrop-filter:blur(30px);border:1px solid var(--line-2);border-radius:24px;padding:22px;display:flex;flex-direction:column;gap:14px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6);animation:pop .3s cubic-bezier(.3,1.5,.5,1)}
+@keyframes pop{from{opacity:0;scale:.94}}
+.modal h3{font-size:18px}
+.modal .row{display:flex;gap:8px;justify-content:flex-end}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .8s cubic-bezier(.2,.8,.2,1),transform .8s cubic-bezier(.2,.8,.2,1)}
+.reveal.shown{opacity:1;transform:none}
+@media (max-width:640px){.top nav > a:not(.btn){display:none}.top{gap:10px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* performance: blurring what's behind a box is costly when the background moves, so only
+   small floating things (top bar, menus, pop-ups, toasts) keep the frosted blur. Containers
+   are near-opaque instead, which looks the same over a dark background. */
+.panel,.btn,.chip,.kpi,.ing,.carton,.qa details,.mix,.rail,.tblwrap,.cabinet,.box3d,.formula,.side,.toolbar,.preview,.tabs,.urlbox,.row,.bl,.label-rx,.blister-strip,.mix .grp{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.panel{background:linear-gradient(180deg,rgba(20,25,29,.9),rgba(11,14,17,.9)) padding-box,linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 40%,rgba(255,255,255,.03)) border-box}
+.panel:hover{background:linear-gradient(180deg,rgba(22,28,32,.92),rgba(12,15,18,.92)) padding-box,linear-gradient(180deg,color-mix(in srgb,var(--accent) 35%,rgba(255,255,255,.2)),rgba(255,255,255,.06) 45%,rgba(255,255,255,.03)) border-box}
+.btn{background:rgba(255,255,255,.06)}

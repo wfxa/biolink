@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · {{SITE}}</title>
+<link rel="icon" href="/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link id="pickerFonts" rel="stylesheet" href="">
+<link rel="stylesheet" href="/assets/site.css">
+<link rel="stylesheet" href="/assets/dashboard.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="side"></aside>
+  <div class="mainwrap">
+    <div class="toolbar">
+      <span class="crumb" id="crumb"></span>
+      <span class="dirty" id="dirty" hidden>unsaved</span>
+      <button class="tbtn" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
+      <button class="tbtn" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
+      <button class="search" id="openSearch"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M10 3a7 7 0 1 0 4.2 12.6l5.1 5.1 1.4-1.4-5.1-5.1A7 7 0 0 0 10 3zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg><span>Search settings</span><kbd>Ctrl K</kbd></button>
+      <div class="seg" id="mode" role="group" aria-label="How many settings to show"><button data-m="ess">Basic</button><button data-m="all">Advanced</button></div>
+      <button class="btn small mobile-only" id="showPrev">Preview</button>
+    </div>
+    <main class="main" id="main"><p class="muted">Loading…</p></main>
+  </div>
+  <aside class="preview" id="preview">
+    <div class="pbar">
+      <div class="seg" id="device" role="group" aria-label="Preview size"><button data-d="phone">Phone</button><button data-d="desktop">Desktop</button></div>
+      <button class="btn small mobile-only" id="closePrev">Close</button>
+      <a class="btn small" id="openPage" target="_blank" rel="noopener">Open page ↗</a>
+    </div>
+    <div class="pframe" id="pframe"><iframe id="frame" title="Preview of your page"></iframe></div>
+  </aside>
+</div>
+<div class="savebar" id="savebar" hidden><svg class="syr" viewBox="0 0 64 16" aria-hidden="true"><rect x="1" y="6" width="9" height="4" rx="1" fill="#e9e3ea"/><rect x="10" y="2" width="2" height="12" rx="1" fill="#e9e3ea"/><rect x="12" y="3" width="32" height="10" rx="2" fill="rgba(255,255,255,.15)" stroke="rgba(255,255,255,.7)"/><rect class="liq" x="13" y="4" width="30" height="8" rx="1" style="fill:var(--accent)"/><rect x="44" y="6" width="4" height="4" fill="#d9d3dc"/><line x1="48" y1="8" x2="63" y2="8" stroke="#dcdce6" stroke-width="1.4"/></svg><span>Changes not saved yet</span><button class="btn small" id="discard">Discard</button><button class="btn small primary" id="save">Save</button></div>
+<div class="palette" id="palette" hidden><div class="pbox"><input id="pq" type="search" placeholder="Type a setting, like “font”, “cursor” or “lyrics”" aria-label="Search settings"><div id="pres" class="pres"></div></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/assets/icons.js"></script>
+<script src="/assets/common.js"></script>
+<script src="/assets/dashboard.js"></script>
+<script src="/assets/fx.js"></script>
+</body>
+</html>

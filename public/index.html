@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{SITE}} · everything you are, in one dose</title>
+<meta name="description" content="Fill one prescription and get a page for your links, music and Discord, styled your way. Free.">
+<meta property="og:title" content="{{SITE}}">
+<meta property="og:description" content="Everything you are, in one dose. Links, music and live Discord on one page.">
+<meta name="theme-color" content="var(--accent)">
+<link rel="icon" href="/assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/site.css">
+<style>
+/* Layout: prescription hero → shake-the-bottle demo → facts label → shelf → dosage → pharmacist → footer. */
+.announce{background:var(--accent);color:var(--on-accent);text-align:center;font-size:12.5px;font-weight:600;padding:8px 16px}
+.wrap{width:min(1120px,100% - 32px);margin:0 auto}
+section{padding:40px 0 0}
+.divider{display:flex;justify-content:center;padding:70px 0 10px}
+.divider .blister-strip{rotate:-1.5deg;opacity:.92}
+.kicker{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px}
+.kicker .capsule{rotate:-30deg}
+h2{font-size:clamp(34px,5vw,56px)}
+.sub{color:var(--muted);font-size:15.5px;max-width:56ch;margin:12px 0 34px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center;padding:70px 0 20px}
+.hero h1{font-size:clamp(48px,7.4vw,96px);letter-spacing:-.055em;line-height:.95}
+.hero h1 .hl{font-style:italic;font-weight:800}
+.hero .lead{color:var(--muted);font-size:16.5px;max-width:44ch;margin:22px 0 28px;line-height:1.6}
+.claim{max-width:500px;rotate:-1.2deg;transition:rotate .4s}
+.claim:hover{rotate:0deg}
+.claim-line{display:flex;align-items:center;gap:6px;background:#fff;border:2px solid #1d1418;border-radius:999px;padding:4px 4px 4px 16px}
+.claim-line .pre{color:#857680;white-space:nowrap;font-size:13px}
+.claim-line input{border:0!important;background:transparent!important;padding:8px 2px!important;min-width:0;flex:1;color:#1d1418;box-shadow:none!important}
+.claim-status{font-size:12px;margin-top:8px;min-height:1.3em}
+.vitals{display:flex;gap:34px;margin-top:30px}
+.vitals b{display:block;font-family:var(--display);font-size:30px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.vitals span{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+/* the cabinet: bottle, syringe and loose pills */
+.cabinet{position:relative;min-height:540px;border-radius:32px;border:1px solid var(--line-2);overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015)),repeating-linear-gradient(0deg,transparent 0 158px,rgba(255,255,255,.06) 158px 161px);backdrop-filter:blur(14px)}
+.cabinet::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 75% 15%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 50%),radial-gradient(circle at 10% 95%,rgba(185,167,255,.16),transparent 45%)}
+.fl{position:absolute;animation:fl 7s ease-in-out infinite;z-index:2}
+@keyframes fl{50%{transform:translateY(-12px) rotate(7deg)}}
+.bottle{position:absolute;left:50%;top:50%;translate:-50% -56%;width:min(230px,56%);z-index:1;filter:drop-shadow(0 36px 40px rgba(0,0,0,.6))}
+.bottle .cap{height:46px;margin:0 7%;border-radius:12px 12px 4px 4px;background:repeating-linear-gradient(90deg,#f5efe8 0 6px,#ddd4ca 6px 8px);box-shadow:inset 0 -6px 0 rgba(0,0,0,.08)}
+.bottle .body{border-radius:16px 16px 28px 28px;padding:30px 12px 40px;background:linear-gradient(90deg,rgba(255,165,50,.55),rgba(255,198,110,.82) 38%,rgba(255,150,40,.5));border:1px solid rgba(255,214,160,.55);box-shadow:inset 0 0 40px rgba(255,255,255,.14),inset -14px 0 30px rgba(120,50,0,.2)}
+.bottle .label-rx{padding:12px 14px;box-shadow:none}
+.bottle .label-rx header{font-size:15px}
+.bottle .ln i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2fb36a;margin-right:4px}
+.syr{position:absolute;right:-30px;bottom:110px;rotate:-24deg;z-index:3;width:260px;height:40px;animation:fl 9s ease-in-out infinite reverse}
+.organizer{position:absolute;left:50%;bottom:22px;translate:-50% 0;z-index:2;display:flex;gap:4px;padding:6px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px);box-shadow:0 20px 40px -16px rgba(0,0,0,.8)}
+.organizer .cell{width:46px;height:58px;border-radius:9px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);display:flex;flex-direction:column;overflow:hidden}
+.organizer .lid{height:16px;background:color-mix(in srgb,var(--lc) 85%,#000);color:#0b0d0e;font-family:var(--mono);font-size:9.5px;font-weight:600;display:grid;place-items:center}
+.organizer .pills{flex:1;display:flex;flex-wrap:wrap;gap:3px;align-content:center;justify-content:center;padding:3px}
+.organizer .cp{width:16px;height:7px;border-radius:9px;background:linear-gradient(90deg,var(--c) 50%,#f6f2ea 50%);rotate:-30deg}
+.organizer .tb{width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#ddd5cb)}
+.organizer .gc{width:12px;height:8px;border-radius:50%;background:radial-gradient(ellipse at 35% 30%,#ffe9a8,#e39a2a)}
+.strip-a{position:absolute;top:24px;left:50%;translate:-50% 0;rotate:4deg;z-index:2;scale:.8}
+
+/* shake the bottle */
+.mix{border:1px solid transparent;border-radius:28px;background:linear-gradient(180deg,rgba(22,27,31,.7),rgba(12,15,18,.7)) padding-box,linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.04)) border-box;backdrop-filter:blur(18px);padding:12px;display:grid;grid-template-columns:1fr 300px;gap:12px}
+.mix iframe{width:100%;height:600px;border:0;border-radius:20px;background:#000}
+.mix aside{display:flex;flex-direction:column;gap:12px;overflow:auto;max-height:600px;padding-right:2px}
+.mix .grp{padding:14px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.025)}
+.mix .grp .tag-mono{display:block;margin-bottom:9px}
+.mixbar{display:flex;align-items:center;gap:8px;margin-top:10px;padding:0 6px}
+.mixbar code{font-size:12px;color:var(--muted)}.mixbar code b{color:var(--text)}
+
+/* supplement facts */
+.facts-wrap{display:grid;grid-template-columns:420px 1fr;gap:40px;align-items:start}
+.facts{background:var(--cream);color:#140e12;border-radius:6px;padding:14px 16px 16px;font-family:var(--body);border:3px solid #140e12;box-shadow:0 40px 80px -30px rgba(0,0,0,.9)}
+.facts h3{color:#140e12;font-size:34px;font-weight:800;letter-spacing:-.04em;border-bottom:1px solid #140e12;padding-bottom:4px}
+.facts .serv{font-size:13px;border-bottom:10px solid #140e12;padding:4px 0 6px}
+.facts .hd{display:flex;justify-content:space-between;font-size:11px;font-weight:700;border-bottom:4px solid #140e12;padding:4px 0}
+.facts .r{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:5px 0;border-bottom:1px solid rgba(20,14,18,.35)}
+.facts .r b{font-weight:700}
+.facts .r em{font-style:normal;font-family:var(--mono);font-size:12.5px}
+.facts .r.thick{border-bottom:4px solid #140e12}
+.facts small{display:block;font-size:10.5px;line-height:1.45;margin-top:8px;color:#4a3d45}
+.ingredients{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ing{position:relative;display:flex;gap:14px;align-items:flex-start;padding:20px;border-radius:22px;border:1px solid transparent;
+  background:linear-gradient(180deg,rgba(22,27,31,.7),rgba(12,15,18,.7)) padding-box,linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)) border-box;backdrop-filter:blur(18px);transition:transform .25s}
+.ing:hover{transform:translateY(-3px);border-color:var(--line-2)}
+.ing .capsule{flex:none;margin-top:4px;rotate:-25deg}
+.ing b{display:block;font-family:var(--display);font-size:17px;letter-spacing:-.02em;margin-bottom:4px}
+.ing p{font-size:13.5px;color:var(--muted);line-height:1.55}
+
+/* shelf of featured pages */
+.shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.box3d{position:relative;display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:18px;text-decoration:none;min-height:220px;
+  background:linear-gradient(160deg,color-mix(in srgb,var(--c) 28%,#16121b),#100d14 70%);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);transition:transform .3s cubic-bezier(.3,1.4,.5,1),box-shadow .3s}
+.box3d:hover{transform:translateY(-6px) rotate(-1deg);box-shadow:0 30px 50px -24px color-mix(in srgb,var(--c) 70%,transparent)}
+.box3d::before{content:"";position:absolute;top:0;left:18px;right:18px;height:6px;border-radius:0 0 6px 6px;background:var(--c)}
+.box3d .av{width:58px;height:58px;border-radius:50%;background:#000;overflow:hidden;display:grid;place-items:center;font-weight:700;border:2px solid color-mix(in srgb,var(--c) 60%,#fff)}
+.box3d .av img{width:100%;height:100%;object-fit:cover}
+.box3d b{font-family:var(--display);font-size:20px;letter-spacing:-.03em}
+.box3d p{font-size:12.5px;color:var(--muted);flex:1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.box3d .meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;border-top:1px dashed var(--line-2);padding-top:8px}
+.empty-shelf{padding:30px;border-radius:20px;border:1px dashed var(--line-2);color:var(--muted);text-align:center}
+
+/* dosage */
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:880px}
+.carton{position:relative;padding:26px;border-radius:22px;border:1px solid transparent;background:linear-gradient(180deg,rgba(22,27,31,.75),rgba(12,15,18,.75)) padding-box,linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.04)) border-box;backdrop-filter:blur(18px);display:flex;flex-direction:column;gap:16px;overflow:hidden}
+.carton .strip{position:absolute;left:0;right:0;top:0;height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#fff}
+.carton.reg .strip{background:#2a3136}.carton.xs .strip{background:var(--accent);color:var(--on-accent)}
+.carton h3{margin-top:34px;font-size:30px}
+.carton .mg{font-family:var(--mono);color:var(--muted);font-size:12px}
+.carton ul{list-style:none;display:flex;flex-direction:column;gap:9px;font-size:14px}
+.carton li{display:flex;gap:10px;align-items:baseline}
+.carton li::before{content:"";flex:none;width:15px;height:7px;border-radius:99px;background:linear-gradient(90deg,var(--violet) 50%,var(--cream) 50%);translate:0 -2px}
+.carton.xs li::before{background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%)}
+.carton.xs{border-color:color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 30px 80px -40px color-mix(in srgb,var(--accent) 80%,transparent)}
+
+/* pharmacist */
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.qa details{padding:18px 20px;border-radius:18px;border:1px solid transparent;background:linear-gradient(180deg,rgba(22,27,31,.7),rgba(12,15,18,.7)) padding-box,linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04)) border-box;backdrop-filter:blur(18px)}
+.qa details[open]{border-color:var(--line-2)}
+.qa summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.qa summary::after{content:"+";color:var(--accent);font-size:18px;line-height:1;transition:rotate .25s}
+.qa details[open] summary::after{rotate:45deg}
+.qa p{color:var(--muted);margin-top:10px;font-size:13.5px;line-height:1.6}
+
+footer{margin-top:100px;border-top:1px dashed var(--line-2);padding:28px 0 50px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--dim)}
+footer nav{display:flex;gap:18px}
+footer a{text-decoration:none}footer a:hover{color:var(--text)}
+.barcode{height:26px;width:140px;background:repeating-linear-gradient(90deg,var(--dim) 0 2px,transparent 2px 4px,var(--dim) 4px 5px,transparent 5px 8px,var(--dim) 8px 11px,transparent 11px 12px);opacity:.6}
+
+@media (max-width:960px){.hero,.facts-wrap{grid-template-columns:1fr}.mix{grid-template-columns:1fr}.mix aside{max-height:none}.cabinet{min-height:420px}.ingredients,.qa,.plans{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="announce"></div>
+<header class="top">
+  <a class="logo" href="/"><i></i>{{SITE}}</a>
+  <nav>
+    <a href="#mix">Mix one</a>
+    <a href="#facts">Ingredients</a>
+    <a href="#dosage">Dosage</a>
+    <a href="/leaderboard">Top shelf</a>
+    <span id="authNav"><a class="btn small" href="/login">Sign in</a></span>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <div>
+      <span class="kicker tag-mono"><span class="capsule" style="--w:22px"></span> Rx · one page · no appointment</span>
+      <h1>Everything you are, in <span class="hl">one dose.</span></h1>
+      <p class="lead">Fill one prescription and get a page that holds your links, your songs and your Discord, styled exactly how you like it. Free to fill, refills forever.</p>
+      <form class="label-rx claim" id="claim">
+        <header><span><span class="rx">Rx</span> new prescription</span><span style="font-size:11px;font-weight:600">No. <span id="nextRx">0001</span></span></header>
+        <div class="claim-line"><span class="pre" id="host">{{SITE}}/</span><input id="claimName" type="text" placeholder="yourname" maxlength="20" autocomplete="off" aria-label="Choose your name" spellcheck="false"><button class="btn primary" type="submit">Fill it</button></div>
+        <div class="claim-status" id="claimStatus"></div>
+        <small>Take as needed. Share with everyone. Refill whenever you feel like it.</small>
+      </form>
+      <div class="vitals"><div><b id="sMembers">–</b><span>patients</span></div><div><b id="sViews">–</b><span>visits filled</span></div><div><b id="sNext">#–</b><span>next number</span></div></div>
+    </div>
+    <div class="cabinet" aria-hidden="true">
+      <span class="capsule fl" style="--w:108px;top:14%;left:6%;rotate:-28deg"></span>
+      <span class="capsule fl" style="--w:58px;--a:var(--amber);top:58%;left:7%;rotate:38deg;animation-delay:-2s"></span>
+      <span class="capsule fl" style="--w:52px;--a:var(--violet);top:20%;right:8%;rotate:64deg;animation-delay:-4s"></span>
+      <span class="capsule fl" style="--w:44px;--a:var(--sky);--b:var(--amber);top:50%;right:6%;rotate:-50deg;animation-delay:-6s"></span>
+      <span class="tablet fl" style="top:47%;left:5%;animation-delay:-3s"></span>
+      <span class="tablet fl" style="--w:28px;top:7%;right:36%;animation-delay:-5s"></span>
+      <svg class="syr" viewBox="0 0 260 40" aria-hidden="true">
+        <rect x="2" y="17" width="34" height="6" rx="2" fill="#efeaf2"/><rect x="0" y="8" width="6" height="24" rx="2" fill="#efeaf2"/>
+        <rect x="36" y="4" width="5" height="32" rx="2" fill="#d9d3dc"/>
+        <rect x="41" y="10" width="140" height="20" rx="4" fill="rgba(255,255,255,.18)" stroke="rgba(255,255,255,.8)" stroke-width="1.5"/>
+        <rect x="76" y="12.5" width="103" height="15" rx="2" style="fill:var(--accent);opacity:.9"/>
+        <g stroke="rgba(255,255,255,.7)" stroke-width="1.2"><line x1="60" y1="10" x2="60" y2="17"/><line x1="80" y1="10" x2="80" y2="17"/><line x1="100" y1="10" x2="100" y2="17"/><line x1="120" y1="10" x2="120" y2="17"/><line x1="140" y1="10" x2="140" y2="17"/><line x1="160" y1="10" x2="160" y2="17"/></g>
+        <rect x="181" y="15" width="12" height="10" rx="2" fill="#d9d3dc"/><line x1="193" y1="20" x2="258" y2="20" stroke="#dcdce6" stroke-width="2"/>
+      </svg>
+      <div class="organizer" aria-hidden="true"><div class="cell"><span class="lid" style="--lc:#5ef2b0">M</span><span class="pills"><i class="cp" style="--c:#5ef2b0"></i><i class="tb"></i></span></div><div class="cell"><span class="lid" style="--lc:#b9a7ff">T</span><span class="pills"><i class="cp" style="--c:#b9a7ff"></i></span></div><div class="cell"><span class="lid" style="--lc:#7cc8ff">W</span><span class="pills"><i class="tb"></i><i class="gc"></i></span></div><div class="cell"><span class="lid" style="--lc:#ffc35c">T</span><span class="pills"><i class="cp" style="--c:#ffc35c"></i><i class="tb"></i></span></div><div class="cell"><span class="lid" style="--lc:#ff8fb1">F</span><span class="pills"><i class="gc"></i><i class="cp" style="--c:#ff8fb1"></i></span></div><div class="cell"><span class="lid" style="--lc:#c6ff5e">S</span><span class="pills"><i class="tb"></i></span></div><div class="cell"><span class="lid" style="--lc:#f6f2ea">S</span><span class="pills"><i class="cp" style="--c:#7cc8ff"></i></span></div></div>
+      <div class="blister-strip strip-a"><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i></div>
+      <div class="bottle">
+        <div class="cap"></div>
+        <div class="body"><div class="label-rx">
+          <header><span>{{SITE}}<span class="rx">.</span></span><span style="font-size:10px">Rx 0001</span></header>
+          <div class="ln"><span>patient</span><b>you</b></div>
+          <div class="ln"><span>contains</span><b>links · songs · status</b></div>
+          <div class="ln"><span>discord</span><b><i></i>online</b></div>
+          <div class="ln"><span>refills</span><b>unlimited</b></div>
+          <small>Shake well. Share daily. Side effects may include compliments.</small>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="mix">
+    <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--mint)"></span> no account needed</span>
+    <h2>Shake the bottle.</h2>
+    <p class="sub">A working {{SITE}} page sits below. Mix the ingredients on the right and it changes in front of you.</p>
+    <div class="mix">
+      <iframe id="demo" src="/demo?preview=1" title="A sample page you can restyle"></iframe>
+      <aside id="ctrls">
+        <div class="grp"><span class="tag-mono">Formula</span><div class="chips" id="formulas"></div></div>
+      </aside>
+    </div>
+    <div class="mixbar"><code>{{SITE}}/<b>you</b></code><button class="btn small" id="replay" style="margin-left:auto">Play the opening again</button></div>
+  </section>
+
+  <div class="divider" aria-hidden="true"><div class="blister-strip"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i><i class="t"></i><i style="--c:#ff8fb1"></i></div></div>
+  <section id="facts">
+    <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--amber)"></span> read the label</span>
+    <h2>What's in the bottle.</h2>
+    <p class="sub">Every page comes with the full formula. Nothing to unlock for the basics, nothing to install.</p>
+    <div class="facts-wrap">
+      <div class="facts" aria-label="What every page includes">
+        <h3>Page Facts</h3>
+        <div class="serv">Serving size 1 page · Servings per patient: unlimited</div>
+        <div class="hd"><span>Amount per page</span><span>Daily value</span></div>
+        <div class="r thick"><b>Opening screens</b><em>8</em></div>
+        <div class="r"><span>Name styles</span><em>16</em></div>
+        <div class="r"><span>Typefaces</span><em>20</em></div>
+        <div class="r"><span>Atmospheres</span><em>12</em></div>
+        <div class="r"><span>Cursor trails</span><em>6</em></div>
+        <div class="r"><span>Click reactions</span><em>5</em></div>
+        <div class="r thick"><span>Platforms with icons</span><em>26</em></div>
+        <div class="r"><b>Live Discord status</b><em>100%</em></div>
+        <div class="r"><b>Synced lyrics</b><em>100%</em></div>
+        <div class="r"><b>Visitor stats</b><em>100%</em></div>
+        <small>* Percent daily value is based on a 2,000-click diet. Not evaluated by any authority. Keep within reach of friends.</small>
+      </div>
+      <div class="ingredients" id="ingredients" data-reveal></div>
+    </div>
+  </section>
+
+  <div class="divider" aria-hidden="true"><div class="blister-strip"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i><i class="t"></i><i style="--c:#ff8fb1"></i></div></div>
+  <section id="shelf">
+    <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--violet)"></span> staff picks</span>
+    <h2>On the shelf.</h2>
+    <p class="sub">Pages the pharmacy is proud of. Tap one to see it in full.</p>
+    <div class="shelf" id="featured"><div class="empty-shelf">The shelf is being stocked. Check back soon.</div></div>
+  </section>
+
+  <div class="divider" aria-hidden="true"><div class="blister-strip"><i style="--c:#5ef2b0"></i><i class="t"></i><i style="--c:#b9a7ff"></i><i class="t"></i><i style="--c:#ffc35c"></i><i class="empty"></i><i style="--c:#7cc8ff"></i><i class="t"></i><i style="--c:#ff8fb1"></i></div></div>
+  <section id="dosage">
+    <span class="kicker tag-mono"><span class="capsule" style="--w:22px"></span> pick a strength</span>
+    <h2>Dosage.</h2>
+    <p class="sub">Regular strength does everything most people need. Extra strength is for heavy users.</p>
+    <div class="plans" data-reveal>
+      <div class="carton reg"><div class="strip"><span>regular strength</span><span>0 mg · free</span></div>
+        <h3>Free</h3><span class="mg">for everyone, forever</span>
+        <ul><li>Your own {{SITE}}/name and one spare name</li><li>All 8 openings and 16 name styles</li><li>Image, colour and animated backgrounds</li><li>3-song playlist with lyrics</li><li>Live Discord, Spotify and games</li><li>Up to 15 icons and 10 buttons</li><li>Stats with countries, devices and sources</li></ul>
+        <a class="btn" href="/signup">Start regular</a></div>
+      <div class="carton xs"><div class="strip"><span>extra strength</span><span>premium</span></div>
+        <h3>Premium</h3><span class="mg">everything in regular, plus</span>
+        <ul><li>Video backgrounds</li><li>Northern lights, fog and storm</li><li>Your own CSS</li><li>15-song playlist, 30 icons, 25 buttons</li><li>3 extra pages and 3 spare names</li><li>Animated card border</li><li>Bigger uploads and a Premium badge</li></ul>
+        <a class="btn primary" href="/signup">Start extra strength</a></div>
+    </div>
+  </section>
+
+  <section id="ask">
+    <span class="kicker tag-mono"><span class="capsule" style="--w:22px;--a:var(--mint)"></span> questions</span>
+    <h2>Ask the pharmacist.</h2>
+    <div class="qa" data-reveal style="margin-top:28px">
+      <details><summary>What does it cost?</summary><p>Nothing. Making a page, styling it and reading your stats are all free. Premium only adds heavier extras.</p></details>
+      <details><summary>Any side effects?</summary><p>Mild cases of people asking where you got your page. In rare cases, rearranging your sections at 3am.</p></details>
+      <details><summary>How does the Discord part work?</summary><p>Join the Lanyard server on Discord and add your user ID in your dashboard, or simply sign in with Discord. Your status, game and song then show on your page and update every few seconds.</p></details>
+      <details><summary>Can I change my name later?</summary><p>Yes, any time. Your old name rests for 24 hours before anyone else can take it, and you can keep spare names that point to your page.</p></details>
+      <details><summary>What's my number?</summary><p>Every patient gets a number in the order they joined. It's printed on your prescription card and it never changes.</p></details>
+      <details><summary>Something on a page isn't okay.</summary><p>Every page has a small report link at the bottom. The team reads every report.</p></details>
+    </div>
+  </section>
+
+  <footer>
+    <div style="display:flex;flex-direction:column;gap:8px"><span class="barcode"></span><span>© <span id="yr"></span> {{SITE}} · dispensed with care · keep within reach of friends</span></div>
+    <nav><a href="/leaderboard">Top shelf</a><a href="/dashboard">Dashboard</a><a href="/signup">New prescription</a></nav>
+  </footer>
+</main>
+
+<script src="/assets/icons.js"></script>
+<script src="/assets/common.js"></script>
+<script>
+document.getElementById("yr").textContent = new Date().getFullYear();
+document.getElementById("host").textContent = location.host + "/";
+
+const ING = [
+  ["#5ef2b0", "Openings", "Visitors click through a curtain, an aperture, a shutter or a boot-up screen before your page appears, and your song starts with them."],
+  ["#b9a7ff", "Live from Discord", "Your status dot, the game you're in and the track you're playing, with lyrics that scroll in time."],
+  ["#7cc8ff", "Atmosphere", "Night sky, comets, blossom, storm, 8-bit snow and more drifting over your background."],
+  ["#ffc35c", "Cursor & clicks", "A moth, a ribbon of light or falling snow follows the cursor. Clicks burst, ripple or chime."],
+  ["#ff8fb1", "Screens to scroll", "Move any section to a second or third screen and visitors scroll down into it."],
+  ["#c6ff5e", "Spare names", "Keep extra names that lead to your page, plus extra pages like /you/setup."],
+  ["#5ef2b0", "Know your visitors", "Visits and unique visitors against the previous period, plus your top links, devices and countries."],
+  ["#b9a7ff", "Formulas", "One-tap style mixes to start from, then change any ingredient yourself."],
+];
+document.getElementById("ingredients").innerHTML = ING.map(([c, t, d]) => `<div class="ing"><span class="capsule" style="--w:30px;--a:${c}"></span><div><b>${t}</b><p>${d}</p></div></div>`).join("");
+
+/* shake the bottle: restyle the demo page through the same live preview the dashboard uses */
+const demo = document.getElementById("demo");
+let demoData = null;
+const GROUPS = [
+  ["Opening", "enter.type", [["off", "None"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["boot", "Boot up"]]],
+  ["Name style", "name.effect", [["glow", "Glow"], ["neon", "Neon"], ["shine", "Shine"], ["split", "Split"], ["focus", "Focus"], ["sparkle", "Sparkle"], ["stroke", "Outline"], ["glitch", "Glitch"], ["typewriter", "Typed"]]],
+  ["Atmosphere", "overlay", [["none", "Clear"], ["stars", "Night sky"], ["comets", "Comets"], ["blossom", "Blossom"], ["rain", "Rain"], ["storm", "Storm"], ["pixelsnow", "8-bit snow"], ["aurora", "Aurora"]]],
+  ["Cursor", "cursor.effect", [["none", "Plain"], ["moth", "Moth"], ["sparkle", "Sparkle"], ["ribbon", "Ribbon"], ["snow", "Snow"]]],
+];
+const FORMULAS = {
+  "Night shift": { colors: { accent: "#ff5c8a" }, background: { type: "animated", animated: "mesh", color: "#0c0710" }, overlay: "stars", name: { effect: "glow", gradient: true, from: "#ffffff", to: "#ffb3c8" }, cursor: { effect: "moth" }, card: { style: "glass" } },
+  "Vitamin C": { colors: { accent: "#ffb547" }, background: { type: "animated", animated: "gradient", color: "#1a0e04" }, overlay: "fireflies", name: { effect: "shine", gradient: true, from: "#fff4ea", to: "#ffb547" }, cursor: { effect: "sparkle" }, card: { style: "glass" } },
+  "Mint": { colors: { accent: "#7df0c8" }, background: { type: "animated", animated: "waves", color: "#05130e" }, overlay: "blossom", name: { effect: "focus", gradient: false }, cursor: { effect: "snow" }, card: { style: "outline" } },
+  "Lavender": { colors: { accent: "#a98bff" }, background: { type: "animated", animated: "mesh", color: "#0d0818" }, overlay: "comets", name: { effect: "split", gradient: true, from: "#ffffff", to: "#c9b5ff" }, cursor: { effect: "ribbon" }, card: { style: "glass" } },
+  "Clinic": { colors: { accent: "#6fb7ff" }, background: { type: "animated", animated: "grid", color: "#04070d" }, overlay: "none", name: { effect: "stroke", gradient: false }, cursor: { effect: "none" }, card: { style: "solid" } },
+};
+const merge = (a, b) => { for (const k of Object.keys(b)) { if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k])) merge(a[k], b[k]); else a[k] = b[k]; } };
+const setPath = (o, path, v) => { const ks = path.split("."); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; };
+const getPath = (o, path) => path.split(".").reduce((a, k) => a && a[k], o);
+const ctrls = document.getElementById("ctrls");
+document.getElementById("formulas").innerHTML = Object.keys(FORMULAS).map((n, i) => `<button class="chip" data-f="${n}" aria-pressed="${i === 0}">${n}</button>`).join("");
+ctrls.insertAdjacentHTML("beforeend", GROUPS.map(([t, k, opts]) => `<div class="grp"><span class="tag-mono">${t}</span><div class="chips">${opts.map(([v, l]) => `<button class="chip" data-k="${k}" data-v="${v}">${l}</button>`).join("")}</div></div>`).join(""));
+const syncChips = () => document.querySelectorAll("[data-k]").forEach((b) => {
+  const cur = b.dataset.k === "enter.type" ? (demoData.profile.enter.show ? demoData.profile.enter.type : "off") : getPath(demoData.profile, b.dataset.k);
+  b.setAttribute("aria-pressed", cur === b.dataset.v);
+});
+const send = (enter) => { try { demo.contentWindow.postMessage({ type: "dose-preview", data: { ...demoData, __enter: enter } }, location.origin); } catch {} };
+demo.addEventListener("load", () => {
+  try { demoData = JSON.parse(JSON.stringify(demo.contentWindow.__DATA)); } catch { return; }
+  const p = demoData.profile; p.enter.show = true; p.enter.type = "curtain"; p.underName.style = "plain";
+  merge(p, FORMULAS["Night shift"]); send(false); syncChips();
+});
+ctrls.addEventListener("click", (e) => {
+  const f = e.target.closest("[data-f]");
+  if (f && demoData) { document.querySelectorAll("[data-f]").forEach((x) => x.setAttribute("aria-pressed", x === f)); merge(demoData.profile, JSON.parse(JSON.stringify(FORMULAS[f.dataset.f]))); send(false); syncChips(); return; }
+  const b = e.target.closest("[data-k]"); if (!b || !demoData) return;
+  if (b.dataset.k === "enter.type") { demoData.profile.enter.show = b.dataset.v !== "off"; if (b.dataset.v !== "off") demoData.profile.enter.type = b.dataset.v; syncChips(); send(demoData.profile.enter.show); return; }
+  setPath(demoData.profile, b.dataset.k, b.dataset.v); syncChips(); send(false);
+});
+document.getElementById("replay").onclick = () => demoData && send(demoData.profile.enter.show);
+// Pause the demo's animations while it's scrolled out of view, so the rest of the page stays smooth.
+if ("IntersectionObserver" in window) new IntersectionObserver(([en]) => {
+  try { demo.contentWindow.postMessage({ type: "dose-pause", paused: !en.isIntersecting }, location.origin); } catch {}
+}, { threshold: 0.05 }).observe(demo);
+
+api("/api/site").then((s) => {
+  document.getElementById("sMembers").textContent = s.members.toLocaleString();
+  document.getElementById("sViews").textContent = s.views.toLocaleString();
+  document.getElementById("sNext").textContent = "#" + (s.members + 1);
+  document.getElementById("nextRx").textContent = String(s.members + 1).padStart(4, "0");
+  if (s.announcement) document.getElementById("announce").innerHTML = `<div class="announce">${esc(s.announcement)}</div>`;
+  if (s.me) document.getElementById("authNav").innerHTML = `<a class="btn small primary" href="/dashboard">Dashboard</a>`;
+  if (s.featured.length) document.getElementById("featured").innerHTML = s.featured.map((f) => `<a class="box3d" href="/${esc(f.username)}" style="--c:${esc(f.accent || "var(--accent)")}">
+    <span class="av">${f.avatar ? `<img src="${esc(f.avatar)}" alt="">` : esc((f.displayName || f.username).slice(0, 2))}</span>
+    <b>${esc(f.displayName || f.username)}</b><p>${esc(f.bio || "")}</p>
+    <span class="meta"><span>Rx #${f.memberNo}</span><span>${f.views.toLocaleString()} visits</span></span></a>`).join("");
+  if (s.inviteOnly) document.getElementById("claimStatus").innerHTML = `<span style="color:#6b5e66">Sign-ups are invite-only right now. You'll need a code.</span>`;
+}).catch(() => {});
+
+const input = document.getElementById("claimName"), status = document.getElementById("claimStatus");
+let t;
+input.addEventListener("input", () => {
+  input.value = input.value.replace(/[^a-z0-9_.]/gi, "");
+  clearTimeout(t); status.textContent = "";
+  if (!input.value) return;
+  t = setTimeout(async () => {
+    const r = await api("/api/check/" + encodeURIComponent(input.value)).catch(() => null);
+    if (!r) return;
+    status.innerHTML = r.available ? `<span style="color:#107548;font-weight:600">${esc(input.value)} is on the shelf. Fill it before someone else does.</span>` : `<span style="color:#b3172e;font-weight:600">${esc(r.reason)}</span>`;
+  }, 280);
+});
+document.getElementById("claim").addEventListener("submit", (e) => { e.preventDefault(); location.href = "/signup" + (input.value ? "?name=" + encodeURIComponent(input.value) : ""); });
+</script>
+<script src="/assets/fx.js"></script>
+</body>
+</html>
