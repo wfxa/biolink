@@ -780,13 +780,13 @@
           if (W) blocks.push(`<div class="box presence-wrap pcard-wrap"><div class="pcard sp">${label(p.live.listeningLabel, `<i class="eq"><b></b><b></b><b></b><b></b></i><span class="onrep" hidden><svg viewBox="0 0 24 24"><path d="M7 7h10l-2-2 1.4-1.4L20.8 8l-4.4 4.4L15 11l2-2H7a3 3 0 0 0-3 3H2a5 5 0 0 1 5-5zm10 10H7l2 2-1.4 1.4L3.2 16l4.4-4.4L9 13l-2 2h10a3 3 0 0 0 3-3h2a5 5 0 0 1-5 5z"/></svg><em></em></span>`)}
             <a class="part" href="https://open.spotify.com/track/${esc(sp.track_id || "")}" target="_blank" rel="noopener noreferrer" title="Open in Spotify">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</a>
             <div class="pbody"><b class="mq"><span>${esc(sp.song)}</span></b><span class="sub mq"><span>${esc(sp.artist.replace(/;/g, ","))}</span></span>
-            <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
-            ${p.live.lyrics ? `<div class="lyrics" hidden><div></div></div>` : ""}</div>`);
+            <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div>
+            ${p.live.lyrics ? `<div class="lyrics in" hidden><div></div></div>` : ""}</div></div>`);
           else blocks.push(`<div class="box presence-wrap"><div class="presence"><div class="art">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</div>
             <div class="txt"><small class="lbl">${esc(p.live.listeningLabel)}</small><b>${esc(sp.song)}</b><span class="sub">${esc(sp.artist)}</span>
             <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
             ${p.live.lyrics ? `<div class="lyrics" hidden><div></div></div>` : ""}</div>`);
-          if (p.background.type === "auto" && sp.album_art_url) { const img = root.querySelector(".bg .auto"); if (img) { img.src = sp.album_art_url; img.hidden = false; } }
+          if (p.background.type === "auto" && p.background.albumArt && sp.album_art_url) { const img = root.querySelector(".bg .auto"); if (img) { img.src = sp.album_art_url; img.hidden = false; } }
         } else if (p.background.type === "auto") { const img = root.querySelector(".bg .auto"); if (img && p.avatar.src && img.getAttribute("src") !== p.avatar.src) img.src = p.avatar.src; }
         if (p.live.games) for (const a of (L.activities || []).filter((x) => x.type === 0 || x.type === 1 || x.type === 3).slice(0, 2)) {
           const img = a.assets && a.assets.large_image;

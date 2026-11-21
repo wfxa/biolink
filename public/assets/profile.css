@@ -817,3 +817,6 @@ canvas.fx{z-index:1}canvas.cursorfx{z-index:70}
 
 .cs-magazine .card:first-of-type{padding-top:150px}
 .cs-magazine .mast{top:16px}
+/* lyrics inside the wide Spotify card */
+.pcard .lyrics.in{grid-column:1 / -1;margin:2px 0 0;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--pc) 22%,transparent)}
+@container (max-width:360px){.pcard .lyrics.in{grid-column:1 / -1}}

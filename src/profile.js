@@ -62,7 +62,7 @@ const SCHEMA = {
   banner: IMG(),
   background: {
     type: E(["auto", "color", "image", "video", "animated"], "animated"), color: C("#07060a"),
-    image: IMG(), video: P(UP("background")), videoSound: B(false), animated: E(ANIMATED_BGS, "gradient"),
+    image: IMG(), video: P(UP("background")), videoSound: B(false), albumArt: B(true), animated: E(ANIMATED_BGS, "gradient"),
     blur: N(0, 40, 0), dim: N(0, 95, 35), vignette: N(0, 100, 40), motion: E(["none", "zoom", "pan"], "none"), filter: E(["none", "grayscale", "sepia", "contrast"], "none"),
   },
   overlay: { t: "enum", list: OVERLAYS, d: "particles", premiumValues: PREMIUM_OVERLAYS },
