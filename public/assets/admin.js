@@ -13,7 +13,7 @@
 
   const TABS = [
     ["overview", "Counter", "eye"], ["users", "Patients", "heart"], ["reports", "Reports", "shield"], ["badges", "Badges", "gem"],
-    ["invites", "Invites", "gift"], ["audit", "Activity log", "repo"], ["settings", "Settings", "bolt"],
+    ["invites", "Invites", "gift"], ["gifts", "Gift codes", "star"], ["names", "Held names", "crown"], ["audit", "Activity log", "repo"], ["settings", "Settings", "bolt"],
   ];
   function rail() {
     $("#rail").innerHTML = `<span class="tag-mono">behind the counter</span>` + TABS.map(([id, label, ic]) =>
@@ -23,7 +23,7 @@
   function go(t) {
     tab = TABS.some((x) => x[0] === t) ? t : "overview"; history.replaceState(null, "", "#" + tab);
     rail(); $("#title").textContent = TABS.find((x) => x[0] === tab)[1]; $("#headActs").innerHTML = "";
-    ({ overview, users, reports, badges: badgesTab, invites, audit: auditTab, settings })[tab]();
+    ({ overview, users, reports, badges: badgesTab, invites, gifts, names, audit: auditTab, settings })[tab]();
   }
 
   /* ---------- counter (overview) ---------- */
@@ -74,23 +74,46 @@
       <div class="tools"><input type="search" id="q" placeholder="Search by name" value="${esc(q)}">
         <div class="chips">${[["all", "Everyone"], ["premium", "Premium"], ["staff", "Team"], ["banned", "Banned"]].map(([f, l]) => `<button class="chip" data-f="${f}" aria-pressed="${f === filter}">${l}</button>`).join("")}</div>
         <span class="tag-mono" id="count" style="margin-left:auto"></span></div>
-      <div class="tblwrap"><table class="t"><thead><tr><th>No.</th><th>patient</th><th>role</th><th>joined</th><th>last seen</th><th>visits</th><th>status</th></tr></thead><tbody id="rows"><tr><td colspan="7"><div class="spinner" style="margin:20px auto"></div></td></tr></tbody></table></div>
-      <div class="tools" id="pager"></div></div>`;
+      <div class="tblwrap"><table class="t"><thead><tr><th class="ck"><input type="checkbox" id="selAll" aria-label="Select everyone on this page"></th><th>No.</th><th>patient</th><th>role</th><th>joined</th><th>last seen</th><th>visits</th><th>status</th></tr></thead><tbody id="rows"><tr><td colspan="8"><div class="spinner" style="margin:20px auto"></div></td></tr></tbody></table></div>
+      <div class="tools" id="pager"></div>
+      <div class="bulk" id="bulk" hidden><b id="selN"></b>
+        <select id="bAct"><option value="premium">Give premium</option><option value="unpremium">Remove premium</option><option value="badge">Give badge</option><option value="unbadge">Remove badge</option><option value="ban">Ban</option><option value="unban">Unban</option><option value="reset">Reset page</option>${owner ? `<option value="delete">Delete accounts</option>` : ""}</select>
+        <input type="number" id="bDays" min="0" max="3650" placeholder="days (empty = forever)" style="width:180px">
+        <select id="bBadge" hidden>${badges.filter((b) => !b.auto).map((b) => `<option value="${b.id}">${esc(b.name)}</option>`).join("")}</select>
+        <input type="text" id="bReason" placeholder="reason (optional)" maxlength="200" hidden style="width:200px">
+        <button class="btn small primary" id="bGo">Apply</button><button class="btn small" id="bClear">Clear</button></div></div>`;
+    const syncBulkFields = () => { const a = $("#bAct").value; $("#bDays").hidden = a !== "premium"; $("#bBadge").hidden = !["badge", "unbadge"].includes(a); $("#bReason").hidden = a !== "ban"; };
+    $("#bAct").onchange = syncBulkFields; syncBulkFields();
+    $("#bClear").onclick = () => { sel.clear(); syncSel(); };
+    $("#bGo").onclick = async () => {
+      const action = $("#bAct").value, n = sel.size, label = $("#bAct").selectedOptions[0].textContent.toLowerCase();
+      if (["ban", "delete", "reset"].includes(action) && !(await modal({ title: `${label} for ${n} ${n === 1 ? "person" : "people"}?`, body: action === "delete" ? "Their pages, uploads and stats are gone for good." : action === "reset" ? "Their pages go back to defaults." : "They're signed out and their pages go offline.", confirm: "Yes, do it", danger: true }))) return;
+      try { const r = await api("/api/admin/users/bulk", { method: "POST", body: { ids: [...sel], action, days: $("#bDays").value, badge: $("#bBadge").value, reason: $("#bReason").value } });
+        toast(`Done for ${r.count} ${r.count === 1 ? "person" : "people"}${r.skipped ? ` · skipped ${r.skipped} (you or an owner)` : ""}.`); sel.clear(); loadUsers(); } catch (e) { toast(e.message, true); }
+    };
+    $("#selAll").onchange = (e) => { userRows.forEach((u) => (e.target.checked ? sel.add(u.id) : sel.delete(u.id))); syncSel(); };
     let t; $("#q").oninput = (e) => { clearTimeout(t); t = setTimeout(() => { q = e.target.value; page = 0; loadUsers(); }, 250); };
     $$("[data-f]").forEach((b) => (b.onclick = () => { filter = b.dataset.f; page = 0; users(); }));
     loadUsers();
   }
-  let userRows = [];
+  let userRows = []; const sel = new Set();
+  function syncSel() {
+    $$("#rows input[data-sel]").forEach((c) => (c.checked = sel.has(Number(c.dataset.sel))));
+    const all = $("#selAll"); if (all) { const on = userRows.filter((u) => sel.has(u.id)).length; all.checked = on && on === userRows.length; all.indeterminate = on > 0 && on < userRows.length; }
+    const b = $("#bulk"); if (b) { b.hidden = !sel.size; $("#selN").textContent = `${sel.size} selected`; }
+  }
   async function loadUsers() {
     const r = await api(`/api/admin/users?q=${encodeURIComponent(q)}&filter=${filter}&page=${page}`); userRows = r.users;
     $("#count").textContent = `${r.total} ${r.total === 1 ? "patient" : "patients"}`;
     $("#rows").innerHTML = r.users.length ? r.users.map((u) => `<tr class="${u.banned ? "banned" : ""}" data-id="${u.id}">
-      <td class="num">${String(u.memberNo).padStart(4, "0")}</td>
+      <td class="ck"><input type="checkbox" data-sel="${u.id}" aria-label="Select ${esc(u.username)}"></td><td class="num">${String(u.memberNo).padStart(4, "0")}</td>
       <td><span class="who"><b>${esc(u.username)}</b>${u.discord ? `<small>discord: ${esc(u.discord)}</small>` : ""}${u.aliases.length ? `<small>also /${u.aliases.map(esc).join(", /")}</small>` : ""}</span></td>
       <td>${u.role === "user" ? `<span class="muted">patient</span>` : `<span class="pill acc">${u.role}</span>`}</td>
       <td class="num">${date(u.created)}</td><td class="num">${ago(u.lastSeen)}</td><td class="num">${u.views.toLocaleString()}</td>
-      <td>${u.banned ? `<span class="pill bad">banned</span>` : u.premium ? `<span class="pill acc">premium${u.premiumUntil ? " · until " + date(u.premiumUntil) : ""}</span>` : `<span class="pill">regular</span>`}${u.reports ? ` <span class="pill warn">${u.reports} report${u.reports > 1 ? "s" : ""}</span>` : ""}</td></tr>`).join("") : `<tr><td colspan="7" class="muted" style="padding:24px;text-align:center">Nobody matches that.</td></tr>`;
-    $$("#rows tr[data-id]").forEach((tr) => (tr.onclick = () => openUser(userRows.find((x) => String(x.id) === tr.dataset.id))));
+      <td>${u.banned ? `<span class="pill bad">banned</span>` : u.premium ? `<span class="pill acc">premium${u.premiumUntil ? " · until " + date(u.premiumUntil) : ""}</span>` : `<span class="pill">regular</span>`}${u.reports ? ` <span class="pill warn">${u.reports} report${u.reports > 1 ? "s" : ""}</span>` : ""}</td></tr>`).join("") : `<tr><td colspan="8" class="muted" style="padding:24px;text-align:center">Nobody matches that.</td></tr>`;
+    $$("#rows tr[data-id]").forEach((tr) => (tr.onclick = (e) => { if (e.target.closest(".ck")) return; openUser(userRows.find((x) => String(x.id) === tr.dataset.id)); }));
+    $$("#rows input[data-sel]").forEach((c) => (c.onchange = () => { const id = Number(c.dataset.sel); c.checked ? sel.add(id) : sel.delete(id); syncSel(); }));
+    syncSel();
     const pages = Math.ceil(r.total / 50);
     $("#pager").innerHTML = pages > 1 ? `<button class="btn small" id="prev" ${page ? "" : "disabled"}>← Newer</button><span class="tag-mono">page ${page + 1} of ${pages}</span><button class="btn small" id="next" ${page < pages - 1 ? "" : "disabled"}>Older →</button>` : "";
     if (pages > 1) { $("#prev").onclick = () => { page--; loadUsers(); }; $("#next").onclick = () => { page++; loadUsers(); }; }
@@ -199,6 +222,47 @@
     if ($("#imake")) $("#imake").onclick = async () => { try { const r = await api("/api/admin/invites", { method: "POST", body: { count: $("#ic").value, maxUses: $("#iu").value, note: $("#in").value } }); toast(`${r.codes.length} code${r.codes.length > 1 ? "s" : ""} made.`); invites(); } catch (e) { toast(e.message, true); } };
     $$("[data-copy]").forEach((b) => (b.onclick = () => navigator.clipboard.writeText(`${location.origin}/signup?invite=${b.dataset.copy}`).then(() => toast("Sign-up link copied.")).catch(() => toast(b.dataset.copy))));
     $$("[data-rm]").forEach((b) => (b.onclick = async () => { await api(`/api/admin/invites/${b.dataset.rm}`, { method: "DELETE" }); toast("Code deleted."); invites(); }));
+  }
+
+  /* ---------- gift codes ---------- */
+  async function gifts() {
+    const rows = await api("/api/admin/gifts");
+    view.innerHTML = `<div class="view">
+      <div class="panel"><h3 style="font-size:15px">Gift codes</h3><p class="muted" style="font-size:13px;margin:6px 0 12px">Each code turns on Premium for a set number of days. People redeem them under Account in their dashboard. Days stack on top of any Premium they already have.</p>
+        ${owner ? `<div class="tools"><label class="f" style="width:100px"><span>how many</span><input type="number" id="gc" value="1" min="1" max="50"></label><label class="f" style="width:100px"><span>days</span><input type="number" id="gd" value="30" min="1" max="3650"></label><label class="f" style="width:100px"><span>uses each</span><input type="number" id="gu" value="1" min="1" max="1000"></label><label class="f" style="width:130px"><span>expires in (days)</span><input type="number" id="ge" placeholder="never" min="0" max="365"></label><label class="f" style="flex:1;max-width:240px"><span>note</span><input type="text" id="gn" placeholder="e.g. Discord giveaway" maxlength="60"></label><button class="btn primary" id="gmake" style="align-self:end">Make codes</button></div><div id="gnew"></div>` : ""}</div>
+      ${rows.length ? `<div class="tblwrap"><table class="t" style="min-width:720px"><thead><tr><th>code</th><th>gives</th><th>used</th><th>note</th><th>expires</th><th></th></tr></thead><tbody>${rows.map((r) => { const dead = r.uses >= r.max_uses || (r.expires_at && r.expires_at < Date.now()); return `<tr style="cursor:default" class="${dead ? "banned" : ""}">
+        <td class="code">${esc(r.code)}</td><td class="num">${r.days} days</td><td class="num">${r.uses} / ${r.max_uses}${r.redeemedBy.length ? `<small style="display:block">${r.redeemedBy.map(esc).join(", ")}</small>` : ""}</td><td>${esc(r.note || "")}</td><td class="num">${r.expires_at ? date(r.expires_at) : "never"}</td>
+        <td style="text-align:right"><button class="btn small" data-copy="${esc(r.code)}">Copy</button>${owner ? ` <button class="btn small danger" data-rm="${esc(r.code)}">Delete</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
+      : `<div class="empty"><span class="capsule" style="--w:50px;--a:var(--mint)"></span>No gift codes yet.</div>`}</div>`;
+    if ($("#gmake")) $("#gmake").onclick = async () => {
+      try { const r = await api("/api/admin/gifts", { method: "POST", body: { count: $("#gc").value, days: $("#gd").value, maxUses: $("#gu").value, expiresDays: $("#ge").value, note: $("#gn").value } });
+        await gifts(); $("#gnew").innerHTML = `<div class="newcodes"><b>New codes</b><textarea readonly rows="${Math.min(8, r.codes.length)}">${r.codes.join("\n")}</textarea><button class="btn small" id="gcopy">Copy all</button></div>`;
+        $("#gcopy").onclick = () => navigator.clipboard.writeText(r.codes.join("\n")).then(() => toast("Copied.")); } catch (e) { toast(e.message, true); }
+    };
+    $$("[data-copy]").forEach((b) => (b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast("Code copied.")).catch(() => toast(b.dataset.copy))));
+    $$("[data-rm]").forEach((b) => (b.onclick = async () => { await api(`/api/admin/gifts/${b.dataset.rm}`, { method: "DELETE" }); toast("Code deleted."); gifts(); }));
+  }
+
+  /* ---------- held names ---------- */
+  async function names() {
+    const rows = await api("/api/admin/names");
+    view.innerHTML = `<div class="view">
+      <div class="panel"><h3 style="font-size:15px">Hold names</h3><p class="muted" style="font-size:13px;margin:6px 0 12px">Held names can't be claimed at sign-up or by renaming. Give one to someone, or release it so anyone can take it.</p>
+        <div class="tools"><label class="f" style="flex:1;max-width:340px"><span>names (spaces or commas)</span><input type="text" id="hn" placeholder="og, x, rx, pill"></label><label class="f" style="flex:1;max-width:240px"><span>note</span><input type="text" id="hnote" placeholder="e.g. short names, auction" maxlength="80"></label><button class="btn primary" id="hadd" style="align-self:end">Hold</button>
+        <button class="btn" id="hshort" style="align-self:end" title="Every 1 and 2 letter name">Hold all 1–2 letter names</button></div></div>
+      ${rows.length ? `<div class="tblwrap"><table class="t" style="min-width:640px"><thead><tr><th>name</th><th>note</th><th>held</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr style="cursor:default">
+        <td class="code">/${esc(r.name)}${r.takenBy ? ` <span class="pill warn">already used by ${esc(r.takenBy)}</span>` : ""}</td><td>${esc(r.note || "")}</td><td class="num">${date(r.ts)}${r.creator ? " · " + esc(r.creator) : ""}</td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn small" data-give="${esc(r.name)}">Give to…</button> <button class="btn small" data-rel="${esc(r.name)}">Release</button></td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty"><span class="tablet"></span>No names held.</div>`}</div>`;
+    const hold = async (list, note) => { try { const r = await api("/api/admin/names", { method: "POST", body: { names: list, note } }); toast(`${r.added} name${r.added === 1 ? "" : "s"} held.`); names(); } catch (e) { toast(e.message, true); } };
+    $("#hadd").onclick = () => hold($("#hn").value, $("#hnote").value);
+    $("#hshort").onclick = () => { const a = "abcdefghijklmnopqrstuvwxyz0123456789".split(""); const l = [...a]; for (const x of a) for (const y of a) l.push(x + y); (async () => { for (let i = 0; i < l.length; i += 100) await api("/api/admin/names", { method: "POST", body: { names: l.slice(i, i + 100).join(" "), note: "short name" } }).catch(() => {}); toast("Short names held."); names(); })(); };
+    $$("[data-rel]").forEach((b) => (b.onclick = async () => { await api(`/api/admin/names/${b.dataset.rel}`, { method: "DELETE" }); toast(`/${b.dataset.rel} released.`); names(); }));
+    $$("[data-give]").forEach((b) => (b.onclick = async () => {
+      const who = await modal({ title: `Give /${b.dataset.give} to someone`, body: "Type their current username. Their page moves to the new name.", input: { placeholder: "username" }, confirm: "Give name" });
+      if (!who) return;
+      try { await api(`/api/admin/names/${b.dataset.give}/give`, { method: "POST", body: { username: who } }); toast(`${who} is now /${b.dataset.give}.`); names(); } catch (e) { toast(e.message, true); }
+    }));
   }
 
   /* ---------- activity log ---------- */

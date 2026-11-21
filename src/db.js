@@ -148,6 +148,36 @@ CREATE TABLE IF NOT EXISTS invites (
   note       TEXT,
   ts         INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS page_visitors (
+  page_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  viewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ts        INTEGER NOT NULL,
+  visits    INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (page_id, viewer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_page_visitors ON page_visitors(page_id, ts);
+CREATE TABLE IF NOT EXISTS gift_codes (
+  code        TEXT PRIMARY KEY,
+  days        INTEGER NOT NULL,
+  max_uses    INTEGER NOT NULL DEFAULT 1,
+  uses        INTEGER NOT NULL DEFAULT 0,
+  note        TEXT,
+  created_by  INTEGER,
+  expires_at  INTEGER,
+  ts          INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gift_redeems (
+  code    TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ts      INTEGER NOT NULL,
+  PRIMARY KEY (code, user_id)
+);
+CREATE TABLE IF NOT EXISTS held_names (
+  name       TEXT PRIMARY KEY COLLATE NOCASE,
+  note       TEXT,
+  created_by INTEGER,
+  ts         INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, ts);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts);
 `);

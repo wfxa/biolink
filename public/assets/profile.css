@@ -395,3 +395,85 @@ canvas.fx{z-index:1}canvas.cursorfx{z-index:70}
 .bh-fill .buttons a:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .bh-slide .buttons a:hover{transform:translateX(5px)}
 .bh-none .buttons a:hover{transform:none}
+
+/* ---------- typing bio ---------- */
+.bio .caret{display:inline-block;width:.5em;height:1.05em;margin-left:2px;vertical-align:-2px;background:var(--accent);animation:blink 1s steps(1) infinite}
+.be-rotate{min-height:1.5em}
+/* ---------- name cycling ---------- */
+.name{transition:opacity .28s,filter .28s}
+.name.nswap{opacity:0;filter:blur(6px)}
+/* ---------- weather ---------- */
+.line .wx svg{width:13px;height:13px;fill:currentColor;opacity:.9}
+/* ---------- badge row ---------- */
+.bdg-plain .badge{background:none;border-color:transparent;width:22px}
+.bdg-glow .badge{background:color-mix(in srgb,currentColor 12%,transparent);border-color:color-mix(in srgb,currentColor 35%,transparent);box-shadow:0 0 14px -2px color-mix(in srgb,currentColor 55%,transparent)}
+.bdg-glow .badge svg{filter:drop-shadow(0 0 4px currentColor)}
+/* ---------- beat pulse ---------- */
+.pulse .card{scale:calc(1 + var(--beat,0) * .022 * var(--ps,1));transition:scale .08s linear}
+.pulse .card{outline:1px solid color-mix(in srgb,var(--accent) calc(var(--beat,0) * 90%),transparent);outline-offset:-1px}
+.pulse .avatar .face{box-shadow:0 0 calc(var(--beat,0) * 30px * var(--ps,1)) color-mix(in srgb,var(--accent) 70%,transparent)}
+
+/* ---------- prescription layout ---------- */
+.arr-rx .card{--text:#1f1b17;--name:#1f1b17;--bio:#3d3730;--small:#7a7066;--icon:#1f1b17;--icon-bg:rgba(0,0,0,.04);--link-text:#1f1b17;--link-bg:transparent;--line:rgba(31,27,23,.16);
+  background:#f3eee4!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:0!important;color:var(--text);
+  font-family:"JetBrains Mono",ui-monospace,monospace;box-shadow:0 30px 70px -24px rgba(0,0,0,.75),0 0 0 1px rgba(0,0,0,.25)!important;
+  background-image:radial-gradient(rgba(0,0,0,.035) 1px,transparent 1.2px)!important;background-size:5px 5px!important}
+.arr-rx .rxtop{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px;border-bottom:2px solid #1f1b17;font-size:13px}
+.arr-rx .rxtop b{font-family:var(--name-font);font-size:16px}
+.arr-rx .rxtop i{color:var(--accent);font-style:italic;font-weight:900;margin-right:2px;-webkit-text-stroke:.4px #1f1b17}
+.arr-rx .rxtop span{font-weight:700;letter-spacing:.04em}
+.arr-rx .head{flex-direction:row;text-align:left;align-items:center;gap:14px}
+.arr-rx .head .who{align-items:flex-start}
+.arr-rx .avatar{--av-size:min(var(--av-size),72px) !important;width:72px;height:72px}
+.arr-rx .avatar .face{background:#e2dccf;color:#1f1b17;border-radius:8px;filter:grayscale(.15) contrast(1.05)}
+.arr-rx .avatar .deco{display:none}
+.arr-rx .name{color:#1f1b17!important;-webkit-text-fill-color:#1f1b17;background:none!important;text-shadow:none!important;filter:none!important;font-size:clamp(24px,6vw,32px)}
+.arr-rx .line{justify-content:flex-start}
+.arr-rx .badges{justify-content:flex-start}
+.arr-rx .badge{background:#fff;border-color:rgba(0,0,0,.15)}
+.arr-rx .namewrap .uid{left:0;translate:0 4px}.arr-rx .namewrap:hover .uid{translate:0 0}
+.arr-rx .bio{border-left:3px solid var(--accent);padding-left:10px;text-align:left}
+.arr-rx .sec-head{color:#1f1b17;font-weight:800;text-transform:uppercase;letter-spacing:.12em;border-bottom:1px dashed rgba(0,0,0,.3);padding-bottom:4px}
+.arr-rx .socials{justify-content:flex-start}
+.arr-rx .socials a{border-color:rgba(0,0,0,.18);background:#fff;box-shadow:none}
+.arr-rx .buttons{counter-reset:rx}
+.arr-rx .buttons a{counter-increment:rx;background:transparent!important;border:0!important;border-bottom:1px dashed rgba(0,0,0,.28)!important;border-radius:0!important;padding:11px 2px;backdrop-filter:none!important;color:#1f1b17!important;box-shadow:none!important}
+.arr-rx .buttons a::before{content:counter(rx,decimal-leading-zero);font-size:11px;font-weight:800;color:#fff;background:#1f1b17;border-radius:4px;padding:2px 5px;flex:none}
+.arr-rx .buttons a span{text-align:left}
+.arr-rx .buttons a span::before{content:"take · ";color:#9a8f84;font-weight:500}
+.arr-rx .buttons a:hover{background:rgba(0,0,0,.04)!important;transform:none!important}
+.arr-rx .box,.arr-rx .project{background:rgba(0,0,0,.035)!important;border-color:rgba(0,0,0,.14)!important;backdrop-filter:none!important}
+.arr-rx .foot,.arr-rx .foot a,.arr-rx .foot button{color:#7a7066}
+.arr-rx .player button{background:#fff;border-color:rgba(0,0,0,.15);color:#1f1b17}
+.rxfoot{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:2px solid #1f1b17}
+.rxrows{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:4px 10px;font-size:12px;align-items:baseline}
+.rxrows span{color:#7a7066}.rxrows b{color:#1f1b17}
+.rxfoot p{font-size:11.5px;color:#5c544b;font-style:italic}
+.barcode{height:34px;background:repeating-linear-gradient(90deg,#1f1b17 0 2px,transparent 2px 4px,#1f1b17 4px 5px,transparent 5px 8px,#1f1b17 8px 11px,transparent 11px 12px,#1f1b17 12px 13px,transparent 13px 16px);opacity:.85;border-radius:2px}
+
+/* ---------- pill-bottle enter screen ---------- */
+.e-bottle{background:radial-gradient(60% 50% at 50% 55%,color-mix(in srgb,var(--accent) 16%,#08070b),#050407);transition:opacity .6s .9s,visibility .6s .9s}
+.e-bottle.out{opacity:0;visibility:hidden}
+.bottle{position:relative;display:flex;flex-direction:column;align-items:center;animation:bfloat 3s ease-in-out infinite;filter:drop-shadow(0 30px 40px rgba(0,0,0,.6))}
+@keyframes bfloat{50%{translate:0 -8px}}
+.bottle .cap{position:relative;z-index:3;width:132px;height:44px;border-radius:12px 12px 6px 6px;background:repeating-linear-gradient(90deg,#f4f1ea 0 5px,#d9d4ca 5px 8px);box-shadow:inset 0 -6px 0 rgba(0,0,0,.12)}
+.bottle .cap i{position:absolute;inset:auto 8px -6px;height:8px;border-radius:0 0 4px 4px;background:#cbc5ba}
+.bottle .neck{width:112px;height:12px;background:color-mix(in srgb,var(--accent) 50%,#7a3d0a);opacity:.95}
+.bottle .jar{position:relative;width:170px;height:220px;border-radius:26px 26px 34px 34px;overflow:hidden;
+  background:linear-gradient(90deg,rgba(255,255,255,.18),transparent 22%,transparent 70%,rgba(255,255,255,.1)),linear-gradient(180deg,color-mix(in srgb,var(--accent) 45%,#8a4a0c),color-mix(in srgb,var(--accent) 30%,#4a2304));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18),inset 0 -20px 30px rgba(0,0,0,.35)}
+.bottle .blabel{position:absolute;left:12px;right:12px;top:52px;padding:12px 12px 10px;border-radius:6px;background:#f3eee4;color:#1f1b17;text-align:left;display:flex;flex-direction:column;gap:5px;font-family:"JetBrains Mono",monospace;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.bottle .blabel b{font-size:13px;border-bottom:2px solid #1f1b17;padding-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bottle .blabel b i{color:var(--accent);-webkit-text-stroke:.4px #1f1b17;margin-right:3px}
+.bottle .blabel span{font-size:12.5px;font-weight:700;letter-spacing:.06em;animation:epulse 2s ease-in-out infinite}
+.bottle .blabel small{font-size:9.5px;color:#7a7066}
+.bottle .pl{position:absolute;left:50%;top:10px;z-index:2;width:30px;height:13px;margin-left:-15px;border-radius:999px;opacity:0;font-style:normal;
+  background:linear-gradient(90deg,var(--c) 50%,#f4f1ea 50%);box-shadow:inset 0 -3px 0 rgba(0,0,0,.15)}
+.e-bottle:hover .bottle .cap{rotate:-6deg;transition:rotate .3s}
+.e-bottle.out .bottle{animation:none}
+.e-bottle.out .cap{animation:captwist .7s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes captwist{40%{rotate:-50deg;translate:0 -6px}100%{rotate:-120deg;translate:60px -140px;opacity:0}}
+.e-bottle.out .pl{animation:pour 1.1s cubic-bezier(.2,.6,.3,1) forwards;animation-delay:calc(.35s + var(--d))}
+@keyframes pour{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(1.6)}}
+.e-bottle.out .jar{animation:tip .9s .15s ease-in-out forwards}
+@keyframes tip{50%{rotate:-8deg}100%{rotate:0;opacity:.0}}

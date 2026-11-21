@@ -1,919 +1,825 @@
-// dose — a biolink platform. Zero dependencies: Node 22+ only.
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
-const config = require("./src/config");
-const { db, getSetting, setSetting } = require("./src/db");
-const Profile = require("./src/profile");
+// Renders a dose profile from window.__DATA. The dashboard's live preview reuses it through postMessage.
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const coarse = matchMedia("(pointer: coarse)").matches;
+  const PREVIEW = new URLSearchParams(location.search).has("preview");
+  const root = document.getElementById("root");
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const BRAND = { discord: "#5865f2", instagram: "#e1306c", tiktok: "#ff0050", youtube: "#ff0000", twitch: "#9146ff", x: "#ffffff", github: "#ffffff", spotify: "#1db954",
+    soundcloud: "#ff5500", snapchat: "#fffc00", telegram: "#26a5e4", reddit: "#ff4500", steam: "#c7d5e0", roblox: "#ffffff", kick: "#53fc18", threads: "#ffffff",
+    bluesky: "#1185fe", pinterest: "#e60023", kofi: "#ff5e5b", patreon: "#ff424d", throne: "#ffffff", letterboxd: "#00e054", paypal: "#009cde", cashapp: "#00d632", email: "#ffffff", website: "#ffffff" };
+  const SAFE_FONTS = { "Press Start 2P": "Press+Start+2P" };
 
-const now = () => Date.now();
-const DAY = 86400000;
+  let cleanups = [], audio = null, entered = false, data = null, lanyard = null, tracked = false, paused = false;
+  const onCleanup = (fn) => cleanups.push(fn);
+  const every = (fn, ms) => { fn(); const i = setInterval(fn, ms); onCleanup(() => clearInterval(i)); };
+  const listen = (el, ev, fn, opt) => { el.addEventListener(ev, fn, opt); onCleanup(() => el.removeEventListener(ev, fn, opt)); };
+  const ago = (t) => { const d = Math.floor((Date.now() - t) / 86400000); return d < 1 ? "today" : d === 1 ? "yesterday" : d < 30 ? `${d} days ago` : d < 365 ? `${Math.floor(d / 30)} months ago` : `${Math.floor(d / 365)} years ago`; };
 
-/* ---------------- helpers ---------------- */
-function send(res, status, body, headers = {}) {
-  const isObj = typeof body === "object" && !Buffer.isBuffer(body);
-  res.writeHead(status, {
-    "Content-Type": isObj ? "application/json; charset=utf-8" : "text/html; charset=utf-8",
-    "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    ...headers,
-  });
-  res.end(isObj ? JSON.stringify(body) : body);
-}
-const fail = (res, status, error) => send(res, status, { error });
+  /* ================= render ================= */
+  function render(d) {
+    cleanups.forEach((f) => { try { f(); } catch {} }); cleanups = [];
+    if (audio) { audio.pause(); audio = null; }
+    document.querySelectorAll(".enter,.drawer,.corner,.moth,.dots,.hint").forEach((e) => e.remove());
+    data = d;
+    const p = d.profile, c = p.colors, R = document.documentElement.style;
 
-function readJson(req, limit = 256 * 1024) {
-  return new Promise((resolve, reject) => {
-    let size = 0; const chunks = [];
-    req.on("data", (c) => { size += c.length; if (size > limit) { reject(new Error("too_big")); req.destroy(); } else chunks.push(c); });
-    req.on("end", () => { try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}); } catch { reject(new Error("bad_json")); } });
-    req.on("error", reject);
-  });
-}
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const clientIp = (req) => (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
-const parseCookies = (req) => Object.fromEntries((req.headers.cookie || "").split(";").map((c) => c.trim().split("=").map(decodeURIComponent)).filter((p) => p[0]));
-const isHttps = (req) => (req.headers["x-forwarded-proto"] || "").includes("https");
+    // fonts
+    const fams = [...new Set([p.fonts.body, p.fonts.name || p.fonts.body])];
+    const fl = document.getElementById("fontlink");
+    if (fl) fl.href = "https://fonts.googleapis.com/css2?" + fams.map((f) => "family=" + (SAFE_FONTS[f] || f.replace(/ /g, "+")) + (/(Inter|Outfit|Sora|Space Grotesk|Syne|Unbounded|JetBrains Mono|Bricolage Grotesque)/.test(f) ? ":wght@400;600;800" : "")).join("&") + "&display=swap";
+    const stack = (f) => `"${f}",${/Mono|VT323|Silkscreen|Press/.test(f) ? "ui-monospace,monospace" : /Serif|Playfair/.test(f) ? "Georgia,serif" : "system-ui,sans-serif"}`;
 
-/* ---------------- passwords & sessions ---------------- */
-function hashPassword(pw) {
-  const salt = crypto.randomBytes(16);
-  const hash = crypto.scryptSync(pw, salt, 64);
-  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
-}
-function checkPassword(pw, stored) {
-  const [, salt, hash] = String(stored || "").split("$");
-  if (!salt || !hash || !pw) return false;
-  const test = crypto.scryptSync(pw, Buffer.from(salt, "hex"), 64);
-  return crypto.timingSafeEqual(test, Buffer.from(hash, "hex"));
-}
-function createSession(res, req, userId) {
-  const token = crypto.randomBytes(32).toString("hex");
-  db.prepare("INSERT INTO sessions (token,user_id,expires_at) VALUES (?,?,?)").run(token, userId, now() + config.SESSION_DAYS * DAY);
-  res.setHeader("Set-Cookie", `sid=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${config.SESSION_DAYS * 86400}${isHttps(req) ? "; Secure" : ""}`);
-}
-function currentUser(req) {
-  const sid = parseCookies(req).sid;
-  if (!sid || !/^[a-f0-9]{64}$/.test(sid)) return null;
-  const row = db.prepare("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?").get(sid, now());
-  if (row && (!row.last_seen || now() - row.last_seen > 60000)) db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(now(), row.id);
-  return row || null;
-}
-function audit(actor, action, target, details) {
-  db.prepare("INSERT INTO audit (actor_id, actor, action, target, details, ts) VALUES (?,?,?,?,?,?)")
-    .run(actor ? actor.id : null, actor ? actor.username : "system", action, target || null, details ? String(details).slice(0, 300) : null, now());
-}
+    // colours
+    const set = (k, v) => (v ? R.setProperty(k, v) : R.removeProperty(k));
+    set("--accent", c.accent || "#5ef2b0");
+    { const n = parseInt((c.accent || "#5ef2b0").slice(1), 16); R.setProperty("--on-accent", (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255 > 0.55 ? "#0b0d0e" : "#ffffff"); } set("--text", c.text || "#ece7ef"); set("--name", c.name); set("--bio", c.bio); set("--small", c.small);
+    set("--icon", c.icons); set("--icon-bg", c.iconBg); set("--link-text", c.linkText); set("--link-bg", c.linkBg);
+    R.setProperty("--cards", c.cards ? hexA(c.cards, p.card.darkness / 100) : `rgba(14,12,18,${p.card.darkness / 100})`);
+    set("--card-border", p.card.borderColor);
+    R.setProperty("--card-blur", p.card.blur + "px"); R.setProperty("--radius", p.card.radius + "px");
+    R.setProperty("--btn-radius", { rounded: "14px", pill: "999px", square: "4px" }[p.buttons.shape]);
+    R.setProperty("--gap", { compact: "10px", normal: "16px", airy: "24px" }[p.layout.spacing]);
+    R.setProperty("--width", p.layout.width + "px");
+    R.setProperty("--font", stack(p.fonts.body)); R.setProperty("--name-font", stack(p.fonts.name || p.fonts.body));
+    R.setProperty("--name-size", p.name.autoSize ? "clamp(28px,8vw,42px)" : p.name.size + "px");
+    R.setProperty("--name-weight", p.name.weight); R.setProperty("--name-spacing", p.name.spacing / 100 + "em");
+    R.setProperty("--g1", p.name.from); R.setProperty("--g2", p.name.to);
+    R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px", blob: "42% 58% 63% 37% / 41% 44% 56% 59%", capsule: "999px" }[p.avatar.shape]);
+    R.setProperty("--av-w", p.avatar.shape === "capsule" ? "0.72" : "1");
+    R.setProperty("--card-bw", p.card.borderWidth + "px");
+    R.setProperty("--ps", p.music.pulseStrength / 5); R.setProperty("--ic-size", p.icons.size + "px"); R.setProperty("--ic-gap", p.icons.gap + "px");
+    R.setProperty("--av-border", p.avatar.border + "px"); set("--av-border-color", p.avatar.borderColor);
+    R.setProperty("--vig", p.background.vignette / 100);
+    const cc = document.getElementById("custom-css"); if (cc && d.__css !== undefined) cc.textContent = d.__css;
 
-/* ---------------- rate limiting ---------------- */
-const buckets = new Map();
-function limited(key, max, windowMs) {
-  const t = now(); const b = buckets.get(key) || { n: 0, reset: t + windowMs };
-  if (t > b.reset) { b.n = 0; b.reset = t + windowMs; }
-  b.n++; buckets.set(key, b);
-  return b.n > max;
-}
-setInterval(() => { const t = now(); for (const [k, b] of buckets) if (t > b.reset) buckets.delete(k); }, 60000).unref();
-const expirePremium = () => {
-  const r = db.prepare("UPDATE users SET premium = 0, premium_until = NULL WHERE premium = 1 AND premium_until IS NOT NULL AND premium_until < ?").run(now());
-  if (r.changes) audit(null, "premium expired", `${r.changes} user(s)`);
-};
-expirePremium(); setInterval(expirePremium, 10 * 60000).unref();
-setInterval(() => {
-  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(now());
-  db.prepare("DELETE FROM released_names WHERE until < ?").run(now());
-}, 3600000).unref();
+    const b = document.body;
+    b.className = [`cs-${p.card.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
+      p.card.glow && "glow", p.card.animatedBorder && "anim-border", p.card.lift && "lift", p.card.textShadow && "text-shadow",
+      p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
-/* ---------------- users ---------------- */
-const NAME_RE = /^[a-z0-9_.]{1,20}$/i;
-function nameProblem(name, exceptUserId) {
-  if (!NAME_RE.test(name || "")) return "Usernames are 1–20 characters: letters, numbers, _ and . only.";
-  if (config.RESERVED.has(name.toLowerCase())) return "That name is reserved.";
-  const taken = db.prepare("SELECT id FROM users WHERE username = ?").get(name);
-  if (taken && taken.id !== exceptUserId) return "That name is taken.";
-  const held = db.prepare("SELECT until FROM released_names WHERE name = ? AND until > ?").get(name, now());
-  if (held) return "That name was just released and is on hold for a few hours.";
-  const alias = db.prepare("SELECT user_id FROM aliases WHERE name = ?").get(name);
-  if (alias && alias.user_id !== exceptUserId) return "That name is taken.";
-  const low = name.toLowerCase();
-  if (getSetting("blockedWords", []).some((w) => w && low.includes(w))) return "That name isn't allowed.";
-  return null;
-}
-function badgesFor(u) {
-  const auto = [];
-  if (u.role === "owner") auto.push("owner");
-  if (u.role === "staff") auto.push("staff");
-  if (u.premium) auto.push("premium");
-  if (u.member_no <= config.EARLY_MEMBER_LIMIT) auto.push("early");
-  if (totalViews(u.id) >= config.MILESTONE_VIEWS) auto.push("milestone");
-  const rows = db.prepare(`
-    SELECT b.* FROM badges b WHERE b.slug IN (${auto.map(() => "?").join(",") || "''"})
-    UNION SELECT b.* FROM badges b JOIN user_badges ub ON ub.badge_id = b.id WHERE ub.user_id = ?`).all(...auto, u.id);
-  const order = ["owner", "staff", "verified", "premium", "milestone", "early"];
-  return rows.sort((a, b) => ((order.indexOf(a.slug) + 1 || 99) - (order.indexOf(b.slug) + 1 || 99)))
-    .map((b) => ({ id: b.id, slug: b.slug, name: b.name, icon: b.icon, color: b.color, description: b.description }));
-}
-const totalViews = (userId) => Math.max(
-  db.prepare("SELECT COALESCE(SUM(n),0) n FROM hits WHERE user_id = ?").get(userId).n,
-  db.prepare("SELECT COUNT(*) n FROM views WHERE user_id = ?").get(userId).n);
-function publicUser(u) {
-  return {
-    username: u.username, memberNo: u.member_no, premium: !!u.premium, role: u.role,
-    joined: u.created_at, badges: badgesFor(u), views: totalViews(u.id),
-    profile: Profile.load(u.profile, { premium: !!u.premium }),
-  };
-}
+    // which sections go on which screen
+    const sections = p.sections.filter((s) => s.show && hasContent(s.id, p));
+    const pagesN = d.subpage ? 1 : Math.max(1, ...sections.map((s) => s.page));
+    const screens = [];
+    for (let i = 1; i <= pagesN; i++) screens.push(sections.filter((s) => s.page === i));
 
-/* ---------------- uploads ---------------- */
-const EXT = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp", "video/mp4": "mp4", "video/webm": "webm",
-  "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/wav": "wav", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac" };
-const MIME = { png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm",
-  mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac",
-  html: "text/html; charset=utf-8", css: "text/css; charset=utf-8", js: "text/javascript; charset=utf-8", svg: "image/svg+xml", ico: "image/x-icon", json: "application/json", txt: "text/plain" };
+    root.innerHTML = `
+      ${backgroundHtml(p)}
+      <canvas class="fx" aria-hidden="true"></canvas>
+      ${p.texture !== "none" ? `<div class="texture tx-${p.texture}"></div>` : ""}
+      <div class="vignette"></div>
+      <div class="scroller ${p.scroll.transition === "snap" && pagesN > 1 ? "snap" : ""}">
+        ${d.subpage ? subpageHtml(p, d) : screens.map((secs, i) => `<section class="screen" data-screen="${i}"><div class="wrap">
+          ${i === 0 ? firstScreen(p, d, secs) : p.card.oneCard ? `<div class="card">${spot(p)}${secs.map((s) => sectionHtml(s, p, d)).join("")}</div>` : secs.map((s) => `<div class="card">${spot(p)}${sectionHtml(s, p, d)}</div>`).join("")}
+        </div></section>`).join("")}
+      </div>`;
 
-function handleUpload(req, res, user, kind) {
-  const rule = config.UPLOAD_LIMITS[kind];
-  if (!rule) return fail(res, 400, "Unknown upload type.");
-  const type = (req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
-  if (!rule.types.includes(type)) return fail(res, 400, "That file type isn't allowed here.");
-  if (kind === "background" && type.startsWith("video/") && !user.premium) return fail(res, 403, "Video backgrounds are a Premium feature.");
-  const max = (user.premium ? rule.premium : rule.free) * 1024 * 1024;
-  if (Number(req.headers["content-length"] || 0) > max) return fail(res, 413, `Files here can be up to ${max / 1048576} MB.`);
-  const name = `${user.id}_${kind}_${crypto.randomBytes(6).toString("hex")}.${EXT[type]}`;
-  const dest = path.join(config.UPLOAD_DIR, name);
-  const out = fs.createWriteStream(dest);
-  let size = 0, aborted = false;
-  req.on("data", (c) => {
-    size += c.length;
-    if (size > max && !aborted) { aborted = true; out.destroy(); fs.unlink(dest, () => {}); fail(res, 413, `Files here can be up to ${max / 1048576} MB.`); req.destroy(); }
-  });
-  req.pipe(out);
-  out.on("finish", () => { if (!aborted) send(res, 200, { url: `/uploads/${name}`, type }); });
-  out.on("error", () => { if (!aborted) fail(res, 500, "Upload failed."); });
-}
-function cleanupUploads(user, profile) {
-  // Delete this user's old files that the saved profile no longer uses.
-  const used = new Set(JSON.stringify(profile).match(/\/uploads\/[a-z0-9_.-]+/gi) || []);
-  fs.readdir(config.UPLOAD_DIR, (err, files) => {
-    if (err) return;
-    const cutoff = now() - 3600000; // keep fresh uploads for an hour (unsaved drafts)
-    for (const f of files) if (f.startsWith(user.id + "_") && !used.has("/uploads/" + f)) {
-      fs.stat(path.join(config.UPLOAD_DIR, f), (e, st) => { if (!e && st.mtimeMs < cutoff) fs.unlink(path.join(config.UPLOAD_DIR, f), () => {}); });
+    if (pagesN > 1) {
+      if (p.scroll.dots) { const dots = document.createElement("nav"); dots.className = "dots"; dots.setAttribute("aria-label", "Pages");
+        dots.innerHTML = screens.map((_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}"></button>`).join(""); document.body.appendChild(dots); }
+      if (p.scroll.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = "scroll for more ↓"; root.querySelector(".screen").appendChild(h); }
+      setupScroll();
     }
-  });
-}
+    cornerUi(p, d);
 
-/* ---------------- static files ---------------- */
-function serveFile(req, res, file, cache = "public, max-age=300") {
-  fs.stat(file, (err, st) => {
-    if (err || !st.isFile()) return send(res, 404, notFoundPage());
-    const type = MIME[path.extname(file).slice(1).toLowerCase()] || "application/octet-stream";
-    const base = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": cache, "X-Content-Type-Options": "nosniff" };
-    const range = req.headers.range && /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
-    if (range) {
-      const start = range[1] ? parseInt(range[1], 10) : 0;
-      const end = range[2] ? Math.min(parseInt(range[2], 10), st.size - 1) : st.size - 1;
-      if (start > end || start >= st.size) { res.writeHead(416, { "Content-Range": `bytes */${st.size}` }); return res.end(); }
-      res.writeHead(206, { ...base, "Content-Range": `bytes ${start}-${end}/${st.size}`, "Content-Length": end - start + 1 });
-      return fs.createReadStream(file, { start, end }).pipe(res);
+    setupBackground(p);
+    setupOverlay(p.overlay);
+    setupNameEffect(p);
+    setupBio(p);
+    setupTaglines(p);
+    setupNameCycle(p);
+    setupWeather(p);
+    setupClock(p);
+    setupMotion(p);
+    setupCursor(p.cursor);
+    setupEmbeds(p);
+    setupDiscord(p);
+    setupMusic(p);
+    setupClicks();
+    setupSocial(p, d);
+    setupReport(d);
+    setupTab(p, d);
+    if (p.colors.theme === "picture" && p.avatar.src) themeFromPicture(p.avatar.src);
+
+    if (PREVIEW && d.__enter && p.enter.show) { entered = false; setupEnter(p, d); }
+    else if (PREVIEW || entered || !p.enter.show) { entered = true; }
+    else setupEnter(p, d);
+  }
+
+  /* ---------- html builders ---------- */
+  const spot = (p) => p.motion.spotlight ? `<div class="spot"></div>` : "";
+  function hasContent(id, p) {
+    return ({ bio: p.bio || p.taglines.length || (p.discord.id && p.live.customStatus), socials: p.socials.length, buttons: p.linkButtons.length,
+      presence: p.discord.id && (p.live.spotify || p.live.games), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
+      countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
+  }
+  function backgroundHtml(p) {
+    const bg = p.background;
+    let inner = "";
+    if (bg.type === "image" && bg.image) inner = `<img class="media" src="${esc(bg.image)}" alt="">`;
+    else if (bg.type === "video" && bg.video) inner = `<video class="media" src="${esc(bg.video)}" autoplay muted loop playsinline></video>`;
+    else if (bg.type === "auto") inner = `<img class="media auto" src="${esc(p.avatar.src || "")}" alt="" ${p.avatar.src ? "" : "hidden"}>`;
+    else if (bg.type === "animated") inner = { gradient: `<div class="media anim-gradient"></div>`, mesh: `<div class="media anim-mesh"><i></i><i></i><i></i></div>`, waves: `<canvas class="media waves"></canvas>`, grid: `<div class="anim-grid"></div>` }[bg.animated];
+    const filter = { none: "", grayscale: "grayscale(1)", sepia: "sepia(.8)", contrast: "contrast(1.4)" }[bg.filter];
+    const blur = bg.type === "auto" ? Math.max(bg.blur, 24) : bg.blur;
+    return `<div class="bg motion-${bg.motion}" style="--bg-color:${bg.color || "#07060a"};--bg-blur:${blur}px;--bg-dim:${bg.dim / 100};--bg-filter:${filter}">${inner}${["image", "video", "auto"].includes(bg.type) ? `<div class="dim"></div>` : ""}</div>`;
+  }
+  function headHtml(p, d) {
+    const name = p.displayName || d.username;
+    const u = p.underName, items = [];
+    if (u.handle && p.handle.trim()) items.push(`<span>${esc(p.handle)}</span>`);
+    if (u.status && p.discord.id && p.live.status) items.push(`<span class="status" hidden><i class="sdot"></i><em style="font-style:normal"></em></span>`);
+    if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
+    if (p.details.weather && p.details.location) items.push(`<span class="wx" hidden></span>`);
+    if (u.time && p.details.timezone) items.push(`<span>${svgIcon("clock")}<span class="localtime">--:--</span></span>`);
+    if (p.details.occupation) items.push(`<span>${svgIcon("bolt")}${esc(p.details.occupation)}</span>`);
+    if (p.details.languages) items.push(`<span>${svgIcon("comment")}${esc(p.details.languages)}</span>`);
+    if (u.joined) items.push(`<span>${svgIcon("calendar")}joined ${ago(d.joined)}</span>`);
+    if (["inline", "pill", "counter"].includes(p.viewCounter)) items.push(`<span class="vc">${svgIcon("eye")}<span class="views" data-n="${d.views}">${p.viewCounter === "counter" ? 0 : Number(d.views).toLocaleString()}</span></span>`);
+    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", p.name.gradient && "grad", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
+    return `
+      ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
+      ${p.layout.arrangement === "rx" ? `<div class="rxtop"><b><i>Rx</i> ${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")}</span></div>` : ""}
+      <div class="head ${p.banner ? "has-banner" : ""}">
+        ${p.avatar.hidden ? "" : `<div class="avatar dec-${p.avatar.decoration}">
+          ${p.avatar.decoration !== "none" ? `<span class="deco"></span>` : ""}
+          <div class="face">${p.avatar.src ? `<img src="${esc(p.avatar.src)}" alt="" crossorigin="anonymous">` : esc(name.slice(0, 2))}</div>
+          ${p.discord.id && p.live.status ? `<span class="dot" hidden></span>` : ""}
+          ${p.avatar.discordDecoration && p.discord.id ? `<img class="ddeco" alt="" hidden>` : ""}
+        </div>`}
+        <div class="who">
+          ${p.aboveName ? `<div class="above">${esc(p.aboveName)}</div>` : ""}
+          <div class="namewrap">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1></div>
+          ${items.length ? `<div class="line ${u.style === "pills" || p.viewCounter === "pill" ? "pills" : ""}">${items.join("")}</div>` : ""}
+          ${d.badges.length ? `<div class="badges">${d.badges.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
+        </div>
+      </div>`;
+  }
+  function firstScreen(p, d, secs) {
+    const rxfoot = p.layout.arrangement === "rx" ? `<div class="rxfoot"><div class="rxrows"><span>filled</span><b>${new Date(d.joined).toLocaleDateString("en-GB")}</b><span>refills</span><b>unlimited</b></div><p>Take one daily. Share freely. Keep out of reach of boredom.</p><div class="barcode" aria-hidden="true"></div></div>` : "";
+    const tail = `${rxfoot}${playerHtml(p)}${votesHtml(p)}<p class="foot"><a href="/">${esc(window.__SITE)}</a> · #${d.memberNo}${d.demo ? "" : ` · <button class="rep" type="button">report</button>`}</p>`;
+    if (p.card.oneCard) return `<div class="card ${p.motion.glint ? "glint" : ""}">${spot(p)}${headHtml(p, d)}${secs.map((s) => sectionHtml(s, p, d)).join("")}${tail}</div>`;
+    return `<div class="card ${p.motion.glint ? "glint" : ""}">${spot(p)}${headHtml(p, d)}${tail}</div>` + secs.map((s) => `<div class="card">${spot(p)}${sectionHtml(s, p, d)}</div>`).join("");
+  }
+  function sectionHtml(s, p, d) {
+    const h = s.heading ? `<div class="sec-head">${esc(s.heading)}</div>` : "";
+    const icon = (pl) => svgIcon(pl);
+    switch (s.id) {
+      case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${esc(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
+      case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
+      case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""}">${l.icon ? icon(l.icon) : ""}<span>${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
+      case "presence": return `<div data-sec="presence" hidden>${h}<div class="pstack"></div></div>`;
+      case "projects": return `<div>${h}<div class="projects">${p.projects.map((x) => `<${x.url ? `a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer"` : "div"} class="box project">
+          <div class="top"><span class="ic">${icon(x.icon)}</span><b>${esc(x.name)}</b>${x.tag ? `<span class="tag">${esc(x.tag)}</span>` : ""}</div>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</${x.url ? "a" : "div"}>`).join("")}</div></div>`;
+      case "embeds": return `<div class="pstack">${h}${p.embeds.map((e) => {
+          const [kind, val] = [e.slice(0, e.indexOf(":")), e.slice(e.indexOf(":") + 1)];
+          if (kind === "youtube") return `<div class="embed"><iframe src="https://www.youtube-nocookie.com/embed/${esc(val)}" style="aspect-ratio:16/9" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy" title="YouTube video"></iframe></div>`;
+          if (kind === "spotify") return `<div class="embed"><iframe src="https://open.spotify.com/embed/${esc(val)}?theme=0" height="${/^track|^episode/.test(val) ? 80 : 152}" allow="encrypted-media" loading="lazy" title="Spotify"></iframe></div>`;
+          return `<div class="embed"><iframe height="120" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(val)}&color=%23${(p.colors.accent || "#ff2e4d").slice(1)}&visual=false" loading="lazy" title="SoundCloud"></iframe></div>`;
+        }).join("")}</div>`;
+      case "text": return `<div>${h}<p class="textblock">${esc(p.textBlock)}</p></div>`;
+      case "countdown": return `<div class="box countdown" data-date="${esc(p.countdown.date)}" data-done="${esc(p.countdown.done)}">${s.heading || p.countdown.label ? `<small>${esc(s.heading || p.countdown.label)}</small>` : ""}<div class="t"></div></div>`;
+      case "server": return `<div>${h}<div class="box server" data-invite="${esc(p.server)}"><span class="ic">${icon("discord")}</span><div class="txt"><b>loading server…</b><small></small></div><a class="join" href="https://discord.gg/${esc(p.server)}" target="_blank" rel="noopener">Join</a></div></div>`;
+      case "clock": return `<div class="box clock">${h}<div class="t bigtime">--:--</div><small>${esc(p.details.location || p.details.timezone)}</small></div>`;
+      case "github": return `<div>${h}<div class="box gh" data-gh="${esc(p.details.github)}"><div class="txt"><b>${esc(p.details.github)}</b><small>loading GitHub…</small></div></div></div>`;
+      case "pages": return `<div>${h}<nav class="pagelinks">${p.pages.map((x) => `<a href="/${esc(d.username)}/${esc(x.slug)}">${esc(x.title || x.slug)}<svg viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
     }
-    res.writeHead(200, { ...base, "Content-Length": st.size });
-    fs.createReadStream(file).pipe(res);
-  });
-}
-function safeJoin(root, p) {
-  const full = path.normalize(path.join(root, p));
-  return full.startsWith(root + path.sep) ? full : null;
-}
-const templates = {};
-// Changes on every deploy, so browsers fetch fresh CSS/JS instead of using an old cached copy.
-const ASSET_VERSION = (() => {
-  let h = crypto.createHash("sha1");
-  for (const f of fs.readdirSync(path.join(config.PUBLIC_DIR, "assets")).sort()) h.update(f + fs.statSync(path.join(config.PUBLIC_DIR, "assets", f)).size + fs.readFileSync(path.join(config.PUBLIC_DIR, "assets", f)));
-  return h.digest("hex").slice(0, 10);
-})();
-function template(name) {
-  if (!templates[name] || process.env.NODE_ENV === "development") templates[name] = fs.readFileSync(path.join(config.PUBLIC_DIR, name), "utf8");
-  let html = templates[name].replaceAll("{{SITE}}", escapeHtml(config.SITE_NAME))
-    .replace(/(\/assets\/[\w.-]+\.(?:css|js))(["'])/g, `$1?v=${ASSET_VERSION}$2`);
-  // Site colour chosen by the owner (profile pages use their own colours instead).
-  const accent = getSetting("siteAccent", "");
-  if (accent && name !== "profile.html") html = html.replace("</head>", `<style id="site-theme">:root{--accent:${accent};--on-accent:${onColor(accent)}}</style>\n</head>`);
-  return html;
-}
-function onColor(hex) {
-  const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.55 ? "#0b0d0e" : "#ffffff";
-}
-const notFoundPage = () => template("404.html");
-
-function renderProfile(req, res, u, sub) {
-  const data = publicUser(u);
-  const p = data.profile;
-  const origin = `${isHttps(req) ? "https" : "http"}://${req.headers.host}`;
-  const title = (sub ? sub.title + " · " : "") + (p.share.tabTitle || p.meta.title || p.displayName || u.username);
-  const desc = p.meta.description || p.bio.split("\n")[0] || p.taglines[0] || `${u.username} on ${config.SITE_NAME}`;
-  const ogImg = p.avatar.src ? (p.avatar.src.startsWith("/") ? origin + p.avatar.src : p.avatar.src) : "";
-  const html = template("profile.html")
-    .replace("{{TITLE}}", escapeHtml(title))
-    .replaceAll("{{DESC}}", escapeHtml(desc))
-    .replaceAll("{{OG_TITLE}}", escapeHtml(`${title} · ${config.SITE_NAME}`))
-    .replace("{{OG_IMAGE}}", ogImg ? `<meta property="og:image" content="${escapeHtml(ogImg)}">` : "")
-    .replace("{{URL}}", escapeHtml(`${origin}/${u.username}${sub ? "/" + sub.slug : ""}`))
-    .replace("{{COLOR}}", p.share.colorBar || p.colors.accent || "#ff2e4d")
-    .replace("{{ROBOTS}}", p.share.noindex ? '<meta name="robots" content="noindex">' : "")
-    .replace("{{ICON}}", p.share.tabIcon === "picture" && p.avatar.src ? escapeHtml(p.avatar.src) : "/assets/favicon.svg")
-    .replace("{{CUSTOM_CSS}}", () => p.customCss)
-    .replace("{{DATA}}", () => JSON.stringify({ ...data, subpage: sub ? sub.slug : null }).replace(/</g, "\\u003c"));
-  send(res, 200, html, { "Cache-Control": "no-store" });
-}
-
-/* ---------------- analytics ---------------- */
-function visitorHash(req, salt) {
-  return crypto.createHash("sha256").update(clientIp(req) + (req.headers["user-agent"] || "") + salt).digest("hex").slice(0, 20);
-}
-function refHost(ref, host) {
-  try { const h = new URL(ref).hostname.replace(/^www\./, ""); return h && h !== host ? h : "direct"; } catch { return "direct"; }
-}
-
-/* ---------------- discord login ---------------- */
-const discordOn = () => !!(config.DISCORD_CLIENT_ID && config.DISCORD_CLIENT_SECRET);
-const originOf = (req) => config.PUBLIC_URL || `${isHttps(req) ? "https" : "http"}://${req.headers.host}`;
-const discordRedirect = (req) => `${originOf(req)}/auth/discord/callback`;
-async function discordExchange(req, code) {
-  const tok = await fetch(`${config.DISCORD_API}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: config.DISCORD_CLIENT_ID, client_secret: config.DISCORD_CLIENT_SECRET,
-      grant_type: "authorization_code", code, redirect_uri: discordRedirect(req) }),
-  });
-  if (!tok.ok) throw new Error("token " + tok.status + " " + (await tok.text()).slice(0, 200));
-  const { access_token } = await tok.json();
-  const me = await fetch(`${config.DISCORD_API}/users/@me`, { headers: { Authorization: `Bearer ${access_token}` } });
-  if (!me.ok) throw new Error("user " + me.status);
-  return me.json(); // { id, username, global_name, avatar }
-}
-async function saveDiscordAvatar(userId, d) {
-  if (!d.avatar) return "";
-  try {
-    const r = await fetch(`https://cdn.discordapp.com/avatars/${d.id}/${d.avatar}.png?size=256`);
-    if (!r.ok) return "";
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > 4 * 1048576) return "";
-    const name = `${userId}_avatar_${crypto.randomBytes(6).toString("hex")}.png`;
-    fs.writeFileSync(path.join(config.UPLOAD_DIR, name), buf);
-    return `/uploads/${name}`;
-  } catch { return ""; }
-}
-function suggestName(d) {
-  let base = String(d.username || d.global_name || "user").toLowerCase().replace(/[^a-z0-9_.]/g, "").slice(0, 20) || "user";
-  if (!nameProblem(base)) return base;
-  for (let i = 2; i < 50; i++) { const n = (base.slice(0, 17) + i); if (!nameProblem(n)) return n; }
-  return "";
-}
-const authPage = (res, msg) => redirect(res, "/login?error=" + encodeURIComponent(msg));
-
-const inviteCache = new Map();
-
-/* ---------------- router ---------------- */
-async function route(req, res) {
-  const url = new URL(req.url, "http://localhost");
-  const p = url.pathname.replace(/\/+$/, "") || "/";
-  const method = req.method;
-  const me = currentUser(req);
-
-  // Basic CSRF protection: state-changing API calls must come from our own pages.
-  if (p.startsWith("/api/") && method !== "GET") {
-    const origin = req.headers.origin;
-    if (origin && new URL(origin).host !== req.headers.host) return fail(res, 403, "Cross-site request blocked.");
+    return "";
   }
-
-  /* ---- auth ---- */
-  if (p === "/auth/discord" && method === "GET") {
-    if (!discordOn()) return authPage(res, "Discord login isn't set up on this site yet.");
-    const state = crypto.randomBytes(16).toString("hex");
-    const mode = url.searchParams.get("link") && me ? "link" : "login";
-    const q = new URLSearchParams({ client_id: config.DISCORD_CLIENT_ID, response_type: "code", scope: "identify",
-      redirect_uri: discordRedirect(req), state, prompt: "none" });
-    res.writeHead(302, { Location: `https://discord.com/oauth2/authorize?${q}`,
-      "Set-Cookie": `dstate=${state}.${mode}; Path=/auth/discord; HttpOnly; SameSite=Lax; Max-Age=600${isHttps(req) ? "; Secure" : ""}` });
-    return res.end();
+  const c = (p) => p.colors;
+  function subpageHtml(p, d) {
+    const pg = p.pages.find((x) => x.slug === d.subpage) || { title: "", body: "", links: [] };
+    return `<section class="screen"><div class="wrap"><div class="card subpage">
+      <a class="back" href="/${esc(d.username)}"><svg viewBox="0 0 24 24"><path d="${ICONS.back}"/></svg>${esc(p.displayName || d.username)}</a>
+      <h2>${esc(pg.title || pg.slug)}</h2>
+      ${pg.body ? `<p class="textblock">${esc(pg.body)}</p>` : ""}
+      ${pg.links.length ? `<nav class="buttons">${pg.links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(l.label || l.url)}</span></a>`).join("")}</nav>` : ""}
+      <p class="foot"><a href="/">${esc(window.__SITE)}</a></p></div></div></section>`;
   }
-  if (p === "/auth/discord/callback" && method === "GET") {
-    const clear = `dstate=; Path=/auth/discord; Max-Age=0; HttpOnly; SameSite=Lax`;
-    res.setHeader("Set-Cookie", clear);
-    const [state, mode] = String(parseCookies(req).dstate || "").split(".");
-    if (url.searchParams.get("error")) return redirect(res, mode === "link" ? "/dashboard#account" : "/login");
-    if (!state || state !== url.searchParams.get("state")) return authPage(res, "That sign-in link expired. Try again.");
-    let d;
-    try { d = await discordExchange(req, String(url.searchParams.get("code") || "")); }
-    catch (e) { console.error("discord login failed:", e.message); return authPage(res, "Discord sign-in failed. Try again."); }
-    const existing = db.prepare("SELECT * FROM users WHERE discord_id = ?").get(String(d.id));
-    const dname = d.global_name || d.username;
-
-    if (mode === "link") {
-      if (!me) return authPage(res, "Sign in first, then link Discord.");
-      if (existing && existing.id !== me.id) return redirect(res, "/dashboard?discord=taken#account");
-      const prof = Profile.load(me.profile, { premium: !!me.premium });
-      if (!prof.discord.id) prof.discord.id = String(d.id);
-      db.prepare("UPDATE users SET discord_id = ?, discord_name = ?, profile = ? WHERE id = ?").run(String(d.id), dname, JSON.stringify(prof), me.id);
-      return redirect(res, "/dashboard?discord=linked#account");
+  function playerHtml(p) {
+    if (!p.playlist.length || !p.music.showPlayer) return "";
+    return `<div class="player"><button class="pp" type="button" aria-label="Play music">${svgIcon("play")}</button>
+      ${p.playlist.length > 1 ? `<button class="nx" type="button" aria-label="Next song">${svgIcon("up").replace("<svg", '<svg style="rotate:90deg"')}</button>` : ""}
+      ${p.music.visualizer ? `<span class="viz" aria-hidden="true">${"<i></i>".repeat(5)}</span>` : ""}<span class="track">${esc(p.playlist[0].title || "now playing")}</span><div class="prog"><i></i></div>
+      <input type="range" min="0" max="100" value="${p.music.volume}" aria-label="Volume"></div>`;
+  }
+  const votesHtml = (p) => p.social.likes ? `<div class="votes"><button data-v="1" aria-pressed="false">${svgIcon("up")}<span>0</span></button><button data-v="-1" aria-pressed="false">${svgIcon("down")}<span>0</span></button></div>` : "";
+  function cornerUi(p, d) {
+    if (p.viewCounter === "corner") { const l = document.createElement("div"); l.className = "corner l"; l.innerHTML = `<span class="chip">${svgIcon("eye")}<span class="views">${Number(d.views).toLocaleString()}</span> views</span>`; document.body.appendChild(l); }
+    if (p.share.shareButton || p.social.comments) {
+      const r = document.createElement("div"); r.className = "corner r";
+      r.innerHTML = `${p.social.comments ? `<button class="chip" data-comments>${svgIcon("comment")}<span class="ccount">comments</span></button>` : ""}${p.share.shareButton ? `<button class="chip" data-share>${svgIcon("share")}share</button>` : ""}`;
+      document.body.appendChild(r);
+      const sh = r.querySelector("[data-share]");
+      if (sh) sh.onclick = async () => {
+        const url = location.origin + "/" + d.username;
+        try { if (navigator.share) await navigator.share({ title: p.displayName || d.username, url }); else { await navigator.clipboard.writeText(url); sh.lastChild.textContent = "copied"; setTimeout(() => (sh.lastChild.textContent = "share"), 1500); } } catch {}
+      };
     }
-    if (existing) {
-      if (existing.banned) return authPage(res, "This account is banned" + (existing.ban_reason ? `: ${existing.ban_reason}` : "."));
-      db.prepare("UPDATE users SET discord_name = ? WHERE id = ?").run(dname, existing.id);
-      res.removeHeader("Set-Cookie");
-      createSession(res, req, existing.id);
-      res.setHeader("Set-Cookie", [res.getHeader("Set-Cookie"), clear]);
-      return redirect(res, "/dashboard");
-    }
-    // New person: let them pick a username first.
-    if (!getSetting("signupsOpen", true)) return authPage(res, "Sign-ups are closed right now.");
-    const token = crypto.randomBytes(24).toString("hex");
-    db.prepare("DELETE FROM pending_discord WHERE expires_at < ?").run(now());
-    db.prepare("INSERT INTO pending_discord (token,discord_id,name,avatar,expires_at) VALUES (?,?,?,?,?)")
-      .run(token, String(d.id), dname, JSON.stringify({ id: String(d.id), avatar: d.avatar || null, username: d.username, global_name: d.global_name || null }), now() + 30 * 60000);
-    return redirect(res, `/signup?discord=${token}&name=${encodeURIComponent(suggestName(d))}`);
-  }
-  if (p.startsWith("/api/auth/discord-pending/") && method === "GET") {
-    const row = db.prepare("SELECT name FROM pending_discord WHERE token = ? AND expires_at > ?").get(p.split("/").pop(), now());
-    return row ? send(res, 200, { name: row.name }) : fail(res, 404, "That Discord sign-up expired. Start again.");
-  }
-  if (p === "/api/auth/signup" && method === "POST") {
-    if (limited("signup:" + clientIp(req), 5, 3600000)) return fail(res, 429, "Too many sign-ups from here. Try again later.");
-    if (!getSetting("signupsOpen", true)) return fail(res, 403, "Sign-ups are closed right now.");
-    const { username, password, discordToken, invite } = await readJson(req);
-    const problem = nameProblem(username);
-    if (problem) return fail(res, 400, problem);
-    let inviteRow = null;
-    const firstUser = db.prepare("SELECT COUNT(*) n FROM users").get().n === 0;
-    if (getSetting("inviteOnly", false) && !firstUser) {
-      inviteRow = db.prepare("SELECT * FROM invites WHERE code = ? AND uses < max_uses").get(String(invite || "").trim().toUpperCase());
-      if (!inviteRow) return fail(res, 403, "Sign-ups need an invite code right now, and that one doesn't work.");
-    }
-    let pending = null;
-    if (discordToken) {
-      pending = db.prepare("SELECT * FROM pending_discord WHERE token = ? AND expires_at > ?").get(String(discordToken), now());
-      if (!pending) return fail(res, 400, "That Discord sign-up expired. Click Continue with Discord again.");
-      if (db.prepare("SELECT id FROM users WHERE discord_id = ?").get(pending.discord_id)) return fail(res, 400, "That Discord account already has a page. Sign in instead.");
-    } else if (typeof password !== "string" || password.length < 8 || password.length > 200) return fail(res, 400, "Passwords need at least 8 characters.");
-    const count = db.prepare("SELECT COUNT(*) n FROM users").get().n;
-    const memberNo = (db.prepare("SELECT MAX(member_no) m FROM users").get().m || 0) + 1;
-    const role = count === 0 ? "owner" : "user"; // the very first account owns the site
-    const profile = Profile.DEFAULTS(); profile.displayName = pending ? pending.name.slice(0, 40) : username;
-    if (pending) profile.discord.id = pending.discord_id;
-    const r = db.prepare("INSERT INTO users (member_no,username,password_hash,role,profile,created_at,discord_id,discord_name) VALUES (?,?,?,?,?,?,?,?)")
-      .run(memberNo, username, pending ? "" : hashPassword(password), role, JSON.stringify(profile), now(), pending ? pending.discord_id : null, pending ? pending.name : null);
-    const newId = Number(r.lastInsertRowid);
-    if (inviteRow) db.prepare("UPDATE invites SET uses = uses + 1 WHERE code = ?").run(inviteRow.code);
-    if (pending) {
-      db.prepare("DELETE FROM pending_discord WHERE token = ?").run(pending.token);
-      const avatar = await saveDiscordAvatar(newId, JSON.parse(pending.avatar || "{}"));
-      if (avatar) { profile.avatar.src = avatar; db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(profile), newId); }
-    }
-    createSession(res, req, newId);
-    return send(res, 200, { ok: true, username, owner: role === "owner" }, { "Set-Cookie": res.getHeader("Set-Cookie") });
-  }
-  if (p === "/api/auth/login" && method === "POST") {
-    if (limited("login:" + clientIp(req), 10, 600000)) return fail(res, 429, "Too many attempts. Wait 10 minutes and try again.");
-    const { username, password } = await readJson(req);
-    const u = db.prepare("SELECT * FROM users WHERE username = ?").get(String(username || ""));
-    if (u && !u.password_hash) return fail(res, 401, "This account signs in with Discord. Use Continue with Discord.");
-    if (!u || !checkPassword(String(password || ""), u.password_hash)) return fail(res, 401, "Wrong username or password.");
-    if (u.banned) return fail(res, 403, "This account is banned" + (u.ban_reason ? `: ${u.ban_reason}` : "."));
-    createSession(res, req, u.id);
-    return send(res, 200, { ok: true }, { "Set-Cookie": res.getHeader("Set-Cookie") });
-  }
-  if (p === "/api/auth/logout" && method === "POST") {
-    const sid = parseCookies(req).sid;
-    if (sid) db.prepare("DELETE FROM sessions WHERE token = ?").run(sid);
-    return send(res, 200, { ok: true }, { "Set-Cookie": "sid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax" });
   }
 
-  /* ---- public API ---- */
-  if (p === "/api/site" && method === "GET") {
-    return send(res, 200, {
-      name: config.SITE_NAME,
-      members: db.prepare("SELECT COUNT(*) n FROM users").get().n,
-      views: db.prepare("SELECT COUNT(*) n FROM views").get().n,
-      announcement: getSetting("announcement", ""),
-      signupsOpen: getSetting("signupsOpen", true),
-      discordLogin: discordOn(),
-      inviteOnly: getSetting("inviteOnly", false),
-      recent: db.prepare("SELECT * FROM users WHERE banned = 0 ORDER BY created_at DESC LIMIT 12").all().map((u) => {
-        const pr = Profile.load(u.profile, { premium: !!u.premium });
-        if (pr.visibility.hidden) return null;
-        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, memberNo: u.member_no, at: u.created_at };
-      }).filter(Boolean),
-      featured: getSetting("featured", []).map((id) => db.prepare("SELECT * FROM users WHERE id = ? AND banned = 0").get(id)).filter(Boolean).map((u) => {
-        const pr = Profile.load(u.profile, { premium: !!u.premium });
-        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, bio: pr.bio.split("\n")[0] || pr.taglines[0] || "", memberNo: u.member_no, views: totalViews(u.id) };
-      }),
-      me: me ? { username: me.username, role: me.role } : null,
+  /* ---------- behaviour ---------- */
+  function setupScroll() {
+    const sc = root.querySelector(".scroller"), dots = document.querySelectorAll(".dots button"), hint = document.querySelector(".hint");
+    const screens = root.querySelectorAll(".screen");
+    dots.forEach((b, i) => (b.onclick = () => screens[i].scrollIntoView({ behavior: "smooth" })));
+    listen(sc, "scroll", () => {
+      const i = Math.round(sc.scrollTop / sc.clientHeight);
+      dots.forEach((b, j) => b.setAttribute("aria-current", i === j));
+      if (hint) hint.style.opacity = sc.scrollTop > 40 ? 0 : 1;
     });
   }
-  if (p.startsWith("/api/check/") && method === "GET") {
-    const name = decodeURIComponent(p.slice(11));
-    const problem = nameProblem(name);
-    return send(res, 200, { available: !problem, reason: problem });
+  function setupBackground(p) {
+    const cv = root.querySelector(".bg canvas.waves"); if (!cv || reduce) return;
+    const ctx = cv.getContext("2d"); let raf, t = 0;
+    const rgb = hexToRgb(p.colors.accent || "#ff2e4d");
+    const draw = () => {
+      cv.width = innerWidth; cv.height = innerHeight; ctx.clearRect(0, 0, cv.width, cv.height);
+      for (let k = 0; k < 4; k++) {
+        ctx.beginPath();
+        for (let x = 0; x <= cv.width; x += 12) { const y = cv.height * (0.45 + k * 0.1) + Math.sin(x / 180 + t * (0.6 + k * 0.2) + k) * 40; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.lineTo(cv.width, cv.height); ctx.lineTo(0, cv.height); ctx.closePath();
+        ctx.fillStyle = `rgba(${rgb},${0.06 + k * 0.04})`; ctx.fill();
+      }
+      t += 0.012; raf = requestAnimationFrame(draw);
+    };
+    draw(); onCleanup(() => cancelAnimationFrame(raf));
   }
-  if (p === "/api/leaderboard" && method === "GET") {
-    const rows = db.prepare(`SELECT u.*, COUNT(v.id) views FROM users u LEFT JOIN views v ON v.user_id = u.id
-      WHERE u.banned = 0 GROUP BY u.id ORDER BY views DESC, u.member_no ASC LIMIT 25`).all();
-    return send(res, 200, rows.map((u) => {
-      const prof = Profile.load(u.profile, { premium: !!u.premium });
-      return { username: u.username, displayName: prof.displayName, avatar: prof.avatar.src, views: u.views, memberNo: u.member_no, badges: badgesFor(u) };
+  function setupNameEffect(p) {
+    const el = root.querySelector(".name"); if (!el || reduce) return;
+    const text = el.dataset.text, e = p.name.effect;
+    splitName(el, e);
+    if (e === "typewriter") {
+      let i = 0; el.innerHTML = `<span class="tt"></span><span class="tw-caret"></span>`;
+      const tt = el.querySelector(".tt");
+      const tick = () => { tt.textContent = text.slice(0, i); if (i++ < text.length) t = setTimeout(tick, 110); };
+      let t = setTimeout(tick, 400); onCleanup(() => clearTimeout(t));
+    }
+    if (e === "scramble") scramble(el, text);
+    if (e === "sparkle") every(() => {
+      const s = document.createElement("span"); s.className = "sp";
+      s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%"; el.appendChild(s); setTimeout(() => s.remove(), 1600);
+    }, 260);
+  }
+  function splitName(el, e) {
+    const text = el.dataset.text;
+    const split = (fn) => { el.innerHTML = [...text].map((ch, i) => `<span class="ch" style="${fn(i, [...text].length)}">${esc(ch)}</span>`).join(""); };
+    if (e === "wave") split((i) => `animation-delay:${i * 0.07}s`);
+    if (e === "blurin") split((i) => `animation-delay:${0.2 + i * 0.06}s`);
+    if (e === "focus") split((i) => `animation-delay:${i * 0.15}s`);
+    if (e === "split") split((i, n) => `animation-delay:${0.1 + Math.abs(i - n / 2) * 0.04}s;--sx:${i < n / 2 ? -40 : 40}px`);
+  }
+  /* name switches between a few names */
+  function setupNameCycle(p) {
+    const el = root.querySelector(".name"); if (!el || !p.name.cycle.length) return;
+    const names = [el.dataset.text, ...p.name.cycle.filter((n) => n.trim())]; if (names.length < 2) return;
+    let i = 0, t;
+    const show = (txt) => {
+      el.dataset.text = txt;
+      if (reduce || p.name.cycleStyle === "fade") {
+        el.classList.add("nswap");
+        t = setTimeout(() => { el.textContent = txt; splitName(el, p.name.effect); el.classList.remove("nswap"); }, 280);
+      } else if (p.name.cycleStyle === "type") {
+        let cur = el.textContent, k = cur.length;
+        const back = () => { if (k > 0) { el.textContent = cur.slice(0, --k); t = setTimeout(back, 40); } else fwd(); };
+        const fwd = () => { if (k < txt.length) { el.textContent = txt.slice(0, ++k); t = setTimeout(fwd, 80); } else splitName(el, p.name.effect); };
+        back();
+      } else scramble(el, txt, () => splitName(el, p.name.effect));
+    };
+    const iv = setInterval(() => { i = (i + 1) % names.length; show(names[i]); }, p.name.cycleSpeed * 1000 + 600);
+    onCleanup(() => { clearInterval(iv); clearTimeout(t); });
+  }
+  /* weather where you live (open-meteo, no key) */
+  const WX_SVG = {
+    sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+    cloud: '<svg viewBox="0 0 24 24"><path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.6a4.4 4.4 0 0 1-.9 8.9z"/></svg>',
+    rain: '<svg viewBox="0 0 24 24"><path d="M7 14.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 5.6a4.4 4.4 0 0 1-.9 8.9z"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    snow: '<svg viewBox="0 0 24 24"><path d="M7 14.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 5.6a4.4 4.4 0 0 1-.9 8.9z"/><circle cx="8" cy="18.5" r="1.3"/><circle cx="12" cy="20" r="1.3"/><circle cx="16" cy="18.5" r="1.3"/></svg>',
+    storm: '<svg viewBox="0 0 24 24"><path d="M7 14.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 5.6a4.4 4.4 0 0 1-.9 8.9z"/><path d="M12.5 14l-2.5 4h3l-2 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>',
+    fog: '<svg viewBox="0 0 24 24"><path d="M4 9h16M3 13h18M5 17h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  };
+  const wxKind = (c) => c === 0 || c === 1 ? "sun" : c <= 3 ? "cloud" : c <= 48 ? "fog" : c <= 67 || (c >= 80 && c <= 82) ? "rain" : c <= 77 || c === 85 || c === 86 ? "snow" : "storm";
+  async function setupWeather(p) {
+    const el = root.querySelector(".wx"); if (!el) return;
+    const f = p.details.units === "f", key = `dose-wx:${p.details.location}:${f}`;
+    try {
+      let w = null; try { const c = JSON.parse(sessionStorage.getItem(key)); if (c && Date.now() - c.at < 20 * 60000) w = c; } catch {}
+      if (!w) {
+        const g = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(p.details.location.split(",")[0])}`)).json();
+        const loc = g.results && g.results[0]; if (!loc) return;
+        const r = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,weather_code${f ? "&temperature_unit=fahrenheit" : ""}`)).json();
+        w = { t: Math.round(r.current.temperature_2m), c: r.current.weather_code, at: Date.now() };
+        try { sessionStorage.setItem(key, JSON.stringify(w)); } catch {}
+      }
+      el.innerHTML = `${WX_SVG[wxKind(w.c)]}${w.t}°${f ? "F" : "C"}`; el.hidden = false;
+    } catch {}
+  }
+  function scramble(el, text, onDone) {
+    const chars = "!<>-_\\/[]{}=+*^?#abcdefxyz0123456789";
+    let frame = 0; const total = text.length * 3 + 10; let raf;
+    const step = () => {
+      el.textContent = [...text].map((ch, i) => (frame / 3 > i ? ch : ch === " " ? " " : chars[Math.floor(Math.random() * chars.length)])).join("");
+      if (frame++ < total) raf = requestAnimationFrame(step); else { el.textContent = text; onDone && onDone(); }
+    };
+    step(); onCleanup(() => cancelAnimationFrame(raf));
+  }
+  function setupBio(p) {
+    const el = root.querySelector(".bio:not(.cstatus)"); if (!el || reduce) return;
+    const text = p.bio;
+    if (p.bioEffect === "typewriter") { let i = 0; el.textContent = ""; const tick = () => { el.textContent = text.slice(0, i); if (i++ < text.length) t = setTimeout(tick, 22); }; let t = setTimeout(tick, 500); onCleanup(() => clearTimeout(t)); }
+    if (p.bioEffect === "scramble") scramble(el, text);
+    if (p.bioEffect === "rotate") {
+      const lines = [text, ...p.taglines]; el.innerHTML = `<span class="typed"></span><span class="caret"></span>`;
+      const tt = el.firstChild; let li = 0, ci = 0, del = false, t;
+      const tick = () => {
+        const line = lines[li]; tt.textContent = line.slice(0, ci);
+        if (!del && ci < line.length) { ci++; t = setTimeout(tick, li === 0 ? 24 : 55); return; }
+        if (!del) { if (lines.length === 1) return; del = true; t = setTimeout(tick, Math.min(6000, 1600 + line.length * 25)); return; }
+        if (ci > 0) { ci = Math.max(0, ci - (line.length > 60 ? 3 : 1)); t = setTimeout(tick, 18); return; }
+        del = false; li = (li + 1) % lines.length; t = setTimeout(tick, 300);
+      };
+      t = setTimeout(tick, 500); onCleanup(() => clearTimeout(t));
+    }
+    if (p.bioEffect === "words") el.innerHTML = text.split(/(\s+)/).map((w, i) => /\s/.test(w) ? w : `<span class="w" style="animation-delay:${0.3 + i * 0.03}s">${esc(w)}</span>`).join("");
+  }
+  function setupTaglines(p) {
+    const el = root.querySelector(".taglines .typed"); if (!el) return;
+    const lines = p.taglines;
+    if (reduce) { el.textContent = lines.join(" · "); return; }
+    let li = 0, ci = 0, del = false, t;
+    const tick = () => {
+      const line = lines[li]; el.textContent = line.slice(0, ci);
+      if (!del && ci < line.length) { ci++; t = setTimeout(tick, 65); return; }
+      if (!del) { if (lines.length === 1) return; del = true; t = setTimeout(tick, 1800); return; }
+      if (ci > 0) { ci--; t = setTimeout(tick, 30); return; }
+      del = false; li = (li + 1) % lines.length; t = setTimeout(tick, 300);
+    };
+    t = setTimeout(tick, 600); onCleanup(() => clearTimeout(t));
+  }
+  function setupClock(p) {
+    if (!p.details.timezone) return;
+    const els = root.querySelectorAll(".localtime"), big = root.querySelector(".bigtime");
+    every(() => {
+      try {
+        const s = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: p.details.timezone });
+        els.forEach((e) => (e.textContent = s));
+        if (big) big.textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: p.details.timezone });
+      } catch {}
+    }, 1000);
+    const vc = root.querySelector(".views[data-n]");
+    if (vc && p.viewCounter === "counter" && !reduce) { const n = Number(vc.dataset.n); let i = 0; const st = () => { i++; vc.textContent = Math.round(n * (1 - Math.pow(1 - i / 60, 3))).toLocaleString(); if (i < 60) r = requestAnimationFrame(st); }; let r = requestAnimationFrame(st); onCleanup(() => cancelAnimationFrame(r)); }
+  }
+  function setupMotion(p) {
+    const cards = root.querySelectorAll(".card");
+    if (p.motion.spotlight) cards.forEach((card) => listen(card, "pointermove", (e) => { const r = card.getBoundingClientRect(); card.style.setProperty("--mx", e.clientX - r.left + "px"); card.style.setProperty("--my", e.clientY - r.top + "px"); }));
+    if (!p.motion.tilt || reduce || coarse) return;
+    const card = cards[0]; if (!card) return;
+    listen(window, "mousemove", (e) => {
+      const r = card.getBoundingClientRect(); const x = (e.clientX - (r.left + r.width / 2)) / r.width, y = (e.clientY - (r.top + r.height / 2)) / r.height;
+      card.style.transform = `rotateY(${Math.max(-1, Math.min(1, x)) * 10}deg) rotateX(${-Math.max(-1, Math.min(1, y)) * 10}deg)`;
+    });
+    listen(document, "mouseleave", () => (card.style.transform = ""));
+  }
+
+  /* cursor + clicks */
+  function setupCursor(cur) {
+    document.body.style.cursor = cur.image ? `url("${cur.image}") 4 4, auto` : "";
+    if (!reduce && !coarse && cur.effect !== "none") {
+      if (cur.effect === "ribbon") ribbon();
+      else if (cur.effect === "moth") moth();
+      else {
+        let last = 0;
+        listen(window, "mousemove", (e) => {
+          const t = performance.now(); if (t - last < 30) return; last = t;
+          particle(e.clientX, e.clientY, cur.effect);
+        });
+      }
+    }
+    if (cur.click !== "none" || cur.sound !== "none") listen(window, "pointerdown", (e) => {
+      if (cur.click !== "none" && !reduce) clickFx(e.clientX, e.clientY, cur.click);
+      if (cur.sound !== "none") clickSound(cur);
+    });
+  }
+  function particle(x, y, kind, opts = {}) {
+    const s = document.createElement("span"); s.className = "cfx";
+    const dx = opts.dx ?? (Math.random() - 0.5) * 30, dy = opts.dy ?? (kind === "snow" ? 30 + Math.random() * 20 : kind === "bubbles" ? -40 : 15 + Math.random() * 10);
+    const size = opts.size ?? (kind === "pixels" ? 5 : kind === "bubbles" ? 10 : 7);
+    const styles = {
+      sparkle: `width:${size + 3}px;height:${size + 3}px;background:var(--accent);clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);filter:drop-shadow(0 0 4px var(--accent))`,
+      snow: `width:${size - 2}px;height:${size - 2}px;border-radius:50%;background:#fff;opacity:.9`,
+      pixels: `width:${size}px;height:${size}px;background:var(--accent);image-rendering:pixelated`,
+      bubbles: `width:${size}px;height:${size}px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--accent) 80%,#fff)`,
+      heart: `width:12px;height:12px;background:var(--accent);clip-path:path('M6 11 1.2 6.2A3 3 0 0 1 6 2.4a3 3 0 0 1 4.8 3.8z')`,
+      confetti: `width:6px;height:9px;background:hsl(${Math.random() * 360} 90% 60%)`,
+      dot: `width:6px;height:6px;border-radius:50%;background:var(--accent)`,
+    };
+    s.style.cssText = styles[kind] || styles.dot;
+    document.body.appendChild(s);
+    const dur = opts.dur || 800;
+    s.animate([{ transform: `translate(${x - size / 2}px,${y - size / 2}px) rotate(0)`, opacity: 1 },
+      { transform: `translate(${x - size / 2 + dx}px,${y - size / 2 + dy}px) rotate(${opts.rot || 0}deg) scale(${kind === "bubbles" ? 1.6 : 0.3})`, opacity: 0 }],
+      { duration: dur, easing: "cubic-bezier(.2,.7,.4,1)" }).onfinish = () => s.remove();
+  }
+  function clickFx(x, y, kind) {
+    if (kind === "ripple") { const r = document.createElement("span"); r.className = "ripple"; r.style.left = x + "px"; r.style.top = y + "px"; document.body.appendChild(r); setTimeout(() => r.remove(), 700); return; }
+    const n = kind === "confetti" ? 18 : 10;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, sp = 40 + Math.random() * 40;
+      particle(x, y, { burst: "dot", hearts: "heart", confetti: "confetti", stars: "sparkle" }[kind], { dx: Math.cos(a) * sp, dy: Math.sin(a) * sp + (kind === "confetti" ? 40 : 0), dur: 700, rot: kind === "confetti" ? 360 : 0, size: 8 });
+    }
+  }
+  let actx;
+  function clickSound(cur) {
+    try {
+      if (cur.sound === "custom") { if (cur.soundFile) { const a = new Audio(cur.soundFile); a.volume = 0.6; a.play().catch(() => {}); } return; }
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain(), t = actx.currentTime;
+      o.connect(g); g.connect(actx.destination);
+      if (cur.sound === "click") { o.type = "square"; o.frequency.setValueAtTime(1800, t); g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.04); o.start(t); o.stop(t + 0.05); }
+      if (cur.sound === "bubble") { o.type = "sine"; o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(900, t + 0.12); g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.15); o.start(t); o.stop(t + 0.16); }
+      if (cur.sound === "chime") { o.type = "triangle"; o.frequency.setValueAtTime(1320, t); g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.6); o.start(t); o.stop(t + 0.6); }
+    } catch {}
+  }
+  function ribbon() {
+    const cv = document.createElement("canvas"); cv.className = "cursorfx"; document.body.appendChild(cv); onCleanup(() => cv.remove());
+    const ctx = cv.getContext("2d"); const pts = []; let raf;
+    const size = () => { cv.width = innerWidth; cv.height = innerHeight; }; size(); listen(window, "resize", size);
+    listen(window, "mousemove", (e) => pts.push({ x: e.clientX, y: e.clientY, t: performance.now() }));
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    const draw = () => {
+      const now = performance.now(); while (pts.length && now - pts[0].t > 350) pts.shift();
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      for (let i = 1; i < pts.length; i++) {
+        const a = 1 - (now - pts[i].t) / 350;
+        ctx.strokeStyle = accent; ctx.globalAlpha = a; ctx.lineWidth = 6 * a; ctx.lineCap = "round"; ctx.shadowBlur = 12; ctx.shadowColor = accent;
+        ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    draw(); onCleanup(() => cancelAnimationFrame(raf));
+  }
+  function moth() {
+    const m = document.createElement("div"); m.className = "moth";
+    m.innerHTML = `<svg viewBox="0 0 32 32"><path d="M16 9c1 0 1.5 1.5 1.5 3v10c0 2-1 3-1.5 3s-1.5-1-1.5-3V12c0-1.5.5-3 1.5-3zM15 12C10 4 2 5 3 11c.6 3.6 5 5 11 4zm2 0c5-8 13-7 12-1-.6 3.6-5 5-11 4zm-2 5c-5 1-9 4-7 7 1.6 2.4 5 0 7-4zm2 0c5 1 9 4 7 7-1.6 2.4-5 0-7-4z"/></svg>`;
+    document.body.appendChild(m);
+    let tx = innerWidth / 2, ty = innerHeight / 2, x = tx, y = ty, raf, t = 0;
+    listen(window, "mousemove", (e) => { tx = e.clientX; ty = e.clientY; });
+    const step = () => {
+      t += 0.05; const ox = Math.cos(t * 1.7) * 26, oy = Math.sin(t * 2.3) * 22;
+      const nx = x + (tx + ox - x) * 0.06, ny = y + (ty + oy - y) * 0.06;
+      const ang = Math.atan2(ny - y, nx - x) * 180 / Math.PI + 90; x = nx; y = ny;
+      m.style.transform = `translate(${x - 13}px,${y - 13}px) rotate(${ang}deg)`; raf = requestAnimationFrame(step);
+    };
+    step(); onCleanup(() => { cancelAnimationFrame(raf); m.remove(); });
+  }
+  function setupClicks() {
+    if (PREVIEW || data.demo) return;
+    root.querySelectorAll("a[data-id]").forEach((a) => a.addEventListener("click", () => {
+      try { navigator.sendBeacon("/api/track/click", new Blob([JSON.stringify({ username: data.username, linkId: a.dataset.id })], { type: "application/json" })); } catch {}
     }));
   }
-  if (p === "/api/track/view" && method === "POST") {
-    const { username, ref } = await readJson(req, 4096);
-    const u = db.prepare("SELECT id, profile, premium FROM users WHERE username = ? AND banned = 0").get(String(username || ""));
-    if (!u) return fail(res, 404, "Not found");
-    const prof = Profile.load(u.profile, { premium: !!u.premium });
-    if (me && me.id === u.id && !prof.visibility.countOwn) return send(res, 200, { views: totalViews(u.id), counted: false });
-    const day = new Date().toISOString().slice(0, 10);
-    const visitor = visitorHash(req, day);
-    // Every open counts as a view, except quick refreshes (30 min per visitor).
-    if (!limited(`hit:${u.id}:${visitor}`, 1, 30 * 60000)) {
-      db.prepare("INSERT INTO hits (user_id, day, n) VALUES (?, ?, 1) ON CONFLICT(user_id, day) DO UPDATE SET n = n + 1").run(u.id, day);
-    }
-    const ua = String(req.headers["user-agent"] || "");
-    const device = /iPad|Tablet|PlayBook|Silk|(Android(?!.*Mobile))/i.test(ua) ? "tablet" : /Mobi|iPhone|Android/i.test(ua) ? "mobile" : "desktop";
-    const country = (req.headers["cf-ipcountry"] || req.headers["x-vercel-ip-country"] || "").slice(0, 2).toUpperCase() || null;
-    db.prepare("INSERT OR IGNORE INTO views (user_id,visitor,day,referrer,country,device,ts) VALUES (?,?,?,?,?,?,?)")
-      .run(u.id, visitor, day, refHost(String(ref || ""), req.headers.host), country, device, now());
-    return send(res, 200, { views: totalViews(u.id) });
-  }
-  if (p === "/api/track/click" && method === "POST") {
-    const { username, linkId } = await readJson(req, 4096);
-    if (limited("click:" + clientIp(req), 60, 60000)) return send(res, 200, { ok: true });
-    const u = db.prepare("SELECT id FROM users WHERE username = ?").get(String(username || ""));
-    if (u && typeof linkId === "string" && /^[a-z0-9]{1,12}$/.test(linkId)) db.prepare("INSERT INTO clicks (user_id,link_id,ts) VALUES (?,?,?)").run(u.id, linkId, now());
-    return send(res, 200, { ok: true });
-  }
 
-  const im = p.match(/^\/api\/invite\/([A-Za-z0-9-]{2,32})$/);
-  if (im && method === "GET") {
-    const hit = inviteCache.get(im[1]);
-    if (hit && hit.until > now()) return send(res, hit.ok ? 200 : 404, hit.body, { "Cache-Control": "public, max-age=300" });
+  /* embeds & widgets */
+  function setupEmbeds(p) {
+    const gh = root.querySelector("[data-gh]");
+    if (gh) fetch(`https://api.github.com/users/${encodeURIComponent(p.details.github)}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((u) => {
+      gh.innerHTML = `<img src="${esc(u.avatar_url)}" alt=""><div class="txt"><b>${esc(u.name || u.login)}</b><small>${u.public_repos} repos · ${u.followers} followers</small></div>`;
+      gh.onclick = () => window.open(u.html_url, "_blank", "noopener");
+    }).catch(() => { gh.querySelector("small").textContent = "github.com/" + p.details.github; });
+    const cd = root.querySelector("[data-date]");
+    if (cd) {
+      const target = new Date(cd.dataset.date).getTime(), t = cd.querySelector(".t");
+      every(() => {
+        let s = Math.floor((target - Date.now()) / 1000);
+        if (s <= 0) { t.innerHTML = `<span>${esc(cd.dataset.done || "it's here")}</span>`; return; }
+        const dd = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
+        t.innerHTML = [[dd, "days"], [h, "hrs"], [m, "min"], [s, "sec"]].map(([v, l]) => `<span>${String(v).padStart(2, "0")}<em>${l}</em></span>`).join("");
+      }, 1000);
+    }
+    const sv = root.querySelector("[data-invite]");
+    if (sv) fetch(`/api/invite/${encodeURIComponent(sv.dataset.invite)}`).then((r) => r.json()).then((j) => {
+      if (j.error) { sv.querySelector("b").textContent = "invite expired"; return; }
+      sv.querySelector(".ic").innerHTML = j.icon ? `<img src="${esc(j.icon)}" alt="">` : svgIcon("discord");
+      sv.querySelector("b").textContent = j.name;
+      sv.querySelector("small").innerHTML = `<span><i style="background:#3ba55d"></i>${j.online.toLocaleString()} online</span><span><i style="background:#747f8d"></i>${j.members.toLocaleString()} members</span>`;
+    }).catch(() => { sv.querySelector("b").textContent = "discord server"; });
+  }
+  function setupDiscord(p) {
+    if (!p.discord.id) return;
+    const COLORS = { online: "#3ba55d", idle: "#faa61a", dnd: "#ed4245", offline: "#747f8d" };
+    const WORDS = { online: "online", idle: "away", dnd: "do not disturb", offline: "offline" };
+    let lyricsFor = null, lyricLines = [], lyricTimer;
+    const poll = async () => {
+      try {
+        const r = await fetch(`https://api.lanyard.rest/v1/users/${p.discord.id}`); const j = await r.json(); if (!j.success) return;
+        lanyard = j.data; const L = lanyard;
+        const dot = root.querySelector(".avatar .dot"), st = root.querySelector(".line .status");
+        if (p.live.status) {
+          if (dot) { dot.hidden = false; dot.style.background = COLORS[L.discord_status]; dot.title = WORDS[L.discord_status]; }
+          if (st) { st.hidden = false; st.querySelector(".sdot").style.background = COLORS[L.discord_status]; st.querySelector("em").textContent = WORDS[L.discord_status]; }
+        }
+        const dd = root.querySelector(".ddeco"), deco = L.discord_user && L.discord_user.avatar_decoration_data;
+        if (dd && deco) { dd.src = `https://cdn.discordapp.com/avatar-decoration-presets/${deco.asset}.png?size=240&passthrough=true`; dd.hidden = false; }
+        const custom = (L.activities || []).find((x) => x.type === 4);
+        const cs = root.querySelector(".bio.cstatus");
+        if (cs && p.live.customStatus && custom && custom.state) { cs.textContent = custom.state; cs.hidden = false; }
+
+        const sec = root.querySelector('[data-sec="presence"]'), stack = sec && sec.querySelector(".pstack");
+        if (!stack) return;
+        const blocks = [];
+        if (p.live.spotify && L.listening_to_spotify && L.spotify) {
+          const sp = L.spotify;
+          blocks.push(`<div class="box presence-wrap"><div class="presence"><div class="art">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</div>
+            <div class="txt"><small class="lbl">${esc(p.live.listeningLabel)}</small><b>${esc(sp.song)}</b><span class="sub">${esc(sp.artist)}</span>
+            <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
+            ${p.live.lyrics ? `<div class="lyrics" hidden><div></div></div>` : ""}</div>`);
+          if (p.background.type === "auto" && sp.album_art_url) { const img = root.querySelector(".bg .auto"); if (img) { img.src = sp.album_art_url; img.hidden = false; } }
+        } else if (p.background.type === "auto") { const img = root.querySelector(".bg .auto"); if (img && p.avatar.src && img.getAttribute("src") !== p.avatar.src) img.src = p.avatar.src; }
+        if (p.live.games) for (const a of (L.activities || []).filter((x) => x.type === 0 || x.type === 1).slice(0, 2)) {
+          const img = a.assets && a.assets.large_image;
+          const src = img ? (img.startsWith("mp:") ? `https://media.discordapp.net/${img.slice(3)}` : a.application_id ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${img}.png` : "") : "";
+          blocks.push(`<div class="box presence"><div class="art">${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(p.live.playingLabel)}</small><b>${esc(a.name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);
+        }
+        stack.innerHTML = blocks.join(""); sec.hidden = !blocks.length;
+        if (p.live.lyrics && L.listening_to_spotify && L.spotify) {
+          const key = L.spotify.track_id;
+          if (lyricsFor !== key) { lyricsFor = key; lyricLines = []; loadLyrics(L.spotify).then((ls) => { if (lyricsFor === key) lyricLines = ls; }); }
+        }
+      } catch {}
+    };
+    every(poll, 10000);
+    // progress + lyrics tick
+    every(() => {
+      if (!lanyard || !lanyard.listening_to_spotify || !lanyard.spotify) return;
+      const ts = lanyard.spotify.timestamps, pos = Date.now() - ts.start, len = ts.end - ts.start;
+      const bar = root.querySelector(".spbar"), cur = root.querySelector(".tcur");
+      if (bar) bar.style.width = Math.min(100, (pos / len) * 100) + "%"; if (cur) cur.textContent = fmt(Math.min(pos, len));
+      const box = root.querySelector(".lyrics");
+      if (box && lyricLines.length) {
+        box.hidden = false;
+        let i = lyricLines.findIndex((l) => l.t > pos) - 1; if (i < -1) i = lyricLines.length - 1; if (i < 0) i = 0;
+        const inner = box.firstElementChild;
+        if (inner.dataset.for !== lyricsFor) { inner.dataset.for = lyricsFor; inner.innerHTML = lyricLines.map((l) => `<p>${esc(l.text) || "♪"}</p>`).join(""); }
+        inner.querySelectorAll("p").forEach((el, j) => el.classList.toggle("on", j === i));
+        inner.style.transform = `translateY(${20 - i * 20}px)`;
+      }
+    }, 250);
+  }
+  const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  async function loadLyrics(sp) {
     try {
-      const r = await fetch(`https://discord.com/api/v10/invites/${im[1]}?with_counts=true`, { signal: AbortSignal.timeout(5000) });
-      const j = r.ok ? await r.json() : null;
-      const body = j && j.guild ? {
-        name: j.guild.name, id: j.guild.id, icon: j.guild.icon ? `https://cdn.discordapp.com/icons/${j.guild.id}/${j.guild.icon}.png?size=128` : "",
-        online: j.approximate_presence_count || 0, members: j.approximate_member_count || 0, code: im[1],
-      } : { error: "That invite doesn't work." };
-      inviteCache.set(im[1], { ok: !!(j && j.guild), body, until: now() + 10 * 60000 });
-      return send(res, j && j.guild ? 200 : 404, body);
-    } catch { return fail(res, 502, "Couldn't reach Discord."); }
+      const q = new URLSearchParams({ track_name: sp.song, artist_name: sp.artist.split(";")[0], album_name: sp.album || "", duration: Math.round((sp.timestamps.end - sp.timestamps.start) / 1000) });
+      const r = await fetch(`https://lrclib.net/api/get?${q}`); if (!r.ok) return [];
+      const j = await r.json(); if (!j.syncedLyrics) return [];
+      return j.syncedLyrics.split("\n").map((l) => { const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s?(.*)$/); return m ? { t: (Number(m[1]) * 60 + Number(m[2])) * 1000, text: m[3] } : null; }).filter(Boolean);
+    } catch { return []; }
   }
 
-  /* ---- reports ---- */
-  if (p === "/api/report" && method === "POST") {
-    if (limited("report:" + clientIp(req), 5, 3600000)) return fail(res, 429, "You've sent a lot of reports. Try again later.");
-    const { username, reason, details } = await readJson(req, 4096);
-    const REASONS = ["spam", "impersonation", "harassment", "explicit", "scam", "other"];
-    const page = db.prepare("SELECT id FROM users WHERE username = ?").get(String(username || ""));
-    if (!page) return fail(res, 404, "That page doesn't exist.");
-    if (!REASONS.includes(reason)) return fail(res, 400, "Pick a reason.");
-    db.prepare("INSERT INTO reports (page_id, reporter_id, reason, details, ts) VALUES (?,?,?,?,?)").run(page.id, me ? me.id : null, reason, String(details || "").slice(0, 500), now());
-    return send(res, 200, { ok: true });
-  }
-
-  /* ---- likes & comments ---- */
-  const so = p.match(/^\/api\/social\/([a-z0-9_.]{1,20})(\/vote|\/comment)?$/i);
-  if (so) {
-    const page = db.prepare("SELECT * FROM users WHERE username = ? AND banned = 0").get(so[1]);
-    if (!page) return fail(res, 404, "Not found");
-    const prof = Profile.load(page.profile, { premium: !!page.premium });
-    if (!prof.social.likes && !prof.social.comments) return fail(res, 404, "Not enabled");
-    if (!so[2] && method === "GET") {
-      const v = db.prepare("SELECT SUM(value = 1) likes, SUM(value = -1) dislikes FROM votes WHERE page_id = ?").get(page.id);
-      const mine = me ? (db.prepare("SELECT value FROM votes WHERE page_id = ? AND voter_id = ?").get(page.id, me.id) || {}).value || 0 : 0;
-      const comments = prof.social.comments ? db.prepare(`SELECT c.id, c.body, c.ts, u.username, u.profile, u.premium, u.id uid FROM comments c JOIN users u ON u.id = c.author_id
-        WHERE c.page_id = ? AND u.banned = 0 ORDER BY c.ts DESC LIMIT 100`).all(page.id).map((c) => ({
-          id: c.id, body: c.body, ts: c.ts, username: c.username, avatar: Profile.load(c.profile, { premium: !!c.premium }).avatar.src,
-          canDelete: !!me && (me.id === c.uid || me.id === page.id || ["owner", "staff"].includes(me.role)),
-        })) : [];
-      return send(res, 200, { likes: prof.social.likes, comments: prof.social.comments, up: v.likes || 0, down: v.dislikes || 0, mine, list: comments, signedIn: !!me });
-    }
-    if (!me) return fail(res, 401, "Sign in to do that.");
-    if (so[2] === "/vote" && method === "POST" && prof.social.likes) {
-      const { value } = await readJson(req, 1024);
-      if (value === 0) db.prepare("DELETE FROM votes WHERE page_id = ? AND voter_id = ?").run(page.id, me.id);
-      else db.prepare("INSERT INTO votes (page_id, voter_id, value) VALUES (?,?,?) ON CONFLICT(page_id, voter_id) DO UPDATE SET value = excluded.value").run(page.id, me.id, value > 0 ? 1 : -1);
-      return send(res, 200, { ok: true });
-    }
-    if (so[2] === "/comment" && method === "POST" && prof.social.comments) {
-      if (limited("comment:" + me.id, 5, 60000)) return fail(res, 429, "Slow down a little.");
-      const { body } = await readJson(req, 4096);
-      const b = String(body || "").trim().slice(0, 300);
-      if (!b) return fail(res, 400, "Write something first.");
-      db.prepare("INSERT INTO comments (page_id, author_id, body, ts) VALUES (?,?,?,?)").run(page.id, me.id, b, now());
-      return send(res, 200, { ok: true });
-    }
-    return fail(res, 404, "Not found");
-  }
-  const cd = p.match(/^\/api\/comments\/(\d+)$/);
-  if (cd && method === "DELETE") {
-    if (!me) return fail(res, 401, "Sign in to do that.");
-    const c = db.prepare("SELECT * FROM comments WHERE id = ?").get(Number(cd[1]));
-    if (!c) return fail(res, 404, "Comment not found.");
-    if (!(c.author_id === me.id || c.page_id === me.id || ["owner", "staff"].includes(me.role))) return fail(res, 403, "You can't delete that.");
-    db.prepare("DELETE FROM comments WHERE id = ?").run(c.id);
-    return send(res, 200, { ok: true });
-  }
-
-  /* ---- signed-in user API ---- */
-  if (p.startsWith("/api/me")) {
-    if (!me) return fail(res, 401, "Please sign in.");
-    if (me.banned) return fail(res, 403, "This account is banned.");
-
-    if (p === "/api/me" && method === "GET") {
-      return send(res, 200, { ...publicUser(me), options: Profile.OPTIONS, limits: config.UPLOAD_LIMITS, site: config.SITE_NAME,
-        announcement: getSetting("dashAnnouncement", ""),
-        aliases: db.prepare("SELECT name FROM aliases WHERE user_id = ? ORDER BY ts").all(me.id).map((a) => a.name),
-        aliasLimit: me.premium ? 3 : 1,
-        premiumUntil: me.premium_until || null,
-        linkClicks: Object.fromEntries(db.prepare("SELECT link_id, COUNT(*) n FROM clicks WHERE user_id = ? AND ts >= ? GROUP BY link_id").all(me.id, now() - 30 * DAY).map((r) => [r.link_id, r.n])),
-        allBadges: db.prepare("SELECT id, slug, name, icon, color, description, auto FROM badges ORDER BY system DESC, id").all(),
-        account: { hasPassword: !!me.password_hash, discordName: me.discord_name || null, discordLinked: !!me.discord_id, discordLogin: discordOn() } });
-    }
-    if (p === "/api/me/aliases" && method === "POST") {
-      const { name } = await readJson(req, 1024);
-      const limit = me.premium ? 3 : 1;
-      if (db.prepare("SELECT COUNT(*) n FROM aliases WHERE user_id = ?").get(me.id).n >= limit) return fail(res, 400, `You can have ${limit} extra name${limit > 1 ? "s" : ""}${me.premium ? "" : " (3 with Premium)"}.`);
-      const problem = nameProblem(String(name || ""), -1);
-      if (problem) return fail(res, 400, problem);
-      db.prepare("INSERT INTO aliases (name, user_id, ts) VALUES (?,?,?)").run(name, me.id, now());
-      return send(res, 200, { ok: true });
-    }
-    const am = p.match(/^\/api\/me\/aliases\/([a-z0-9_.]{1,20})$/i);
-    if (am && method === "DELETE") {
-      db.prepare("DELETE FROM aliases WHERE name = ? AND user_id = ?").run(am[1], me.id);
-      db.prepare("INSERT OR REPLACE INTO released_names (name, until) VALUES (?, ?)").run(am[1], now() + config.NAME_HOLD_HOURS * 3600000);
-      return send(res, 200, { ok: true });
-    }
-    if (p === "/api/me/discord" && method === "DELETE") {
-      if (!me.password_hash) return fail(res, 400, "Set a password first, or you won't be able to sign in.");
-      db.prepare("UPDATE users SET discord_id = NULL, discord_name = NULL WHERE id = ?").run(me.id);
-      return send(res, 200, { ok: true });
-    }
-    if (p === "/api/me/profile" && method === "PUT") {
-      const body = await readJson(req);
-      const clean = Profile.clean(Profile.load(JSON.stringify(body.profile || {}), { premium: !!me.premium }), { premium: !!me.premium });
-      db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(clean), me.id);
-      cleanupUploads(me, clean);
-      return send(res, 200, { ok: true, profile: clean });
-    }
-    if (p === "/api/me/upload" && method === "POST") {
-      if (limited("upload:" + me.id, 40, 3600000)) return fail(res, 429, "Too many uploads. Try again in a bit.");
-      return handleUpload(req, res, me, url.searchParams.get("kind"));
-    }
-    if (p === "/api/me/username" && method === "POST") {
-      const { username } = await readJson(req);
-      if (String(username).toLowerCase() === me.username.toLowerCase() && username !== me.username) {
-        db.prepare("UPDATE users SET username = ? WHERE id = ?").run(username, me.id);
-        return send(res, 200, { ok: true, username });
-      }
-      const problem = nameProblem(username, me.id);
-      if (problem) return fail(res, 400, problem);
-      db.prepare("INSERT OR REPLACE INTO released_names (name, until) VALUES (?, ?)").run(me.username, now() + config.NAME_HOLD_HOURS * 3600000);
-      db.prepare("UPDATE users SET username = ? WHERE id = ?").run(username, me.id);
-      return send(res, 200, { ok: true, username });
-    }
-    if (p === "/api/me/password" && method === "POST") {
-      const { current, next } = await readJson(req);
-      if (me.password_hash && !checkPassword(String(current || ""), me.password_hash)) return fail(res, 400, "Your current password is wrong.");
-      if (typeof next !== "string" || next.length < 8) return fail(res, 400, "New passwords need at least 8 characters.");
-      db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(next), me.id);
-      db.prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?").run(me.id, parseCookies(req).sid);
-      return send(res, 200, { ok: true });
-    }
-    if (p === "/api/me" && method === "DELETE") {
-      const { password } = await readJson(req);
-      const okConfirm = me.password_hash ? checkPassword(String(password || ""), me.password_hash) : String(password || "").toLowerCase() === me.username.toLowerCase();
-      if (!okConfirm) return fail(res, 400, me.password_hash ? "Wrong password." : "That isn't your username.");
-      if (me.role === "owner" && db.prepare("SELECT COUNT(*) n FROM users WHERE role = 'owner'").get().n === 1)
-        return fail(res, 400, "You're the only owner. Make someone else owner first.");
-      db.prepare("DELETE FROM users WHERE id = ?").run(me.id);
-      cleanupUploads(me, {});
-      return send(res, 200, { ok: true }, { "Set-Cookie": "sid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax" });
-    }
-    if (p === "/api/me/analytics" && method === "GET") {
-      const days = [1, 7, 30, 90].includes(Number(url.searchParams.get("days"))) ? Number(url.searchParams.get("days")) : 30;
-      const dayStr = (offset) => new Date(now() - offset * DAY).toISOString().slice(0, 10);
-      const from = dayStr(days - 1), prevFrom = dayStr(days * 2 - 1), prevTo = dayStr(days);
-      const sinceTs = new Date(from + "T00:00:00Z").getTime(), prevTs = new Date(prevFrom + "T00:00:00Z").getTime();
-      const hitRows = db.prepare("SELECT day, n FROM hits WHERE user_id = ? AND day >= ?").all(me.id, prevFrom);
-      const visRows = db.prepare("SELECT day, COUNT(*) n FROM views WHERE user_id = ? AND day >= ? GROUP BY day").all(me.id, prevFrom);
-      const get = (rows, d) => (rows.find((r) => r.day === d) || { n: 0 }).n;
-      const series = [], prev = [];
-      for (let i = days - 1; i >= 0; i--) {
-        const d = dayStr(i), pd = dayStr(i + days);
-        series.push({ day: d, views: Math.max(get(hitRows, d), get(visRows, d)), visitors: get(visRows, d) });
-        prev.push({ day: pd, views: Math.max(get(hitRows, pd), get(visRows, pd)), visitors: get(visRows, pd) });
-      }
-      const sum = (arr, k) => arr.reduce((a, b) => a + b[k], 0);
-      const clickCount = (a, b) => db.prepare("SELECT COUNT(*) n FROM clicks WHERE user_id = ? AND ts >= ? AND ts < ?").get(me.id, a, b).n;
-      const prof = Profile.load(me.profile, { premium: !!me.premium });
-      const all = [...prof.socials, ...prof.linkButtons];
-      const clicks = db.prepare("SELECT link_id, COUNT(*) n FROM clicks WHERE user_id = ? AND ts >= ? GROUP BY link_id ORDER BY n DESC LIMIT 10").all(me.id, sinceTs)
-        .map((c) => { const l = all.find((x) => x.id === c.link_id); return { name: l ? (l.label || l.platform) : "removed link", icon: l ? (l.platform || l.icon || "website") : "website", n: c.n }; });
-      const group = (col) => db.prepare(`SELECT COALESCE(${col},'unknown') name, COUNT(*) n FROM views WHERE user_id = ? AND ts >= ? GROUP BY name ORDER BY n DESC LIMIT 10`).all(me.id, sinceTs);
-      const cur = { views: sum(series, "views"), visitors: sum(series, "visitors"), clicks: clickCount(sinceTs, now() + 1) };
-      const old = { views: sum(prev, "views"), visitors: sum(prev, "visitors"), clicks: clickCount(prevTs, sinceTs) };
-      return send(res, 200, {
-        days, series, prev, cur, old, total: totalViews(me.id), clicks,
-        referrers: group("referrer"), countries: group("country"), devices: group("device"),
-        countOwn: prof.visibility.countOwn,
+  /* music */
+  function setupMusic(p) {
+    if (!p.playlist.length) return;
+    let order = p.playlist.map((_, i) => i); if (p.music.shuffle) order.sort(() => Math.random() - 0.5);
+    let idx = 0;
+    audio = new Audio(p.playlist[order[0]].src); audio.volume = p.music.volume / 100; audio.loop = p.playlist.length === 1;
+    const pp = root.querySelector(".player .pp"), nx = root.querySelector(".player .nx"), prog = root.querySelector(".player .prog i"), vol = root.querySelector(".player input"), tr = root.querySelector(".player .track");
+    const sync = () => { if (pp) { pp.innerHTML = svgIcon(audio.paused ? "play" : "pause"); pp.setAttribute("aria-label", audio.paused ? "Play music" : "Pause music"); } };
+    const load = (i) => { idx = (i + order.length) % order.length; const s = p.playlist[order[idx]]; audio.src = s.src; if (tr) tr.textContent = s.title || "now playing"; audio.play().catch(() => {}); };
+    const viz = root.querySelector(".player .viz");
+    const vsync = () => viz && viz.classList.toggle("on", !audio.paused);
+    if (p.music.pulse && !reduce) {
+      let an, buf, raf, level = 0;
+      const loop = () => {
+        an.getByteFrequencyData(buf); let sum = 0; for (let i = 1; i < 8; i++) sum += buf[i];
+        const v = Math.max(0, sum / 7 / 255 - 0.45) / 0.55; level = v > level ? v : level * 0.86;
+        document.body.style.setProperty("--beat", level.toFixed(3));
+        raf = requestAnimationFrame(loop);
+      };
+      audio.addEventListener("play", () => {
+        try {
+          if (!an) { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = ctx.createMediaElementSource(audio); an = ctx.createAnalyser(); an.fftSize = 256; buf = new Uint8Array(an.frequencyBinCount); src.connect(an); an.connect(ctx.destination); audio.__ctx = ctx; }
+          if (audio.__ctx.state === "suspended") audio.__ctx.resume();
+          cancelAnimationFrame(raf); loop();
+        } catch {}
       });
+      audio.addEventListener("pause", () => { cancelAnimationFrame(raf); document.body.style.setProperty("--beat", 0); });
+      onCleanup(() => cancelAnimationFrame(raf));
     }
-    return fail(res, 404, "Not found");
+    audio.addEventListener("play", () => { sync(); vsync(); }); audio.addEventListener("pause", () => { sync(); vsync(); });
+    audio.addEventListener("ended", () => load(idx + 1));
+    audio.addEventListener("timeupdate", () => { if (prog && audio.duration) prog.style.width = (audio.currentTime / audio.duration) * 100 + "%"; });
+    if (pp) pp.onclick = () => (audio.paused ? audio.play().catch(() => {}) : audio.pause());
+    if (nx) nx.onclick = () => load(idx + 1);
+    if (vol) vol.oninput = () => (audio.volume = vol.value / 100);
+    if (entered && !PREVIEW && !data.demo) audio.play().catch(() => {});
   }
 
-  /* ---- owner panel API ---- */
-  if (p.startsWith("/api/admin")) {
-    if (!me || !["owner", "staff"].includes(me.role)) return fail(res, 403, "Owner or staff only.");
-    const isOwner = me.role === "owner";
+  /* report a page */
+  function setupReport(d) {
+    const btn = root.querySelector(".foot .rep"); if (!btn || PREVIEW) return;
+    btn.onclick = () => {
+      const m = document.createElement("div"); m.className = "drawer open"; m.setAttribute("aria-label", "Report this page");
+      m.innerHTML = `<header>Report this page<button aria-label="Close">✕</button></header><form class="list" style="gap:10px">
+        <p style="font-size:13px;color:var(--small)">Tell the team what's wrong with /${esc(d.username)}. Reports are private.</p>
+        ${[["spam", "Spam"], ["impersonation", "Pretending to be someone"], ["harassment", "Harassment or hate"], ["explicit", "Explicit content"], ["scam", "Scam or phishing"], ["other", "Something else"]].map(([v, l], i) => `<label style="display:flex;gap:8px;font-size:13px;align-items:center"><input type="radio" name="r" value="${v}" ${i ? "" : "checked"}>${l}</label>`).join("")}
+        <textarea maxlength="500" rows="3" placeholder="Anything else we should know (optional)" style="padding:10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);font:inherit;font-size:13px"></textarea>
+        <button style="padding:10px;border-radius:10px;background:var(--accent);color:#fff;font-weight:700">Send report</button><p class="msg" style="font-size:12.5px"></p></form>`;
+      document.body.appendChild(m);
+      m.querySelector("header button").onclick = () => m.remove();
+      m.querySelector("form").onsubmit = async (e) => {
+        e.preventDefault();
+        const r = await fetch("/api/report", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: d.username, reason: m.querySelector("input:checked").value, details: m.querySelector("textarea").value }) });
+        const j = await r.json().catch(() => ({}));
+        m.querySelector(".msg").textContent = r.ok ? "Thanks. The team will take a look." : j.error || "That didn't send. Try again.";
+        if (r.ok) setTimeout(() => m.remove(), 1600);
+      };
+    };
+  }
 
-    if (p === "/api/admin/stats" && method === "GET") {
-      const since = now() - 14 * DAY;
-      const signups = db.prepare("SELECT strftime('%Y-%m-%d', created_at/1000, 'unixepoch') day, COUNT(*) n FROM users WHERE created_at >= ? GROUP BY day").all(since);
-      const views = db.prepare("SELECT day, COUNT(*) n FROM views WHERE ts >= ? GROUP BY day").all(since);
-      const series = [];
-      for (let i = 13; i >= 0; i--) {
-        const d = new Date(now() - i * DAY).toISOString().slice(0, 10);
-        series.push({ day: d, signups: (signups.find((r) => r.day === d) || { n: 0 }).n, views: (views.find((r) => r.day === d) || { n: 0 }).n });
+  /* likes + comments */
+  function setupSocial(p, d) {
+    if (!(p.social.likes || p.social.comments) || PREVIEW || d.demo) return;
+    const votes = root.querySelector(".votes"), cbtn = document.querySelector("[data-comments]");
+    let state;
+    const load = async () => {
+      try { state = await (await fetch(`/api/social/${d.username}`)).json(); } catch { return; }
+      if (votes) { const [u, dn] = votes.querySelectorAll("button"); u.querySelector("span").textContent = state.up; dn.querySelector("span").textContent = state.down;
+        u.setAttribute("aria-pressed", state.mine === 1); dn.setAttribute("aria-pressed", state.mine === -1); }
+      if (cbtn) cbtn.querySelector(".ccount").textContent = `${state.list.length} comment${state.list.length === 1 ? "" : "s"}`;
+      if (drawer) fillDrawer();
+    };
+    const post = (path, body) => fetch(`/api/social/${d.username}/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(async (r) => { if (r.status === 401) location.href = "/login"; if (!r.ok) throw new Error((await r.json()).error); });
+    if (votes) votes.querySelectorAll("button").forEach((btn) => (btn.onclick = async () => { const v = Number(btn.dataset.v); await post("vote", { value: state && state.mine === v ? 0 : v }).catch(() => {}); load(); }));
+    let drawer;
+    const fillDrawer = () => {
+      drawer.querySelector(".list").innerHTML = state.list.length ? state.list.map((cm) => `<div class="c"><span class="av">${cm.avatar ? `<img src="${esc(cm.avatar)}" alt="">` : esc(cm.username.slice(0, 2))}</span>
+        <div style="flex:1;min-width:0"><b><a href="/${esc(cm.username)}">${esc(cm.username)}</a></b><small>${ago(cm.ts)}</small><p>${esc(cm.body)}</p></div>${cm.canDelete ? `<button class="del" data-del="${cm.id}">delete</button>` : ""}</div>`).join("") : `<p style="color:var(--small);font-size:13px">No comments yet.</p>`;
+      drawer.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => { await fetch(`/api/comments/${b.dataset.del}`, { method: "DELETE" }); load(); }));
+      drawer.querySelector("form").hidden = !state.signedIn;
+      drawer.querySelector(".signin").hidden = state.signedIn;
+    };
+    if (cbtn) cbtn.onclick = () => {
+      if (!drawer) {
+        drawer = document.createElement("aside"); drawer.className = "drawer"; drawer.setAttribute("aria-label", "Comments");
+        drawer.innerHTML = `<header>Comments<button aria-label="Close">✕</button></header><div class="list"></div>
+          <p class="signin" style="padding:12px 16px;font-size:12.5px;color:var(--small)"><a href="/login" style="color:var(--accent)">Sign in</a> to leave a comment.</p>
+          <form><input maxlength="300" placeholder="say something nice" aria-label="Your comment"><button>Post</button></form>`;
+        document.body.appendChild(drawer); onCleanup(() => drawer.remove());
+        drawer.querySelector("header button").onclick = () => drawer.classList.remove("open");
+        drawer.querySelector("form").onsubmit = async (e) => { e.preventDefault(); const inp = drawer.querySelector("input"); try { await post("comment", { body: inp.value }); inp.value = ""; load(); } catch (x) { inp.placeholder = x.message; inp.value = ""; } };
+        fillDrawer();
       }
-      return send(res, 200, {
-        users: db.prepare("SELECT COUNT(*) n FROM users").get().n,
-        premium: db.prepare("SELECT COUNT(*) n FROM users WHERE premium = 1").get().n,
-        banned: db.prepare("SELECT COUNT(*) n FROM users WHERE banned = 1").get().n,
-        views: db.prepare("SELECT COUNT(*) n FROM views").get().n,
-        today: db.prepare("SELECT COUNT(*) n FROM users WHERE created_at >= ?").get(now() - DAY).n,
-        series,
-        settings: {
-          signupsOpen: getSetting("signupsOpen", true), announcement: getSetting("announcement", ""), dashAnnouncement: getSetting("dashAnnouncement", ""),
-          inviteOnly: getSetting("inviteOnly", false),
-      recent: db.prepare("SELECT * FROM users WHERE banned = 0 ORDER BY created_at DESC LIMIT 12").all().map((u) => {
-        const pr = Profile.load(u.profile, { premium: !!u.premium });
-        if (pr.visibility.hidden) return null;
-        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, memberNo: u.member_no, at: u.created_at };
-      }).filter(Boolean), maintenance: getSetting("maintenance", false), maintenanceMsg: getSetting("maintenanceMsg", ""),
-          blockedWords: getSetting("blockedWords", []), siteAccent: getSetting("siteAccent", ""),
-          featured: getSetting("featured", []).map((id) => (db.prepare("SELECT username FROM users WHERE id = ?").get(id) || {}).username).filter(Boolean),
-        },
-        openReports: db.prepare("SELECT COUNT(*) n FROM reports WHERE status = 'open'").get().n,
-        storage: { persistent: !!(process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.DATA_DIR) || !process.env.RAILWAY_ENVIRONMENT, path: config.DATA_DIR },
-        activeToday: db.prepare("SELECT COUNT(*) n FROM users WHERE last_seen >= ?").get(now() - DAY).n,
-        topPages: db.prepare("SELECT u.username, SUM(h.n) n FROM hits h JOIN users u ON u.id = h.user_id WHERE h.day >= ? GROUP BY h.user_id ORDER BY n DESC LIMIT 5").all(new Date(now() - 7 * DAY).toISOString().slice(0, 10)),
-        topSources: db.prepare("SELECT COALESCE(referrer,'direct') name, COUNT(*) n FROM views WHERE ts >= ? GROUP BY name ORDER BY n DESC LIMIT 5").all(now() - 7 * DAY),
-        isOwner,
-      });
-    }
-    if (p === "/api/admin/users" && method === "GET") {
-      const q = `%${(url.searchParams.get("q") || "").slice(0, 40)}%`;
-      const filter = url.searchParams.get("filter") || "all";
-      const where = { all: "", premium: "AND premium = 1", banned: "AND banned = 1", staff: "AND role IN ('owner','staff')" }[filter] || "";
-      const page = Math.max(0, Number(url.searchParams.get("page")) || 0);
-      const rows = db.prepare(`SELECT u.*, (SELECT COUNT(*) FROM views v WHERE v.user_id = u.id) views FROM users u
-        WHERE username LIKE ? ${where} ORDER BY member_no DESC LIMIT 50 OFFSET ?`).all(q, page * 50);
-      const total = db.prepare(`SELECT COUNT(*) n FROM users WHERE username LIKE ? ${where}`).get(q).n;
-      return send(res, 200, {
-        total, page,
-        users: rows.map((u) => ({
-          id: u.id, username: u.username, memberNo: u.member_no, role: u.role, premium: !!u.premium, banned: !!u.banned,
-          banReason: u.ban_reason, created: u.created_at, views: u.views, discord: u.discord_name || null,
-          lastSeen: u.last_seen || null, premiumUntil: u.premium_until || null, note: u.note || "",
-          reports: db.prepare("SELECT COUNT(*) n FROM reports WHERE page_id = ? AND status = 'open'").get(u.id).n,
-          aliases: db.prepare("SELECT name FROM aliases WHERE user_id = ?").all(u.id).map((a) => a.name),
-          badges: db.prepare("SELECT badge_id FROM user_badges WHERE user_id = ?").all(u.id).map((r) => r.badge_id),
-        })),
-      });
-    }
-    const um = p.match(/^\/api\/admin\/users\/(\d+)(\/reset)?$/);
-    if (um) {
-      const target = db.prepare("SELECT * FROM users WHERE id = ?").get(Number(um[1]));
-      if (!target) return fail(res, 404, "User not found.");
-      if (target.role === "owner" && !isOwner) return fail(res, 403, "Staff can't change owners.");
-      if (um[2] && method === "POST") {
-        const prof = Profile.DEFAULTS(); prof.displayName = target.username;
-        db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(prof), target.id);
-        audit(me, "reset page", target.username);
-        return send(res, 200, { ok: true });
-      }
-      if (method === "PATCH") {
-        const b = await readJson(req);
-        if (typeof b.premium === "boolean") {
-          const until = b.premium && b.premiumDays ? now() + Math.min(3650, Math.max(1, Number(b.premiumDays))) * DAY : null;
-          db.prepare("UPDATE users SET premium = ?, premium_until = ? WHERE id = ?").run(b.premium ? 1 : 0, until, target.id);
-          audit(me, b.premium ? "gave premium" : "removed premium", target.username, until ? `until ${new Date(until).toISOString().slice(0, 10)}` : "");
-        }
-        if (typeof b.note === "string") db.prepare("UPDATE users SET note = ? WHERE id = ?").run(b.note.slice(0, 500), target.id);
-        if (typeof b.banned === "boolean") {
-          if (target.id === me.id) return fail(res, 400, "You can't ban yourself.");
-          db.prepare("UPDATE users SET banned = ?, ban_reason = ? WHERE id = ?").run(b.banned ? 1 : 0, b.banned ? String(b.banReason || "").slice(0, 200) : null, target.id);
-          if (b.banned) db.prepare("DELETE FROM sessions WHERE user_id = ?").run(target.id);
-          audit(me, b.banned ? "banned" : "unbanned", target.username, b.banReason);
-        }
-        if (typeof b.role === "string") {
-          if (!isOwner) return fail(res, 403, "Only owners can change roles.");
-          if (!["user", "staff", "owner"].includes(b.role)) return fail(res, 400, "Unknown role.");
-          if (target.id === me.id && b.role !== "owner") return fail(res, 400, "You can't remove your own owner role.");
-          db.prepare("UPDATE users SET role = ? WHERE id = ?").run(b.role, target.id);
-          audit(me, "changed role", target.username, b.role);
-        }
-        if (Array.isArray(b.badges)) {
-          db.prepare("DELETE FROM user_badges WHERE user_id = ?").run(target.id);
-          const ins = db.prepare("INSERT OR IGNORE INTO user_badges (user_id,badge_id) SELECT ?, id FROM badges WHERE id = ?");
-          for (const id of b.badges.slice(0, 30)) ins.run(target.id, Number(id));
-          audit(me, "set badges", target.username, `${b.badges.length} badge(s)`);
-        }
-        if (typeof b.username === "string" && b.username !== target.username) {
-          const problem = nameProblem(b.username, target.id);
-          if (problem) return fail(res, 400, problem);
-          db.prepare("UPDATE users SET username = ? WHERE id = ?").run(b.username, target.id);
-          audit(me, "renamed", target.username, b.username);
-        }
-        return send(res, 200, { ok: true });
-      }
-      if (method === "DELETE") {
-        if (!isOwner) return fail(res, 403, "Only owners can delete accounts.");
-        if (target.id === me.id) return fail(res, 400, "Delete your own account from the dashboard.");
-        db.prepare("DELETE FROM users WHERE id = ?").run(target.id);
-        cleanupUploads(target, {});
-        audit(me, "deleted account", target.username);
-        return send(res, 200, { ok: true });
-      }
-    }
-    if (p === "/api/admin/badges" && method === "GET") {
-      return send(res, 200, db.prepare("SELECT b.*, (SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id) holders FROM badges b ORDER BY system DESC, id").all());
-    }
-    if (p === "/api/admin/badges" && method === "POST") {
-      if (!isOwner) return fail(res, 403, "Only owners can create badges.");
-      const { name, icon, color, description } = await readJson(req);
-      const n = String(name || "").trim().slice(0, 30);
-      if (!n) return fail(res, 400, "Give the badge a name.");
-      const ICONS = ["crown", "shield", "gem", "star", "check", "heart", "flame", "bolt", "code", "music", "moon", "skull", "trophy", "bug", "brush", "gift", "play", "game"];
-      const slug = n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + crypto.randomBytes(2).toString("hex");
-      audit(me, "created badge", n);
-      db.prepare("INSERT INTO badges (slug,name,icon,color,description) VALUES (?,?,?,?,?)").run(slug, n, ICONS.includes(icon) ? icon : "star", /^#[0-9a-f]{6}$/i.test(color) ? color : "#ffffff", String(description || "").slice(0, 120));
-      return send(res, 200, { ok: true });
-    }
-    const bm = p.match(/^\/api\/admin\/badges\/(\d+)$/);
-    if (bm && method === "DELETE") {
-      if (!isOwner) return fail(res, 403, "Only owners can delete badges.");
-      const b = db.prepare("SELECT * FROM badges WHERE id = ?").get(Number(bm[1]));
-      if (!b) return fail(res, 404, "Badge not found.");
-      if (b.system) return fail(res, 400, "Built-in badges can't be deleted.");
-      db.prepare("DELETE FROM badges WHERE id = ?").run(b.id);
-      audit(me, "deleted badge", b.name);
-      return send(res, 200, { ok: true });
-    }
-    if (p === "/api/admin/reports" && method === "GET") {
-      const status = ["open", "resolved", "dismissed"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "open";
-      const rows = db.prepare(`SELECT r.*, p.username page, p.banned, rp.username reporter FROM reports r JOIN users p ON p.id = r.page_id
-        LEFT JOIN users rp ON rp.id = r.reporter_id WHERE r.status = ? ORDER BY r.ts DESC LIMIT 200`).all(status);
-      return send(res, 200, rows.map((r) => ({ id: r.id, page: r.page, pageId: r.page_id, banned: !!r.banned, reporter: r.reporter || "anonymous", reason: r.reason, details: r.details, ts: r.ts, status: r.status })));
-    }
-    const rm = p.match(/^\/api\/admin\/reports\/(\d+)$/);
-    if (rm && method === "PATCH") {
-      const { status } = await readJson(req, 1024);
-      if (!["open", "resolved", "dismissed"].includes(status)) return fail(res, 400, "Unknown status.");
-      const r = db.prepare("SELECT r.*, u.username FROM reports r JOIN users u ON u.id = r.page_id WHERE r.id = ?").get(Number(rm[1]));
-      if (!r) return fail(res, 404, "Report not found.");
-      db.prepare("UPDATE reports SET status = ?, handled_by = ? WHERE id = ?").run(status, me.id, r.id);
-      audit(me, `report ${status}`, r.username, r.reason);
-      return send(res, 200, { ok: true });
-    }
-    if (p === "/api/admin/audit" && method === "GET") {
-      return send(res, 200, db.prepare("SELECT * FROM audit ORDER BY ts DESC LIMIT 300").all());
-    }
-    if (p === "/api/admin/invites" && method === "GET") {
-      return send(res, 200, db.prepare("SELECT i.*, u.username creator FROM invites i LEFT JOIN users u ON u.id = i.created_by ORDER BY i.ts DESC").all());
-    }
-    if (p === "/api/admin/invites" && method === "POST") {
-      if (!isOwner) return fail(res, 403, "Only owners can make invite codes.");
-      const { count, maxUses, note } = await readJson(req, 1024);
-      const n = Math.min(50, Math.max(1, Number(count) || 1)), mu = Math.min(1000, Math.max(1, Number(maxUses) || 1));
-      const codes = [];
-      for (let i = 0; i < n; i++) {
-        const code = "RX-" + crypto.randomBytes(4).toString("hex").toUpperCase();
-        db.prepare("INSERT INTO invites (code, created_by, max_uses, note, ts) VALUES (?,?,?,?,?)").run(code, me.id, mu, String(note || "").slice(0, 60), now());
-        codes.push(code);
-      }
-      audit(me, "made invite codes", "", `${n} code(s)`);
-      return send(res, 200, { codes });
-    }
-    const ivm = p.match(/^\/api\/admin\/invites\/([A-Z0-9-]{4,20})$/);
-    if (ivm && method === "DELETE") {
-      if (!isOwner) return fail(res, 403, "Only owners can delete invite codes.");
-      db.prepare("DELETE FROM invites WHERE code = ?").run(ivm[1]);
-      return send(res, 200, { ok: true });
-    }
-    if (p === "/api/admin/export.csv" && method === "GET") {
-      if (!isOwner) return fail(res, 403, "Only owners can export users.");
-      const rows = db.prepare("SELECT id, member_no, username, role, premium, banned, discord_name, created_at, last_seen FROM users ORDER BY member_no").all();
-      const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      const csv = ["member_no,username,role,premium,banned,discord,joined,last_seen,views"].concat(rows.map((u) =>
-        [u.member_no, u.username, u.role, u.premium, u.banned, u.discord_name, new Date(u.created_at).toISOString(), u.last_seen ? new Date(u.last_seen).toISOString() : "", totalViews(u.id)].map(q).join(","))).join("\n");
-      audit(me, "exported users");
-      res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${config.SITE_NAME}-users.csv"` });
-      return res.end(csv);
-    }
-    if (p === "/api/admin/settings" && method === "PUT") {
-      if (!isOwner) return fail(res, 403, "Only owners can change site settings.");
-      const b = await readJson(req);
-      if (typeof b.signupsOpen === "boolean") setSetting("signupsOpen", b.signupsOpen);
-      if (typeof b.announcement === "string") setSetting("announcement", b.announcement.slice(0, 200));
-      if (typeof b.dashAnnouncement === "string") setSetting("dashAnnouncement", b.dashAnnouncement.slice(0, 200));
-      if (typeof b.inviteOnly === "boolean") setSetting("inviteOnly", b.inviteOnly);
-      if (typeof b.siteAccent === "string" && (b.siteAccent === "" || /^#[0-9a-f]{6}$/i.test(b.siteAccent))) setSetting("siteAccent", b.siteAccent.toLowerCase());
-      if (typeof b.maintenance === "boolean") setSetting("maintenance", b.maintenance);
-      if (typeof b.maintenanceMsg === "string") setSetting("maintenanceMsg", b.maintenanceMsg.slice(0, 200));
-      if (Array.isArray(b.blockedWords)) setSetting("blockedWords", b.blockedWords.map((w) => String(w).toLowerCase().trim()).filter((w) => /^[a-z0-9_.]{2,20}$/.test(w)).slice(0, 200));
-      if (Array.isArray(b.featured)) {
-        const names = b.featured.map(String).slice(0, 8);
-        setSetting("featured", names.map((n) => (db.prepare("SELECT id FROM users WHERE username = ?").get(n) || {}).id).filter(Boolean));
-      }
-      audit(me, "changed site settings", "", Object.keys(b).join(", "));
-      return send(res, 200, { ok: true });
-    }
-    return fail(res, 404, "Not found");
+      requestAnimationFrame(() => drawer.classList.add("open"));
+    };
+    load();
   }
-  if (p.startsWith("/api/")) return fail(res, 404, "Not found");
 
-  /* ---- pages ---- */
-  if (method !== "GET" && method !== "HEAD") return send(res, 405, "Method not allowed");
-  const staff = me && ["owner", "staff"].includes(me.role);
-  if (getSetting("maintenance", false) && !staff && !["/login", "/admin"].includes(p) && !p.startsWith("/assets/") && !p.startsWith("/uploads/") && p !== "/favicon.ico") {
-    return send(res, 503, template("maintenance.html").replace("{{MSG}}", escapeHtml(getSetting("maintenanceMsg", "") || "We're restocking the shelves. Back soon.")));
-  }
-  if (p === "/") return send(res, 200, template("index.html"));
-  if (p === "/login" || p === "/signup") return me ? redirect(res, "/dashboard") : send(res, 200, template("auth.html"));
-  if (p === "/dashboard") return me ? send(res, 200, template("dashboard.html"), { "Cache-Control": "no-store" }) : redirect(res, "/login");
-  if (p === "/admin") return me && ["owner", "staff"].includes(me.role) ? send(res, 200, template("admin.html"), { "Cache-Control": "no-store" }) : redirect(res, me ? "/dashboard" : "/login");
-  if (p === "/leaderboard") return send(res, 200, template("leaderboard.html"));
-  if (p === "/demo") {
-    // A pretend page for the "try it" builder on the home page.
-    const prof = Profile.DEFAULTS(); prof.displayName = "you"; prof.aboveName = "hi, it's"; prof.details.location = "anywhere";
-    prof.socials = ["discord", "spotify", "instagram", "tiktok"].map((x, i) => ({ id: "d" + i, platform: x, url: "https://example.com" }));
-    prof.linkButtons = [{ id: "b1", label: "my music", url: "https://example.com", icon: "" }];
-    prof.taglines = ["this could be your page", "one dose a day"]; prof.bioEffect = "typewriter";
-    const data = { username: "you", memberNo: (db.prepare("SELECT MAX(member_no) m FROM users").get().m || 0) + 1, premium: true, role: "user", joined: now(), badges: [], views: 0, profile: prof, demo: true };
-    const html = template("profile.html").replace("{{TITLE}}", "demo").replaceAll("{{DESC}}", "").replaceAll("{{OG_TITLE}}", "").replace("{{OG_IMAGE}}", "")
-      .replace("{{URL}}", "").replace("{{COLOR}}", "#ff2e4d").replace("{{ROBOTS}}", '<meta name="robots" content="noindex">').replace("{{ICON}}", "/assets/favicon.svg")
-      .replace("{{CUSTOM_CSS}}", "").replace("{{DATA}}", () => JSON.stringify(data));
-    return send(res, 200, html);
-  }
-  if (p.startsWith("/assets/")) {
-    const f = safeJoin(path.join(config.PUBLIC_DIR, "assets"), p.slice(8));
-    // Versioned URLs never change, so they can be cached for a long time; bare ones must be re-checked.
-    return f ? serveFile(req, res, f, url.searchParams.get("v") ? "public, max-age=31536000, immutable" : "no-cache") : send(res, 404, notFoundPage());
-  }
-  if (p.startsWith("/uploads/")) { const f = safeJoin(config.UPLOAD_DIR, p.slice(9)); return f ? serveFile(req, res, f, "public, max-age=31536000, immutable") : send(res, 404, notFoundPage()); }
-  if (p === "/favicon.ico") return serveFile(req, res, path.join(config.PUBLIC_DIR, "assets", "favicon.svg"));
-  if (p === "/robots.txt") return send(res, 200, "User-agent: *\nDisallow: /dashboard\nDisallow: /admin\nDisallow: /api/\n", { "Content-Type": "text/plain" });
-
-  const sm = p.match(/^\/([a-z0-9_.]{1,20})\/([a-z0-9-]{1,24})$/i);
-  if (sm) {
-    const u = db.prepare("SELECT * FROM users WHERE username = ? AND banned = 0").get(sm[1]);
-    if (u) {
-      const prof = Profile.load(u.profile, { premium: !!u.premium });
-      const pg = prof.pages.find((x) => x.slug === sm[2].toLowerCase());
-      if (pg && !prof.visibility.hidden) return renderProfile(req, res, u, pg);
+  /* browser tab */
+  function setupTab(p, d) {
+    if (PREVIEW) return;
+    const base = p.share.tabTitle || p.meta.title || p.displayName || d.username;
+    document.title = base;
+    if (p.share.animateTitle && !reduce) {
+      let i = 0, dir = 1;
+      every(() => { if (document.hidden) return; i += dir; if (i >= base.length + 6) dir = -1; if (i <= 1) dir = 1; document.title = base.slice(0, Math.max(1, Math.min(i, base.length))) + (i < base.length ? "_" : ""); }, 220);
     }
-    return send(res, 404, notFoundPage());
+    if (p.share.awayTitle) listen(document, "visibilitychange", () => { document.title = document.hidden ? p.share.awayTitle : base; });
   }
-  const name = decodeURIComponent(p.slice(1));
-  if (NAME_RE.test(name)) {
-    const u = db.prepare("SELECT * FROM users WHERE username = ?").get(name);
-    if (u && !u.banned) {
-      if (u.username !== name) return redirect(res, "/" + u.username);
-      const prof = Profile.load(u.profile, { premium: !!u.premium });
-      if (prof.visibility.hidden && !(me && me.id === u.id && url.searchParams.has("preview"))) return send(res, 404, notFoundPage());
-      return renderProfile(req, res, u);
-    }
-    if (u) return send(res, 404, notFoundPage());
-    const al = db.prepare("SELECT u.username FROM aliases a JOIN users u ON u.id = a.user_id WHERE a.name = ? AND u.banned = 0").get(name);
-    if (al) return redirect(res, "/" + al.username);
-    return send(res, 404, template("unclaimed.html").replaceAll("{{NAME}}", escapeHtml(name)));
-  }
-  return send(res, 404, notFoundPage());
-}
-function redirect(res, to) { res.writeHead(302, { Location: to }); res.end(); }
 
-http.createServer((req, res) => {
-  route(req, res).catch((err) => {
-    if (err.message === "bad_json") return fail(res, 400, "Bad request.");
-    if (err.message === "too_big") return fail(res, 413, "That's too big.");
-    console.error(err);
-    if (!res.headersSent) fail(res, 500, "Something went wrong on our side.");
+  /* enter screen */
+  function setupEnter(p, d) {
+    document.body.classList.add("pre");
+    const en = p.enter, el = document.createElement("div");
+    el.className = `enter e-${en.type}`; el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", en.text);
+    const panes = { curtain: 2, slice: 3, shutter: 8 }[en.type] || 0;
+    const warn = en.warning ? `<span class="warn">${esc(en.warningText)}</span>` : "";
+    el.innerHTML = en.type === "boot" ? `<pre></pre>` : en.type === "bottle" ? `<div class="bottle"><div class="cap"><i></i></div><div class="neck"></div><div class="jar"><div class="blabel"><b><i>Rx</i> ${esc(d.displayName || p.displayName || d.username)}</b><span>${esc(en.text)}</span><small>No. ${String(d.memberNo).padStart(4, "0")} · take one</small></div></div>${Array.from({ length: 10 }, (_, i) => `<em class="pl" style="--dx:${Math.round((Math.random() - 0.5) * 70)}vw;--dy:${Math.round(-20 - Math.random() * 60)}vh;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(i * 0.03).toFixed(2)}s;--c:${["var(--accent)", "#fff", "#ffd27a", "#9ad8ff"][i % 4]}"></em>`).join("")}</div>${warn ? `<span class="label" style="position:absolute;bottom:8vh">${warn}</span>` : ""}` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${esc(en.text)}${warn}</span>`;
+    document.body.appendChild(el);
+    let ready = en.type !== "boot";
+    if (en.type === "boot") {
+      const lines = [`[ ok ] mounting /${d.username}`, `[ ok ] loading member #${d.memberNo}`, `[ ok ] ${d.badges.length} badges verified`, `[ ok ] ${p.socials.length + p.linkButtons.length} links ready`, en.warning ? `[warn] ${en.warningText}` : "", "", `> ${en.text}_`].filter((x, i, a) => x !== "" || i === a.length - 2);
+      const pre = el.querySelector("pre"); let i = 0;
+      const step = () => { pre.textContent += (i ? "\n" : "") + lines[i]; i++; if (i < lines.length) setTimeout(step, 170); else ready = true; }; step();
+    }
+    const go = () => {
+      if (entered || !ready) return; entered = true;
+      el.classList.add("out"); document.body.classList.remove("pre"); document.body.classList.add("in");
+      if (audio) audio.play().catch(() => {});
+      trackView(d); setTimeout(() => el.remove(), en.type === "bottle" ? 2000 : 1300);
+    };
+    el.addEventListener("click", go);
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+    el.focus();
+  }
+  function trackView(d) {
+    if (PREVIEW || tracked || d.demo || d.subpage) return; tracked = true;
+    fetch("/api/track/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: d.username, ref: document.referrer }) })
+      .then((r) => r.json()).then((j) => { if (j.views != null) document.querySelectorAll(".views").forEach((v) => (v.textContent = Number(j.views).toLocaleString())); }).catch(() => {});
+  }
+
+  /* theme from picture */
+  function themeFromPicture(src) {
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const cv = document.createElement("canvas"); cv.width = cv.height = 24; const x = cv.getContext("2d"); x.drawImage(img, 0, 0, 24, 24);
+        const px = x.getImageData(0, 0, 24, 24).data; let best = null, bestScore = -1;
+        for (let i = 0; i < px.length; i += 4) {
+          const [r, g, b] = [px[i], px[i + 1], px[i + 2]], mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx ? (mx - mn) / mx : 0, score = sat * (mx / 255);
+          if (score > bestScore) { bestScore = score; best = [r, g, b]; }
+        }
+        if (best && bestScore > 0.15) { const hex = "#" + best.map((v) => v.toString(16).padStart(2, "0")).join(""); if (!data.profile.colors.accentLocked) document.documentElement.style.setProperty("--accent", hex); }
+      } catch {}
+    };
+    img.src = src;
+  }
+
+  /* overlays drawn on canvas */
+  function setupOverlay(kind) {
+    const cv = root.querySelector("canvas.fx"), ctx = cv.getContext("2d");
+    if (kind === "none") return;
+    const rgb = hexToRgb(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
+    let W, H, dpr = Math.min(2, devicePixelRatio || 1), parts = [], raf, mx = -1e4, my = -1e4, t0 = performance.now(), flash = 0;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    function init() {
+      W = cv.width = innerWidth * dpr; H = cv.height = innerHeight * dpr;
+      const area = innerWidth * innerHeight;
+      const n = { particles: area / 9000, stars: area / 3500, comets: 4, snow: area / 7000, pixelsnow: area / 9000, rain: area / 5000, storm: area / 3500, blossom: area / 22000,
+        fireflies: area / 25000, matrix: innerWidth / 16, aurora: 0, fog: 7 }[kind] | 0;
+      parts = Array.from({ length: Math.min(n, 300) }, (_, i) => ({
+        x: kind === "matrix" ? i * 16 * dpr : rand(0, W), y: rand(0, H), vx: rand(-0.3, 0.3),
+        vy: { snow: rand(0.4, 1.4), pixelsnow: rand(0.5, 1.2), rain: rand(8, 14), storm: rand(12, 18), matrix: rand(2, 5), blossom: rand(0.4, 1) }[kind] ?? rand(-0.3, 0.3),
+        r: kind === "fog" ? rand(200, 420) : rand(0.4, 2), ph: rand(0, 6.3), life: rand(0, 1),
+      }));
+    }
+    listen(window, "mousemove", (e) => { mx = e.clientX * dpr; my = e.clientY * dpr; });
+    const dot = (x, y, r, c) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fillStyle = c; ctx.fill(); };
+    function frame(t) {
+      const time = (t - t0) / 1000;
+      if (kind === "matrix") { ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(0, 0, W, H); } else ctx.clearRect(0, 0, W, H);
+      if (kind === "aurora") for (let k = 0; k < 3; k++) {
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 20 * dpr) { const y = H * (0.25 + k * 0.08) + Math.sin(x / (260 * dpr) + time * (0.4 + k * 0.15) + k) * 60 * dpr + Math.sin(x / (90 * dpr) + time) * 14 * dpr; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath();
+        const g = ctx.createLinearGradient(0, 0, 0, H * 0.6); g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, k === 1 ? "rgba(61,220,151,.18)" : `rgba(${rgb},.16)`); ctx.fillStyle = g; ctx.fill();
+      }
+      if (kind === "storm") { if (Math.random() < 0.004) flash = 1; if (flash > 0) { ctx.fillStyle = `rgba(220,225,255,${flash * 0.35})`; ctx.fillRect(0, 0, W, H); flash -= 0.05; } }
+      for (const p of parts) {
+        switch (kind) {
+          case "particles": {
+            p.x += p.vx; p.y += p.vy; if (p.x < 0 || p.x > W) p.vx *= -1; if (p.y < 0 || p.y > H) p.vy *= -1;
+            const dx = p.x - mx, dy = p.y - my, d = Math.hypot(dx, dy); if (d < 110 * dpr) { p.x += dx / d; p.y += dy / d; }
+            dot(p.x, p.y, p.r * dpr, "rgba(255,255,255,.7)"); break;
+          }
+          case "stars": dot(p.x, p.y, p.r * 0.7 * dpr, `rgba(255,255,255,${0.25 + 0.75 * Math.abs(Math.sin(time * 0.7 + p.ph))})`); break;
+          case "comets": {
+            p.life += 0.006; if (p.life > 1) { p.life = 0; p.x = rand(0, W); p.y = rand(0, H * 0.4); }
+            const px = p.x + p.life * 500 * dpr, py = p.y + p.life * 260 * dpr, a = Math.sin(p.life * Math.PI);
+            const g = ctx.createLinearGradient(px, py, px - 120 * dpr, py - 62 * dpr); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.strokeStyle = g; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - 120 * dpr, py - 62 * dpr); ctx.stroke(); break;
+          }
+          case "snow": p.y += p.vy; p.x += Math.sin(time + p.ph) * 0.5; if (p.y > H) { p.y = -5; p.x = rand(0, W); } dot(p.x, p.y, p.r * 1.4 * dpr, "rgba(255,255,255,.85)"); break;
+          case "pixelsnow": p.y += p.vy * dpr; if (p.y > H) { p.y = -5; p.x = rand(0, W); } ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(Math.round(p.x / (4 * dpr)) * 4 * dpr, Math.round(p.y / (4 * dpr)) * 4 * dpr, 4 * dpr, 4 * dpr); break;
+          case "rain": case "storm":
+            p.y += p.vy * dpr; p.x -= kind === "storm" ? 3 : 1; if (p.y > H) { p.y = -20; p.x = rand(0, W + 200); }
+            ctx.strokeStyle = "rgba(180,200,255,.35)"; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - (kind === "storm" ? 5 : 2) * dpr, p.y - 14 * dpr); ctx.stroke(); break;
+          case "blossom": {
+            p.y += p.vy * dpr; p.x += Math.sin(time + p.ph) * 0.8 * dpr; if (p.y > H) { p.y = -10; p.x = rand(0, W); }
+            ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(time + p.ph); ctx.fillStyle = "rgba(255,183,207,.85)"; ctx.beginPath(); ctx.ellipse(0, 0, 5 * dpr, 3 * dpr, 0, 0, 6.283); ctx.fill(); ctx.restore(); break;
+          }
+          case "fireflies": {
+            p.x += Math.cos(time * 0.5 + p.ph) * 0.6; p.y += Math.sin(time * 0.7 + p.ph) * 0.6;
+            ctx.shadowBlur = 14 * dpr; ctx.shadowColor = `rgba(${rgb},1)`; dot(p.x, p.y, 2.2 * dpr, `rgba(${rgb},${0.4 + 0.6 * Math.abs(Math.sin(time + p.ph))})`); ctx.shadowBlur = 0; break;
+          }
+          case "matrix": ctx.fillStyle = `rgba(${rgb},.85)`; ctx.font = `${14 * dpr}px monospace`; ctx.fillText(String.fromCharCode(0x30a0 + Math.random() * 96), p.x, p.y); p.y += p.vy * dpr * 4; if (p.y > H && Math.random() > 0.975) p.y = 0; break;
+          case "fog": {
+            p.x += p.vx * 1.5; if (p.x < -p.r * dpr) p.x = W + p.r * dpr; if (p.x > W + p.r * dpr) p.x = -p.r * dpr;
+            const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * dpr); g.addColorStop(0, "rgba(220,220,235,.09)"); g.addColorStop(1, "rgba(220,220,235,0)"); ctx.fillStyle = g; ctx.fillRect(p.x - p.r * dpr, p.y - p.r * dpr, p.r * 2 * dpr, p.r * 2 * dpr); break;
+          }
+        }
+      }
+      if (kind === "particles") {
+        const L = 115 * dpr;
+        for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+          const A = parts[i], B = parts[j], d = Math.hypot(A.x - B.x, A.y - B.y);
+          if (d < L) { ctx.strokeStyle = `rgba(${rgb},${(1 - d / L) * 0.3})`; ctx.lineWidth = 0.6 * dpr; ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); }
+        }
+      }
+      if (!reduce) raf = requestAnimationFrame(frame);
+    }
+    init(); listen(window, "resize", init);
+    raf = requestAnimationFrame(frame); onCleanup(() => cancelAnimationFrame(raf));
+  }
+  function hexToRgb(h) { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); const n = m ? parseInt(m[1], 16) : 0xff2e4d; return `${n >> 16},${(n >> 8) & 255},${n & 255}`; }
+  function hexA(h, a) { return `rgba(${hexToRgb(h)},${a})`; }
+
+  // Live preview: the dashboard (same origin) sends new settings as you edit.
+  if (PREVIEW) addEventListener("message", (e) => {
+    if (e.origin !== location.origin || !e.data) return;
+    if (e.data.type === "dose-pause") { paused = !!e.data.paused; document.documentElement.classList.toggle("paused", paused); return; }
+    if (e.data.type !== "dose-preview") return;
+    render(e.data.data);
   });
-}).listen(config.PORT, () => {
-  console.log(`${config.SITE_NAME} running on http://localhost:${config.PORT}`);
-  if (process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY_VOLUME_MOUNT_PATH && !process.env.DATA_DIR)
-    console.warn("WARNING: no Railway Volume is attached. Accounts, pages and uploads will be wiped on every deploy. Attach a Volume with mount path /data.");
-  else console.log("Saving data to " + config.DATA_DIR);
-});
+  render(window.__DATA);
+  if (!PREVIEW && !window.__DATA.profile.enter.show) trackView(window.__DATA);
+})();

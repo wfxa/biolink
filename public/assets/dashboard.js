@@ -128,6 +128,8 @@
       P("Rotating lines", "Short lines that type out one after another under your bio.", [F.custom("taglines", "Rotating lines", () => listTaglines(), bindTaglines)]),
       P("Details", "", [
         F.text("details.location", "Location", { ph: "london", max: 40 }),
+        F.toggle("details.weather", "Show the weather there", { hint: "live temperature for your location" }),
+        ...(draft.details.weather ? [F.chips("details.units", "Units", [["c", "°C"], ["f", "°F"]])] : []),
         F.custom("details.timezone", "Local time", () => `<div class="field" data-key="details.timezone">${lbl("Local time", "your clock, ticking on your page")}<div class="colorrow"><select data-k="details.timezone"><option value="">Off</option>${zones.map((z) => `<option ${z === draft.details.timezone ? "selected" : ""}>${z}</option>`).join("")}</select><button class="btn small" id="tzMine">Use mine</button></div></div>`,
           () => { const b = $("#tzMine"); if (b) b.onclick = () => { set("details.timezone", Intl.DateTimeFormat().resolvedOptions().timeZone); show(view, true); }; }),
         F.text("details.occupation", "Occupation", { ph: "photographer", max: 40, adv: true }),
@@ -197,6 +199,14 @@
         F.range("name.weight", "Weight", 300, 900, "", { adv: true }), F.range("name.spacing", "Letter spacing", -8, 12, "", { adv: true }),
         F.toggle("name.uppercase", "Uppercase", { adv: true }), F.toggle("name.gradient", "Gradient colour"),
         F.toggle("name.showUid", "Show uid on hover", { hint: "a small tag with your number when someone hovers your name" }),
+      ]),
+      P("Name cycling", "Your name switches between a few names. Leave it empty to keep one name.", [
+        F.custom("name.cycle", "Other names", () => listCycle(), bindCycle),
+        ...(draft.name.cycle.length ? [F.chips("name.cycleStyle", "Switch with", [["scramble", "Decode"], ["fade", "Fade"], ["type", "Retype"]]), F.range("name.cycleSpeed", "Each name stays", 2, 10, "s")] : []),
+      ]),
+      P("Badge row", "", [
+        F.chips("badgeRow.style", "Style", [["tile", "Tiles"], ["plain", "Plain"], ["glow", "Glow"]]),
+        F.color("badgeRow.color", "One colour for all badges", { ph: "each badge's own colour" }),
         ...(draft.name.gradient ? [F.color("name.from", "Gradient from", { noClear: true }), F.color("name.to", "Gradient to", { noClear: true })] : []),
       ]),
       P("Name style", "Pick how your name moves.", [F.chips("name.effect", "", O.NAME_EFFECTS.map((e) => [e, EFFECT_NAMES[e], `<span class="aa">Aa</span>`]), { cards: true })]),
@@ -212,7 +222,7 @@
         F.range("icons.size", "Size", 34, 64, "px"), F.range("icons.gap", "Spacing", 4, 20, "px", { adv: true }),
       ]),
       P("Layout", "", [
-        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"]], PV.arr), { pv: true }),
+        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"], ["rx", "Prescription"]], PV.arr), { pv: true }),
         F.chips("layout.spacing", "Spacing", [["compact", "Compact"], ["normal", "Normal"], ["airy", "Airy"]]),
         F.range("layout.width", "Page width", 340, 760, "px", { adv: true }),
         F.select("layout.entrance", "How the card arrives", [["rise", "Rise"], ["fade", "Fade"], ["zoom", "Zoom"], ["none", "None"]], { adv: true }),
@@ -232,7 +242,7 @@
         F.chips("cursor.sound", "Click sound", [["none", "Silent"], ["click", "Tick"], ["bubble", "Blip"], ["chime", "Bell"], ["custom", "Upload my own"]], { rerender: true, adv: true }),
         ...(draft.cursor.sound === "custom" ? [F.upload("cursor.soundFile", "sound", "Your click sound", { accept: "audio/*" })] : []),
       ]),
-      P("Bio entrance", "How your bio appears.", [F.select("bioEffect", "Entrance", [["none", "Just there"], ["typewriter", "Typed out"], ["fade", "Fades in"], ["blurin", "Comes into focus"], ["scramble", "Decodes"], ["words", "Word by word"]])], { adv: true }),
+      P("Bio entrance", "How your bio appears.", [F.select("bioEffect", "Entrance", [["none", "Just there"], ["typewriter", "Typed out"], ["fade", "Fades in"], ["blurin", "Comes into focus"], ["scramble", "Decodes"], ["words", "Word by word"], ["rotate", "Types, then cycles your rotating lines"]])], { adv: true }),
       P("Motion", "", [
         F.toggle("motion.tilt", "Tilt", { hint: "the card leans toward the pointer" }),
         F.toggle("motion.spotlight", "Pointer light", { hint: "your card brightens where the pointer is" }),
@@ -240,7 +250,7 @@
       ]),
       P("Opening screen", "Visitors tap through it before your page appears, which also lets your music play straight away.", [
         F.toggle("enter.show", "Use an opening screen", { wide: true }),
-        F.chips("enter.type", "Style", [["fade", "Fade"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["glitch", "Glitch"], ["boot", "Boot up"], ["zoom", "Zoom"]]),
+        F.chips("enter.type", "Style", [["fade", "Fade"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["glitch", "Glitch"], ["boot", "Boot up"], ["zoom", "Zoom"], ["bottle", "Pill bottle"]]),
         F.text("enter.text", "Words on it", { ph: "click to enter", max: 40 }),
         F.toggle("enter.warning", "Heads-up notice", { hint: "for flashing lights or loud audio" }),
         ...(draft.enter.warning ? [F.text("enter.warningText", "Notice text", { max: 120, wide: true })] : []),
@@ -272,7 +282,9 @@
 
     music: { title: "Music", icon: "music", lead: "Songs that play while people look around. Browsers wait for a tap before playing anything, so an opening screen helps.", panels: () => [
       P("Playlist", `Up to ${L("playlist")} songs${premium ? "" : ", 15 with Premium"}.`, [F.custom("playlist", "Playlist", () => listPlaylist(), bindPlaylist)]),
-      P("Player", "", [F.range("music.volume", "Starting volume", 0, 100, "%"), F.toggle("music.showPlayer", "Show the player on my card"), F.toggle("music.visualizer", "Bouncing bars", { hint: "little bars that move while a song plays" }), F.toggle("music.shuffle", "Shuffle", { adv: true })]),
+      P("Player", "", [F.range("music.volume", "Starting volume", 0, 100, "%"), F.toggle("music.showPlayer", "Show the player on my card"), F.toggle("music.visualizer", "Bouncing bars", { hint: "little bars that move while a song plays" }),
+        F.toggle("music.pulse", "Pulse to the beat", { hint: "your card and picture bump along with the bass" }),
+        ...(draft.music.pulse ? [F.range("music.pulseStrength", "Pulse strength", 1, 10, "")] : []), F.toggle("music.shuffle", "Shuffle", { adv: true })]),
     ] },
 
     live: { title: "Discord", icon: "discord", lead: "Show what you're up to on Discord, as it happens.", panels: () => [
@@ -290,6 +302,7 @@
       P("Who can see it", "", [
         F.toggle("visibility.hidden", "Take my page offline", { hint: "visitors get a not-found page until you switch it back" }),
         F.toggle("visibility.countOwn", "Include my own visits", { hint: "in your stats" }),
+        F.toggle("visibility.anonymousVisits", "Visit pages anonymously", { hint: "you won't show up in anyone's \"who viewed me\" list" }),
       ]),
       P("Reactions", "Off by default. Visitors need a " + me.site + " account to react.", [
         F.toggle("social.likes", "Thumbs up and down", { hint: "with counts, on your card" }),
@@ -362,7 +375,7 @@
         set(k, v);
         const out = el.querySelector(`[data-out="${k}"]`); if (out) out.textContent = inp.value + (inp.dataset.unit || "");
         const tx = el.querySelector(`[data-ktext="${k}"]`); if (tx) tx.value = inp.value;
-        if (["name.autoSize", "name.gradient", "enter.warning"].includes(k)) show(view, true);
+        if (["name.autoSize", "name.gradient", "enter.warning", "details.weather", "music.pulse"].includes(k)) show(view, true);
       });
     });
     $$("[data-ktext]", el).forEach((inp) => inp.addEventListener("input", () => {
@@ -414,6 +427,14 @@
 
   const listTaglines = () => `<div class="field wide" data-key="taglines"><div class="list">${draft.taglines.map((t, i) => `<div class="row" style="grid-template-columns:1fr auto"><input type="text" data-tl="${i}" value="${esc(t)}" maxlength="100">${acts(i, draft.taglines.length)}</div>`).join("")}</div>
     ${draft.taglines.length < 6 ? `<div><button class="btn small" id="addTl">+ Add tagline</button></div>` : ""}</div>`;
+  const listCycle = () => `<div class="field wide" data-key="name.cycle"><div class="list">${draft.name.cycle.map((t, i) => `<div class="row" style="grid-template-columns:1fr auto"><input type="text" data-nc="${i}" value="${esc(t)}" maxlength="40" placeholder="another name">${acts(i, draft.name.cycle.length)}</div>`).join("")}</div>
+    ${draft.name.cycle.length < 5 ? `<div><button class="btn small" id="addNc">+ Add a name</button></div>` : ""}</div>`;
+  function bindCycle() {
+    const root = main.querySelector('[data-key="name.cycle"]'); if (!root) return;
+    $$("[data-nc]", root).forEach((inp) => inp.addEventListener("input", () => { draft.name.cycle[Number(inp.dataset.nc)] = inp.value; changed(); }));
+    bindList(root, "name.cycle", reView);
+    const a = $("#addNc"); if (a) a.onclick = () => { draft.name.cycle.push(""); changed(); reView(); $$("[data-nc]").pop().focus(); };
+  }
   function bindTaglines() {
     const root = main.querySelector('[data-key="taglines"]'); if (!root) return;
     $$("[data-tl]", root).forEach((inp) => inp.addEventListener("input", () => { draft.taglines[Number(inp.dataset.tl)] = inp.value; changed(); }));
@@ -564,6 +585,8 @@
       <div class="panel"><h3>Spare names</h3><p class="pdesc">Extra names that send people to your page. You can have ${me.aliasLimit}${premium ? "" : " (3 with Premium)"}.</p>
         <div class="list" id="aliases">${me.aliases.map((a) => `<div class="row" style="grid-template-columns:1fr auto"><span>${esc(location.host)}/<b>${esc(a)}</b> → /${esc(me.username)}</span><button class="btn small" data-unalias="${esc(a)}">Remove</button></div>`).join("") || `<p class="muted" style="font-size:12.5px">None yet.</p>`}</div>
         ${me.aliases.length < me.aliasLimit ? `<div class="urlbox" style="padding-right:6px;margin-top:10px"><span class="muted">${esc(location.host)}/</span><input id="newAlias" type="text" maxlength="20" placeholder="another-name" style="border:0;padding:6px 2px;background:none;box-shadow:none"><button class="btn small" id="addAlias">Add</button></div>` : ""}</div>
+      <div class="panel"><h3>Gift code</h3><p class="pdesc">${me.premiumUntil ? `Premium until <b>${new Date(me.premiumUntil).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</b>. A code adds more days on top.` : premium ? "You have Premium for good." : "Got a code from a giveaway? It turns on Premium for a set number of days."}</p>
+        <div class="urlbox" style="padding-right:6px"><input id="giftCode" type="text" maxlength="30" placeholder="GIFT-XXXXXX-XXXXXX" style="border:0;padding:6px 2px;background:none;box-shadow:none;text-transform:uppercase;font-family:var(--mono,monospace)"><button class="btn small primary" id="redeem">Redeem</button></div></div>
       <div class="panel"><h3>Username</h3><div class="urlbox" style="padding-right:6px"><span class="muted">${esc(location.host)}/</span><input id="newName" type="text" value="${esc(me.username)}" maxlength="20" style="border:0;padding:6px 2px;background:none"><button class="btn small primary" id="saveName">Change</button></div>
         <p class="pdesc" style="margin:8px 0 0">Your old name stays reserved for 24 hours, then anyone can claim it.</p></div>
       ${me.account.discordLogin || me.account.discordLinked ? `<div class="panel"><h3>Discord</h3>${me.account.discordLinked ? `<p style="margin-bottom:12px">Linked to <b>${esc(me.account.discordName || "your Discord")}</b>. You can sign in with it.</p><button class="btn small" id="unlink">Unlink Discord</button>`
@@ -634,6 +657,9 @@
         try { await api("/api/me/username", { method: "POST", body: { username: n } }); me.username = n; toast(`You're now ${location.host}/${n}`); renderSide(); loadFrame(); } catch (e) { toast(e.message, true); }
       };
       const na = $("#newAlias"); if (na) na.addEventListener("input", () => (na.value = na.value.replace(/[^a-z0-9_.]/gi, "")));
+      if ($("#redeem")) $("#redeem").onclick = async () => {
+        try { const r = await api("/api/me/redeem", { method: "POST", body: { code: $("#giftCode").value } }); toast(`${r.days} days of Premium added. Enjoy.`); setTimeout(() => location.reload(), 1200); } catch (e) { toast(e.message, true); }
+      };
       if ($("#addAlias")) $("#addAlias").onclick = async () => { try { await api("/api/me/aliases", { method: "POST", body: { name: na.value } }); me.aliases.push(na.value); toast(`${location.host}/${na.value} now leads to your page.`); show("account", true); } catch (e) { toast(e.message, true); } };
       $$("[data-unalias]").forEach((b) => (b.onclick = async () => { await api(`/api/me/aliases/${b.dataset.unalias}`, { method: "DELETE" }); me.aliases = me.aliases.filter((a) => a !== b.dataset.unalias); toast("Spare name removed."); show("account", true); }));
       $("#pwGen").onclick = () => { const a = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const r = crypto.getRandomValues(new Uint32Array(16)); $("#pwNew").value = [...r].map((n) => a[n % a.length]).join(""); $("#pwNew").type = "text"; };
@@ -708,11 +734,27 @@
         <div class="panel"><h3>Top links</h3>${table(d.clicks, "clicks", true)}</div>
         <div class="panel"><h3>Came from</h3>${table(d.referrers, "visits")}</div>
         <div class="panel"><h3>Countries</h3>${table(d.countries, "visits")}${d.countries.length && d.countries.every((c) => c.name === "unknown") ? `<small class="muted">Countries show when your site runs behind Cloudflare.</small>` : ""}</div>
-        <div class="panel"><h3>Devices</h3>${table(d.devices, "visits")}</div></div>`;
+        <div class="panel"><h3>Devices</h3>${table(d.devices, "visits")}</div></div>
+      <div class="panel" id="viewers"><h3>Who viewed me</h3><p class="muted" style="font-size:12.5px">Loading…</p></div>`;
+    loadViewers();
     $$("[data-days]", box).forEach((b) => (b.onclick = () => loadStats(Number(b.dataset.days), metric)));
     $$("[data-metric]", box).forEach((b) => (b.onclick = () => loadStats(days, b.dataset.metric === "visitors" ? "visitors" : "views")));
     $("#countOwn").onchange = async (e) => { draft.visibility.countOwn = e.target.checked; saved.visibility.countOwn = e.target.checked;
       try { await api("/api/me/profile", { method: "PUT", body: { profile: { ...saved } } }); toast(e.target.checked ? "Your own visits will count." : "Your own visits won't count."); } catch (x) { toast(x.message, true); } };
+  }
+
+  const agoTxt = (ts) => { const s = (Date.now() - ts) / 1000; return s < 60 ? "just now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : Math.floor(s / 86400) + "d ago"; };
+  async function loadViewers() {
+    const box = $("#viewers"); if (!box) return;
+    let v; try { v = await api("/api/me/viewers"); } catch { box.remove(); return; }
+    const head = `<h3>Who viewed me <span class="pill">${v.week} this week</span></h3><p class="pdesc">Signed-in ${me.site} members who opened your page. People can choose to visit anonymously.</p>`;
+    if (v.locked) {
+      box.innerHTML = `${head}<div class="vlock">${Array.from({ length: Math.min(6, Math.max(3, v.total)) }, (_, i) => `<div class="vrow"><span class="vav"></span><span><b style="width:${60 + (i * 37) % 70}px"></b><small></small></span></div>`).join("")}
+        <div class="vlockmsg"><b>${v.total ? `${v.total} member${v.total === 1 ? "" : "s"} visited your page` : "Nobody signed in has visited yet"}</b><span>See who with Premium · Extra strength</span></div></div>`;
+      return;
+    }
+    box.innerHTML = head + (v.viewers.length ? `<div class="vlist">${v.viewers.map((x) => `<a class="vrow" href="/${esc(x.username)}" target="_blank" rel="noopener"><span class="vav" style="${x.avatar ? `background-image:url('${esc(x.avatar)}')` : ""}">${x.avatar ? "" : esc((x.displayName || x.username).slice(0, 2))}</span>
+      <span><b>${esc(x.displayName || x.username)}</b><small>/${esc(x.username)} · #${x.memberNo}</small></span><em>${x.visits > 1 ? `${x.visits} visits · ` : ""}${agoTxt(x.ts)}</em></a>`).join("")}</div>` : `<p class="muted" style="font-size:12.5px">Nobody signed in has visited yet.</p>`);
   }
 
   /* ================= Ctrl+K search ================= */

@@ -14,12 +14,12 @@ const FONTS = [
 const NAME_EFFECTS = ["none", "shine", "glow", "neon", "colorshift", "glitch", "wave", "typewriter", "scramble", "flicker", "float", "blurin", "split", "focus", "sparkle", "stroke"];
 const OVERLAYS = ["none", "particles", "stars", "comets", "snow", "pixelsnow", "rain", "storm", "blossom", "fireflies", "matrix", "aurora", "fog"];
 const PREMIUM_OVERLAYS = ["aurora", "fog", "storm"];
-const ENTER_SCREENS = ["fade", "curtain", "aperture", "slice", "shutter", "glitch", "boot", "zoom"];
+const ENTER_SCREENS = ["fade", "curtain", "aperture", "slice", "shutter", "glitch", "boot", "zoom", "bottle"];
 const CURSORS = ["none", "sparkle", "snow", "ribbon", "pixels", "moth", "bubbles"];
 const TEXTURES = ["none", "grain", "scanlines", "dots", "vhs", "crt", "grid"];
 const CLICK_EFFECTS = ["none", "burst", "ripple", "hearts", "confetti", "stars"];
 const CLICK_SOUNDS = ["none", "click", "bubble", "chime", "custom"];
-const BIO_EFFECTS = ["none", "typewriter", "fade", "blurin", "scramble", "words"];
+const BIO_EFFECTS = ["none", "typewriter", "fade", "blurin", "scramble", "words", "rotate"];
 const VIEW_STYLES = ["off", "inline", "pill", "corner", "counter"];
 const PROJECT_ICONS = ["code", "star", "bolt", "heart", "music", "brush", "game", "gem", "flame", "moon", "trophy", "gift", "repo", "website"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
@@ -49,7 +49,7 @@ const SCHEMA = {
   bio: S(400),
   taglines: { t: "list", max: 6, item: S(100) },
   details: {
-    location: S(40), timezone: { t: "tz", d: "" }, occupation: S(40), languages: S(60), github: { t: "re", re: /^[A-Za-z0-9-]{1,39}$/, d: "" },
+    location: S(40), timezone: { t: "tz", d: "" }, occupation: S(40), languages: S(60), weather: B(false), units: E(["c", "f"], "c"), github: { t: "re", re: /^[A-Za-z0-9-]{1,39}$/, d: "" },
   },
   underName: { style: E(["plain", "pills"], "plain"), handle: B(true), status: B(true), location: B(true), time: B(true), joined: B(false) },
   avatar: {
@@ -70,7 +70,7 @@ const SCHEMA = {
   bioEffect: E(BIO_EFFECTS, "none"),
   motion: { spotlight: B(false), glint: B(false), tilt: B(true) },
   playlist: { t: "list", max: LIMITS.playlist, item: { src: UP("music"), title: S(60) }, need: "src" },
-  music: { volume: N(0, 100, 50), showPlayer: B(true), shuffle: B(false), visualizer: B(true) },
+  music: { volume: N(0, 100, 50), showPlayer: B(true), shuffle: B(false), visualizer: B(true), pulse: B(false), pulseStrength: N(1, 10, 5) },
   card: {
     style: E(["glass", "solid", "outline", "label", "tinted", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
     borderColor: C(), borderWidth: N(0, 4, 1), shadow: E(["none", "soft", "deep"], "soft"), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
@@ -83,11 +83,12 @@ const SCHEMA = {
   name: {
     autoSize: B(true), size: N(20, 80, 40), weight: N(300, 900, 800), spacing: N(-8, 12, -2), uppercase: B(false),
     gradient: B(false), from: C("#ffffff"), to: C("#5ef2b0"), effect: E(NAME_EFFECTS, "glow"), showUid: B(true),
+    cycle: { t: "list", max: 5, item: S(40) }, cycleSpeed: N(2, 10, 3), cycleStyle: E(["scramble", "fade", "type"], "scramble"),
   },
   buttons: { style: E(["glass", "filled", "outline", "soft"], "glass"), shape: E(["rounded", "pill", "square"], "rounded"), hover: E(["glow", "lift", "fill", "slide", "none"], "glow"), align: E(["center", "left"], "center"), arrow: B(true) },
   icons: { size: N(34, 64, 46), style: E(["boxed", "round", "plain"], "boxed"), gap: N(4, 20, 10) },
   layout: {
-    arrangement: E(["centered", "classic", "minimal"], "centered"), spacing: E(["compact", "normal", "airy"], "normal"),
+    arrangement: E(["centered", "classic", "minimal", "rx"], "centered"), spacing: E(["compact", "normal", "airy"], "normal"),
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),
   },
   sections: { t: "sections" },
@@ -102,7 +103,8 @@ const SCHEMA = {
   server: { t: "re", re: /^[A-Za-z0-9-]{2,32}$/, d: "", pre: (v) => String(v || "").replace(/^(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\//i, "") },
   discord: { id: { t: "re", re: /^\d{15,21}$/, d: "" } },
   live: { status: B(true), spotify: B(true), lyrics: B(true), games: B(true), customStatus: B(true), listeningLabel: S(30, "listening on spotify"), playingLabel: S(30, "playing") },
-  visibility: { hidden: B(false), countOwn: B(false) },
+  visibility: { hidden: B(false), countOwn: B(false), anonymousVisits: B(false) },
+  badgeRow: { color: C(), style: E(["tile", "plain", "glow"], "tile") },
   social: { likes: B(false), comments: B(false) },
   share: { colorBar: C(), noindex: B(false), tabTitle: S(60), animateTitle: B(false), awayTitle: S(60), tabIcon: E(["picture", "site"], "picture"), shareButton: B(false) },
   meta: { title: S(60), description: S(160) },
