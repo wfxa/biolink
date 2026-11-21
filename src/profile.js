@@ -12,7 +12,7 @@ const FONTS = [
   "Orbitron", "Righteous", "Silkscreen", "Pacifico",
 ];
 const NAME_EFFECTS = ["none", "shine", "glow", "neon", "colorshift", "glitch", "wave", "typewriter", "scramble", "flicker", "float", "blurin", "split", "focus", "sparkle", "stroke"];
-const OVERLAYS = ["none", "particles", "stars", "comets", "snow", "pixelsnow", "rain", "storm", "blossom", "fireflies", "matrix", "aurora", "fog"];
+const OVERLAYS = ["none", "particles", "stars", "comets", "snow", "pixelsnow", "rain", "storm", "blossom", "fireflies", "matrix", "aurora", "fog", "pills3d", "bubbles", "liquid", "ink", "warp", "pixelrain", "constellation"];
 const PREMIUM_OVERLAYS = ["aurora", "fog", "storm"];
 const ENTER_SCREENS = ["fade", "curtain", "aperture", "slice", "shutter", "glitch", "boot", "zoom", "bottle"];
 const CURSORS = ["none", "sparkle", "snow", "ribbon", "pixels", "moth", "bubbles"];
@@ -23,7 +23,7 @@ const BIO_EFFECTS = ["none", "typewriter", "fade", "blurin", "scramble", "words"
 const VIEW_STYLES = ["off", "inline", "pill", "corner", "counter"];
 const PROJECT_ICONS = ["code", "star", "bolt", "heart", "music", "brush", "game", "gem", "flame", "moon", "trophy", "gift", "repo", "website"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
-const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid"];
+const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
 const SECTION_IDS = ["bio", "socials", "buttons", "presence", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
 const SECTION_NAMES = {
   bio: "bio", socials: "social icons", buttons: "link buttons", presence: "now playing & games", projects: "projects",

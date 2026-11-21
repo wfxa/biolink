@@ -110,7 +110,7 @@
   const pvOpts = (list, fn) => list.map(([v, l]) => [v, l, fn(v)]);
   const fontChips = () => O.FONTS.map((f) => [f, f, `<span class="aa" style="font-family:'${f}'">Aa</span>`]);
   const EFFECT_NAMES = { none: "None", shine: "Shine", glow: "Glow", neon: "Neon", colorshift: "Color shift", glitch: "Glitch", wave: "Wave", typewriter: "Typewriter", scramble: "Scramble", flicker: "Flicker", float: "Float", blurin: "Blur in", split: "Split", focus: "Focus", sparkle: "Sparkle", stroke: "Outline" };
-  const OVERLAY_NAMES = { none: "Nothing", particles: "Particles", stars: "Night sky", comets: "Comets", snow: "Snow", pixelsnow: "8-bit snow", rain: "Rain", storm: "Storm", blossom: "Blossom", fireflies: "Fireflies", matrix: "Matrix", aurora: "Northern lights", fog: "Fog" };
+  const OVERLAY_NAMES = { none: "Nothing", particles: "Particles", stars: "Night sky", comets: "Comets", snow: "Snow", pixelsnow: "8-bit snow", rain: "Rain", storm: "Storm", blossom: "Blossom", fireflies: "Fireflies", matrix: "Matrix", aurora: "Northern lights", fog: "Fog", pills3d: "3D pills", bubbles: "Fizz", liquid: "Liquid", ink: "Ink in water", warp: "Warp speed", pixelrain: "Pixel rain", constellation: "Link constellation" };
   const PLAT_NAMES = { x: "X", github: "GitHub", tiktok: "TikTok", youtube: "YouTube", soundcloud: "SoundCloud", kofi: "Ko-fi", cashapp: "Cash App", paypal: "PayPal", email: "Email" };
   const pname = (p) => PLAT_NAMES[p] || cap(p);
   let zones = []; try { zones = Intl.supportedValuesOf("timeZone"); } catch { zones = ["Europe/London", "America/New_York", "America/Los_Angeles", "Asia/Tokyo"]; }
@@ -122,7 +122,7 @@
         F.text("handle", "Sub-name", { ph: "e.g. @" + me.username, hint: "small text under your name · leave empty to hide it", max: 40 }),
         F.text("aboveName", "Greeting", { ph: "hi, it's", hint: "tiny line above your name", max: 40, adv: true }),
         F.text("discord.id", "Discord user ID", { ph: "123456789012345678", hint: "for live status", max: 21 }),
-        F.area("bio", "Bio", { max: 400, ph: "say who you are. new lines stay new lines." }),
+        F.area("bio", "Bio", { max: 400, ph: "say who you are. new lines stay new lines.", hint: "wrap words in ||double bars|| to hide them until someone hovers" }),
         F.note("Your Discord ID is a long number. In Discord: Settings → Advanced → Developer Mode on, then right-click yourself → Copy User ID. Signing in with Discord fills it in for you."),
       ]),
       P("Rotating lines", "Short lines that type out one after another under your bio.", [F.custom("taglines", "Rotating lines", () => listTaglines(), bindTaglines)]),
@@ -160,7 +160,7 @@
         ...(draft.background.type === "color" ? [F.color("background.color", "Colour", { noClear: true })] : []),
         ...(draft.background.type === "image" ? [F.upload("background.image", "background", "Image", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp" })] : []),
         ...(draft.background.type === "video" ? (premium ? [F.upload("background.video", "background", "Video", { accept: "video/mp4,video/webm", note: "plays muted, on loop" })] : [F.note("Video backgrounds come with Premium.")]) : []),
-        ...(draft.background.type === "animated" ? [F.chips("background.animated", "Animation", [["gradient", "Gradient"], ["mesh", "Mesh"], ["waves", "Waves"], ["grid", "Grid"]]), F.color("background.color", "Base colour", { noClear: true })] : []),
+        ...(draft.background.type === "animated" ? [F.chips("background.animated", "Animation", [["gradient", "Gradient"], ["mesh", "Mesh"], ["waves", "Waves"], ["grid", "Grid"], ["music", "Moves with my music"]], { hint: draft.background.animated === "music" ? "the colours shift and swell with songs you upload" : "" , rerender: true }), F.color("background.color", "Base colour", { noClear: true })] : []),
         F.range("background.blur", "Blur", 0, 40, "px"), F.range("background.dim", "Darken", 0, 95, "%"),
         F.range("background.vignette", "Vignette", 0, 100, "%", { adv: true }),
         F.chips("background.motion", "Motion", [["none", "None"], ["zoom", "Slow zoom"], ["pan", "Pan"]], { adv: true }),
@@ -265,7 +265,7 @@
       P("Players", "Paste a Spotify, YouTube or SoundCloud link to put a player on your page.", [F.custom("embeds", "Players", () => listEmbeds(), bindEmbeds)]),
       P("Extra pages", `Separate pages under your name, like ${location.host}/${esc(me.username)}/setup, linked from your card.`, [F.custom("pages", "Extra pages", () => listPages(), bindPages)], { adv: true }),
       P("Discord server", "Shows your server with live member counts and a join button.", [F.text("server", "Invite link", { ph: "discord.gg/yourserver", hint: "use one that never expires", wide: true, max: 80 })]),
-      P("Notes", "A longer block of your own words.", [F.area("textBlock", "Text", { max: 1500, rows: 5, ph: "rules, an about, a favourite quote…" })], { adv: true }),
+      P("Notes", "A longer block of your own words.", [F.area("textBlock", "Text", { max: 1500, rows: 5, ph: "rules, an about, a favourite quote…", hint: "||double bars|| hide words until hovered" })], { adv: true }),
       P("Countdown", "Ticks down to a date you choose.", [
         F.custom("countdown.date", "Countdown date", () => `<label class="field" data-key="countdown.date">${lbl("Date and time")}<input type="datetime-local" data-k="countdown.date" value="${esc(draft.countdown.date)}"></label>`),
         F.text("countdown.label", "Label", { ph: "birthday", max: 40 }), F.text("countdown.done", "Text at zero", { ph: "it's here", max: 40, adv: true }),

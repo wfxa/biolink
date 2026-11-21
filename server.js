@@ -84,6 +84,7 @@ setInterval(() => {
   db.prepare("DELETE FROM released_names WHERE until < ?").run(now());
 }, 3600000).unref();
 
+const hideSecrets = (t) => String(t || "").replace(/\|\|(.+?)\|\|/g, (_, w) => "█".repeat(Math.min(12, w.length)));
 /* ---------------- users ---------------- */
 const NAME_RE = /^[a-z0-9_.]{1,20}$/i;
 function nameProblem(name, exceptUserId, allowHeld) {
@@ -213,7 +214,7 @@ function renderProfile(req, res, u, sub) {
   const p = data.profile;
   const origin = `${isHttps(req) ? "https" : "http"}://${req.headers.host}`;
   const title = (sub ? sub.title + " · " : "") + (p.share.tabTitle || p.meta.title || p.displayName || u.username);
-  const desc = p.meta.description || p.bio.split("\n")[0] || p.taglines[0] || `${u.username} on ${config.SITE_NAME}`;
+  const desc = p.meta.description || hideSecrets(p.bio.split("\n")[0]) || hideSecrets(p.taglines[0] || "") || `${u.username} on ${config.SITE_NAME}`;
   const ogImg = p.avatar.src ? (p.avatar.src.startsWith("/") ? origin + p.avatar.src : p.avatar.src) : "";
   const html = template("profile.html")
     .replace("{{TITLE}}", escapeHtml(title))
@@ -408,7 +409,7 @@ async function route(req, res) {
       }).filter(Boolean),
       featured: getSetting("featured", []).map((id) => db.prepare("SELECT * FROM users WHERE id = ? AND banned = 0").get(id)).filter(Boolean).map((u) => {
         const pr = Profile.load(u.profile, { premium: !!u.premium });
-        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, bio: pr.bio.split("\n")[0] || pr.taglines[0] || "", memberNo: u.member_no, views: totalViews(u.id) };
+        return { username: u.username, displayName: pr.displayName, avatar: pr.avatar.src, accent: pr.colors.accent, bio: hideSecrets(pr.bio.split("\n")[0]) || hideSecrets(pr.taglines[0] || ""), memberNo: u.member_no, views: totalViews(u.id) };
       }),
       me: me ? { username: me.username, role: me.role } : null,
     });

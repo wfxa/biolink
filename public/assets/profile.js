@@ -48,13 +48,13 @@
     R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px", blob: "42% 58% 63% 37% / 41% 44% 56% 59%", capsule: "999px" }[p.avatar.shape]);
     R.setProperty("--av-w", p.avatar.shape === "capsule" ? "0.72" : "1");
     R.setProperty("--card-bw", p.card.borderWidth + "px");
-    R.setProperty("--ic-size", p.icons.size + "px"); R.setProperty("--ic-gap", p.icons.gap + "px");
+    R.setProperty("--ps", p.music.pulseStrength / 5); R.setProperty("--ic-size", p.icons.size + "px"); R.setProperty("--ic-gap", p.icons.gap + "px");
     R.setProperty("--av-border", p.avatar.border + "px"); set("--av-border-color", p.avatar.borderColor);
     R.setProperty("--vig", p.background.vignette / 100);
     const cc = document.getElementById("custom-css"); if (cc && d.__css !== undefined) cc.textContent = d.__css;
 
     const b = document.body;
-    b.className = [`cs-${p.card.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
+    b.className = [`cs-${p.card.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border", p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
@@ -84,10 +84,12 @@
     cornerUi(p, d);
 
     setupBackground(p);
-    setupOverlay(p.overlay);
+    setupOverlay(p.overlay, p);
     setupNameEffect(p);
     setupBio(p);
     setupTaglines(p);
+    setupNameCycle(p);
+    setupWeather(p);
     setupClock(p);
     setupMotion(p);
     setupCursor(p.cursor);
@@ -118,7 +120,7 @@
     if (bg.type === "image" && bg.image) inner = `<img class="media" src="${esc(bg.image)}" alt="">`;
     else if (bg.type === "video" && bg.video) inner = `<video class="media" src="${esc(bg.video)}" autoplay muted loop playsinline></video>`;
     else if (bg.type === "auto") inner = `<img class="media auto" src="${esc(p.avatar.src || "")}" alt="" ${p.avatar.src ? "" : "hidden"}>`;
-    else if (bg.type === "animated") inner = { gradient: `<div class="media anim-gradient"></div>`, mesh: `<div class="media anim-mesh"><i></i><i></i><i></i></div>`, waves: `<canvas class="media waves"></canvas>`, grid: `<div class="anim-grid"></div>` }[bg.animated];
+    else if (bg.type === "animated") inner = { gradient: `<div class="media anim-gradient"></div>`, mesh: `<div class="media anim-mesh"><i></i><i></i><i></i></div>`, waves: `<canvas class="media waves"></canvas>`, grid: `<div class="anim-grid"></div>`, music: `<div class="media anim-music"><i></i><i></i><i></i><i></i></div>` }[bg.animated];
     const filter = { none: "", grayscale: "grayscale(1)", sepia: "sepia(.8)", contrast: "contrast(1.4)" }[bg.filter];
     const blur = bg.type === "auto" ? Math.max(bg.blur, 24) : bg.blur;
     return `<div class="bg motion-${bg.motion}" style="--bg-color:${bg.color || "#07060a"};--bg-blur:${blur}px;--bg-dim:${bg.dim / 100};--bg-filter:${filter}">${inner}${["image", "video", "auto"].includes(bg.type) ? `<div class="dim"></div>` : ""}</div>`;
@@ -129,6 +131,7 @@
     if (u.handle && p.handle.trim()) items.push(`<span>${esc(p.handle)}</span>`);
     if (u.status && p.discord.id && p.live.status) items.push(`<span class="status" hidden><i class="sdot"></i><em style="font-style:normal"></em></span>`);
     if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
+    if (p.details.weather && p.details.location) items.push(`<span class="wx" hidden></span>`);
     if (u.time && p.details.timezone) items.push(`<span>${svgIcon("clock")}<span class="localtime">--:--</span></span>`);
     if (p.details.occupation) items.push(`<span>${svgIcon("bolt")}${esc(p.details.occupation)}</span>`);
     if (p.details.languages) items.push(`<span>${svgIcon("comment")}${esc(p.details.languages)}</span>`);
@@ -137,6 +140,7 @@
     const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", p.name.gradient && "grad", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
     return `
       ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
+      ${p.layout.arrangement === "rx" ? `<div class="rxtop"><b><i>Rx</i> ${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")}</span></div>` : ""}
       <div class="head ${p.banner ? "has-banner" : ""}">
         ${p.avatar.hidden ? "" : `<div class="avatar dec-${p.avatar.decoration}">
           ${p.avatar.decoration !== "none" ? `<span class="deco"></span>` : ""}
@@ -148,12 +152,13 @@
           ${p.aboveName ? `<div class="above">${esc(p.aboveName)}</div>` : ""}
           <div class="namewrap">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1></div>
           ${items.length ? `<div class="line ${u.style === "pills" || p.viewCounter === "pill" ? "pills" : ""}">${items.join("")}</div>` : ""}
-          ${d.badges.length ? `<div class="badges">${d.badges.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
+          ${d.badges.length ? `<div class="badges">${d.badges.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
         </div>
       </div>`;
   }
   function firstScreen(p, d, secs) {
-    const tail = `${playerHtml(p)}${votesHtml(p)}<p class="foot"><a href="/">${esc(window.__SITE)}</a> · #${d.memberNo}${d.demo ? "" : ` · <button class="rep" type="button">report</button>`}</p>`;
+    const rxfoot = p.layout.arrangement === "rx" ? `<div class="rxfoot"><div class="rxrows"><span>filled</span><b>${new Date(d.joined).toLocaleDateString("en-GB")}</b><span>refills</span><b>unlimited</b></div><p>Take one daily. Share freely. Keep out of reach of boredom.</p><div class="barcode" aria-hidden="true"></div></div>` : "";
+    const tail = `${rxfoot}${playerHtml(p)}${votesHtml(p)}<p class="foot"><a href="/">${esc(window.__SITE)}</a> · #${d.memberNo}${d.demo ? "" : ` · <button class="rep" type="button">report</button>`}</p>`;
     if (p.card.oneCard) return `<div class="card ${p.motion.glint ? "glint" : ""}">${spot(p)}${headHtml(p, d)}${secs.map((s) => sectionHtml(s, p, d)).join("")}${tail}</div>`;
     return `<div class="card ${p.motion.glint ? "glint" : ""}">${spot(p)}${headHtml(p, d)}${tail}</div>` + secs.map((s) => `<div class="card">${spot(p)}${sectionHtml(s, p, d)}</div>`).join("");
   }
@@ -161,7 +166,7 @@
     const h = s.heading ? `<div class="sec-head">${esc(s.heading)}</div>` : "";
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
-      case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${esc(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
+      case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${redactHtml(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
       case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""}">${l.icon ? icon(l.icon) : ""}<span>${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
       case "presence": return `<div data-sec="presence" hidden>${h}<div class="pstack"></div></div>`;
@@ -173,7 +178,7 @@
           if (kind === "spotify") return `<div class="embed"><iframe src="https://open.spotify.com/embed/${esc(val)}?theme=0" height="${/^track|^episode/.test(val) ? 80 : 152}" allow="encrypted-media" loading="lazy" title="Spotify"></iframe></div>`;
           return `<div class="embed"><iframe height="120" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(val)}&color=%23${(p.colors.accent || "#ff2e4d").slice(1)}&visual=false" loading="lazy" title="SoundCloud"></iframe></div>`;
         }).join("")}</div>`;
-      case "text": return `<div>${h}<p class="textblock">${esc(p.textBlock)}</p></div>`;
+      case "text": return `<div>${h}<p class="textblock">${redactHtml(p.textBlock)}</p></div>`;
       case "countdown": return `<div class="box countdown" data-date="${esc(p.countdown.date)}" data-done="${esc(p.countdown.done)}">${s.heading || p.countdown.label ? `<small>${esc(s.heading || p.countdown.label)}</small>` : ""}<div class="t"></div></div>`;
       case "server": return `<div>${h}<div class="box server" data-invite="${esc(p.server)}"><span class="ic">${icon("discord")}</span><div class="txt"><b>loading server…</b><small></small></div><a class="join" href="https://discord.gg/${esc(p.server)}" target="_blank" rel="noopener">Join</a></div></div>`;
       case "clock": return `<div class="box clock">${h}<div class="t bigtime">--:--</div><small>${esc(p.details.location || p.details.timezone)}</small></div>`;
@@ -244,11 +249,7 @@
   function setupNameEffect(p) {
     const el = root.querySelector(".name"); if (!el || reduce) return;
     const text = el.dataset.text, e = p.name.effect;
-    const split = (fn) => { el.innerHTML = [...text].map((ch, i) => `<span class="ch" style="${fn(i, [...text].length)}">${esc(ch)}</span>`).join(""); };
-    if (e === "wave") split((i) => `animation-delay:${i * 0.07}s`);
-    if (e === "blurin") split((i) => `animation-delay:${0.2 + i * 0.06}s`);
-    if (e === "focus") split((i) => `animation-delay:${i * 0.15}s`);
-    if (e === "split") split((i, n) => `animation-delay:${0.1 + Math.abs(i - n / 2) * 0.04}s;--sx:${i < n / 2 ? -40 : 40}px`);
+    splitName(el, e);
     if (e === "typewriter") {
       let i = 0; el.innerHTML = `<span class="tt"></span><span class="tw-caret"></span>`;
       const tt = el.querySelector(".tt");
@@ -261,6 +262,59 @@
       s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%"; el.appendChild(s); setTimeout(() => s.remove(), 1600);
     }, 260);
   }
+  function splitName(el, e) {
+    const text = el.dataset.text;
+    const split = (fn) => { el.innerHTML = [...text].map((ch, i) => `<span class="ch" style="${fn(i, [...text].length)}">${esc(ch)}</span>`).join(""); };
+    if (e === "wave") split((i) => `animation-delay:${i * 0.07}s`);
+    if (e === "blurin") split((i) => `animation-delay:${0.2 + i * 0.06}s`);
+    if (e === "focus") split((i) => `animation-delay:${i * 0.15}s`);
+    if (e === "split") split((i, n) => `animation-delay:${0.1 + Math.abs(i - n / 2) * 0.04}s;--sx:${i < n / 2 ? -40 : 40}px`);
+  }
+  /* name switches between a few names */
+  function setupNameCycle(p) {
+    const el = root.querySelector(".name"); if (!el || !p.name.cycle.length) return;
+    const names = [el.dataset.text, ...p.name.cycle.filter((n) => n.trim())]; if (names.length < 2) return;
+    let i = 0, t;
+    const show = (txt) => {
+      el.dataset.text = txt;
+      if (reduce || p.name.cycleStyle === "fade") {
+        el.classList.add("nswap");
+        t = setTimeout(() => { el.textContent = txt; splitName(el, p.name.effect); el.classList.remove("nswap"); }, 280);
+      } else if (p.name.cycleStyle === "type") {
+        let cur = el.textContent, k = cur.length;
+        const back = () => { if (k > 0) { el.textContent = cur.slice(0, --k); t = setTimeout(back, 40); } else fwd(); };
+        const fwd = () => { if (k < txt.length) { el.textContent = txt.slice(0, ++k); t = setTimeout(fwd, 80); } else splitName(el, p.name.effect); };
+        back();
+      } else scramble(el, txt, () => splitName(el, p.name.effect));
+    };
+    const iv = setInterval(() => { i = (i + 1) % names.length; show(names[i]); }, p.name.cycleSpeed * 1000 + 600);
+    onCleanup(() => { clearInterval(iv); clearTimeout(t); });
+  }
+  /* weather where you live (open-meteo, no key) */
+  const WX_SVG = {
+    sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>',
+    cloud: '<svg viewBox="0 0 24 24"><path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.6a4.4 4.4 0 0 1-.9 8.9z"/></svg>',
+    rain: '<svg viewBox="0 0 24 24"><path d="M7 14.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 5.6a4.4 4.4 0 0 1-.9 8.9z"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    snow: '<svg viewBox="0 0 24 24"><path d="M7 14.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 5.6a4.4 4.4 0 0 1-.9 8.9z"/><circle cx="8" cy="18.5" r="1.3"/><circle cx="12" cy="20" r="1.3"/><circle cx="16" cy="18.5" r="1.3"/></svg>',
+    storm: '<svg viewBox="0 0 24 24"><path d="M7 14.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 5.6a4.4 4.4 0 0 1-.9 8.9z"/><path d="M12.5 14l-2.5 4h3l-2 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>',
+    fog: '<svg viewBox="0 0 24 24"><path d="M4 9h16M3 13h18M5 17h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  };
+  const wxKind = (c) => c === 0 || c === 1 ? "sun" : c <= 3 ? "cloud" : c <= 48 ? "fog" : c <= 67 || (c >= 80 && c <= 82) ? "rain" : c <= 77 || c === 85 || c === 86 ? "snow" : "storm";
+  async function setupWeather(p) {
+    const el = root.querySelector(".wx"); if (!el) return;
+    const f = p.details.units === "f", key = `dose-wx:${p.details.location}:${f}`;
+    try {
+      let w = null; try { const c = JSON.parse(sessionStorage.getItem(key)); if (c && Date.now() - c.at < 20 * 60000) w = c; } catch {}
+      if (!w) {
+        const g = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(p.details.location.split(",")[0])}`)).json();
+        const loc = g.results && g.results[0]; if (!loc) return;
+        const r = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,weather_code${f ? "&temperature_unit=fahrenheit" : ""}`)).json();
+        w = { t: Math.round(r.current.temperature_2m), c: r.current.weather_code, at: Date.now() };
+        try { sessionStorage.setItem(key, JSON.stringify(w)); } catch {}
+      }
+      el.innerHTML = `${WX_SVG[wxKind(w.c)]}${w.t}°${f ? "F" : "C"}`; el.hidden = false;
+    } catch {}
+  }
   function scramble(el, text, onDone) {
     const chars = "!<>-_\\/[]{}=+*^?#abcdefxyz0123456789";
     let frame = 0; const total = text.length * 3 + 10; let raf;
@@ -270,12 +324,36 @@
     };
     step(); onCleanup(() => cancelAnimationFrame(raf));
   }
+  /* ||secret|| becomes a black bar that shows the words on hover or tap */
+  const REDACT = /\|\|(.+?)\|\|/g;
+  const redactHtml = (text) => esc(text).replace(REDACT, (_, w) => `<span class="redact" tabindex="0" title="hover to reveal">${w}</span>`);
+  const redactPlain = (text) => text.replace(REDACT, (_, w) => "█".repeat(w.length));
   function setupBio(p) {
     const el = root.querySelector(".bio:not(.cstatus)"); if (!el || reduce) return;
-    const text = p.bio;
-    if (p.bioEffect === "typewriter") { let i = 0; el.textContent = ""; const tick = () => { el.textContent = text.slice(0, i); if (i++ < text.length) t = setTimeout(tick, 22); }; let t = setTimeout(tick, 500); onCleanup(() => clearTimeout(t)); }
-    if (p.bioEffect === "scramble") scramble(el, text);
-    if (p.bioEffect === "words") el.innerHTML = text.split(/(\s+)/).map((w, i) => /\s/.test(w) ? w : `<span class="w" style="animation-delay:${0.3 + i * 0.03}s">${esc(w)}</span>`).join("");
+    const text = redactPlain(p.bio), done = () => (el.innerHTML = redactHtml(p.bio));
+    if (p.bioEffect === "typewriter") { let i = 0; el.textContent = ""; const tick = () => { el.textContent = text.slice(0, i); if (i++ < text.length) t = setTimeout(tick, 22); else done(); }; let t = setTimeout(tick, 500); onCleanup(() => clearTimeout(t)); }
+    if (p.bioEffect === "scramble") scramble(el, text, done);
+    if (p.bioEffect === "rotate") {
+      const lines = [text, ...p.taglines.map(redactPlain)], full = [redactHtml(p.bio), ...p.taglines.map(redactHtml)];
+      el.innerHTML = `<span class="typed"></span><span class="caret"></span>`;
+      const tt = el.firstChild; let li = 0, ci = 0, del = false, t;
+      const tick = () => {
+        const line = lines[li];
+        if (!del && ci < line.length) { ci++; tt.textContent = line.slice(0, ci); t = setTimeout(tick, li === 0 ? 24 : 55); return; }
+        if (!del) { tt.innerHTML = full[li]; if (lines.length === 1) return; del = true; t = setTimeout(tick, Math.min(6000, 1600 + line.length * 25)); return; }
+        if (ci > 0) { ci = Math.max(0, ci - (line.length > 60 ? 3 : 1)); tt.textContent = line.slice(0, ci); t = setTimeout(tick, 18); return; }
+        del = false; li = (li + 1) % lines.length; t = setTimeout(tick, 300);
+      };
+      t = setTimeout(tick, 500); onCleanup(() => clearTimeout(t));
+    }
+    if (p.bioEffect === "words") {
+      let i = 0;
+      el.innerHTML = p.bio.split(/(\|\|.+?\|\|)/).map((part) => {
+        const m = part.match(/^\|\|(.+)\|\|$/);
+        if (m) return `<span class="w" style="animation-delay:${0.3 + i++ * 0.03}s"><span class="redact" tabindex="0">${esc(m[1])}</span></span>`;
+        return part.split(/(\s+)/).map((w) => /\s/.test(w) || !w ? w : `<span class="w" style="animation-delay:${0.3 + i++ * 0.03}s">${esc(w)}</span>`).join("");
+      }).join("");
+    }
   }
   function setupTaglines(p) {
     const el = root.querySelector(".taglines .typed"); if (!el) return;
@@ -521,6 +599,25 @@
     const load = (i) => { idx = (i + order.length) % order.length; const s = p.playlist[order[idx]]; audio.src = s.src; if (tr) tr.textContent = s.title || "now playing"; audio.play().catch(() => {}); };
     const viz = root.querySelector(".player .viz");
     const vsync = () => viz && viz.classList.toggle("on", !audio.paused);
+    if ((p.music.pulse || (p.background.type === "animated" && p.background.animated === "music")) && !reduce) {
+      let an, buf, raf, level = 0, energy = 0, hue = 0;
+      const loop = () => {
+        an.getByteFrequencyData(buf); let sum = 0, all = 0; for (let i = 1; i < 8; i++) sum += buf[i]; for (let i = 0; i < buf.length; i++) all += buf[i];
+        const v = Math.max(0, sum / 7 / 255 - 0.45) / 0.55; level = v > level ? v : level * 0.86;
+        energy += (all / buf.length / 255 - energy) * 0.08; hue = (hue + energy * 1.6) % 360;
+        const bs = document.body.style; bs.setProperty("--beat", level.toFixed(3)); bs.setProperty("--energy", energy.toFixed(3)); bs.setProperty("--mhue", hue.toFixed(1) + "deg");
+        raf = requestAnimationFrame(loop);
+      };
+      audio.addEventListener("play", () => {
+        try {
+          if (!an) { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const src = ctx.createMediaElementSource(audio); an = ctx.createAnalyser(); an.fftSize = 256; buf = new Uint8Array(an.frequencyBinCount); src.connect(an); an.connect(ctx.destination); audio.__ctx = ctx; }
+          if (audio.__ctx.state === "suspended") audio.__ctx.resume();
+          cancelAnimationFrame(raf); loop();
+        } catch {}
+      });
+      audio.addEventListener("pause", () => { cancelAnimationFrame(raf); document.body.style.setProperty("--beat", 0); });
+      onCleanup(() => cancelAnimationFrame(raf));
+    }
     audio.addEventListener("play", () => { sync(); vsync(); }); audio.addEventListener("pause", () => { sync(); vsync(); });
     audio.addEventListener("ended", () => load(idx + 1));
     audio.addEventListener("timeupdate", () => { if (prog && audio.duration) prog.style.width = (audio.currentTime / audio.duration) * 100 + "%"; });
@@ -609,7 +706,7 @@
     el.className = `enter e-${en.type}`; el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", en.text);
     const panes = { curtain: 2, slice: 3, shutter: 8 }[en.type] || 0;
     const warn = en.warning ? `<span class="warn">${esc(en.warningText)}</span>` : "";
-    el.innerHTML = en.type === "boot" ? `<pre></pre>` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${esc(en.text)}${warn}</span>`;
+    el.innerHTML = en.type === "boot" ? `<pre></pre>` : en.type === "bottle" ? `<div class="bottle"><div class="cap"><i></i></div><div class="neck"></div><div class="jar"><div class="blabel"><b><i>Rx</i> ${esc(d.displayName || p.displayName || d.username)}</b><span>${esc(en.text)}</span><small>No. ${String(d.memberNo).padStart(4, "0")} · take one</small></div></div>${Array.from({ length: 10 }, (_, i) => `<em class="pl" style="--dx:${Math.round((Math.random() - 0.5) * 70)}vw;--dy:${Math.round(-20 - Math.random() * 60)}vh;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(i * 0.03).toFixed(2)}s;--c:${["var(--accent)", "#fff", "#ffd27a", "#9ad8ff"][i % 4]}"></em>`).join("")}</div>${warn ? `<span class="label" style="position:absolute;bottom:8vh">${warn}</span>` : ""}` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${esc(en.text)}${warn}</span>`;
     document.body.appendChild(el);
     let ready = en.type !== "boot";
     if (en.type === "boot") {
@@ -621,7 +718,7 @@
       if (entered || !ready) return; entered = true;
       el.classList.add("out"); document.body.classList.remove("pre"); document.body.classList.add("in");
       if (audio) audio.play().catch(() => {});
-      trackView(d); setTimeout(() => el.remove(), 1300);
+      trackView(d); setTimeout(() => el.remove(), en.type === "bottle" ? 2000 : 1300);
     };
     el.addEventListener("click", go);
     el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
@@ -651,9 +748,159 @@
   }
 
   /* overlays drawn on canvas */
-  function setupOverlay(kind) {
-    const cv = root.querySelector("canvas.fx"), ctx = cv.getContext("2d");
+  /* ---------- extra atmospheres: 3D pills, fizz, liquid, ink, warp, pixel rain, link constellation ---------- */
+  function fancyOverlay(kind, cv, p) {
+    const ctx = cv.getContext("2d");
+    const acc = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#5ef2b0";
+    const rgb = hexToRgb(acc);
+    const dpr = Math.min(1.5, devicePixelRatio || 1);
+    const rand = (a, b) => a + Math.random() * (b - a);
+    let W = 0, H = 0, raf, last = 0, mx = 0.5, my = 0.5, st = {};
+    const size = () => { W = cv.width = innerWidth * dpr; H = cv.height = innerHeight * dpr; };
+    listen(window, "pointermove", (e) => { mx = e.clientX / innerWidth; my = e.clientY / innerHeight; });
+    const sprite = (w, h, draw) => { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); return c; };
+    const capsule = (col) => sprite(120, 48, (g, w, h) => {
+      const r = h / 2;
+      g.save(); g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, r - 2); g.clip();
+      g.fillStyle = col; g.fillRect(0, 0, w / 2, h); g.fillStyle = "#f4f1ea"; g.fillRect(w / 2, 0, w / 2, h);
+      const sh = g.createLinearGradient(0, 0, 0, h); sh.addColorStop(0, "rgba(255,255,255,.55)"); sh.addColorStop(.35, "rgba(255,255,255,.05)"); sh.addColorStop(.7, "rgba(0,0,0,.12)"); sh.addColorStop(1, "rgba(0,0,0,.4)");
+      g.fillStyle = sh; g.fillRect(0, 0, w, h); g.fillStyle = "rgba(0,0,0,.18)"; g.fillRect(w / 2 - 1, 0, 2, h); g.restore();
+    });
+    const bubble = sprite(64, 64, (g) => {
+      const gr = g.createRadialGradient(24, 22, 2, 32, 32, 30); gr.addColorStop(0, "rgba(255,255,255,.5)"); gr.addColorStop(.25, "rgba(255,255,255,.06)"); gr.addColorStop(.85, "rgba(255,255,255,.04)"); gr.addColorStop(1, "rgba(255,255,255,.55)");
+      g.fillStyle = gr; g.beginPath(); g.arc(32, 32, 30, 0, 6.283); g.fill();
+    });
+
+    const SETUP = {
+      pills3d() {
+        const cols = [acc, acc, "#ffd27a", "#9ad8ff", "#ff9ab8"].map(capsule);
+        st.p = Array.from({ length: Math.round(Math.min(22, innerWidth / 70)) }, () => ({ x: rand(0, 1), y: rand(0, 1), z: rand(0.25, 1), a: rand(0, 6.28), va: rand(-0.004, 0.004), s: rand(0, 6.28), vs: rand(0.006, 0.018), vy: rand(0.00008, 0.0003), img: cols[(Math.random() * cols.length) | 0] }));
+        st.p.sort((a, b) => a.z - b.z);
+      },
+      bubbles() { st.p = Array.from({ length: Math.round(Math.min(90, innerWidth / 14)) }, () => ({ x: rand(0, 1), y: rand(0, 1.2), r: rand(2, 11), v: rand(0.0008, 0.003), ph: rand(0, 6.28) })); st.fizz = []; },
+      liquid() { st.b = Array.from({ length: 26 }, () => ({ x: rand(0, 1), y: rand(0, 1), r: rand(1.5, 5), v: rand(0.0005, 0.002) })); st.tilt = 0; },
+      ink() {
+        st.small = document.createElement("canvas"); st.sctx = st.small.getContext("2d");
+        const hues = [acc, `color-mix(in srgb, ${acc} 55%, #7a3cff)`, `color-mix(in srgb, ${acc} 50%, #00c2ff)`, `color-mix(in srgb, ${acc} 45%, #ff4d8d)`];
+        const probe = document.createElement("i"); document.body.appendChild(probe);
+        const px = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+        st.cols = hues.map((h) => { probe.style.color = h; px.clearRect(0, 0, 1, 1); px.fillStyle = "#5ef2b0"; px.fillStyle = getComputedStyle(probe).color; px.fillRect(0, 0, 1, 1); return [...px.getImageData(0, 0, 1, 1).data].slice(0, 3).join(","); }); probe.remove();
+        st.p = []; st.next = 0; st.seed = 3;
+      },
+      warp() { st.p = Array.from({ length: 420 }, () => ({ x: rand(-1, 1), y: rand(-1, 1), z: rand(0.05, 1) })); st.t0 = performance.now(); },
+      pixelrain() { st.cell = 9 * dpr; st.cols = []; },
+      constellation() {
+        const links = [...p.socials.map((s) => ({ url: s.url, icon: s.platform, label: s.platform })), ...p.linkButtons.map((b) => ({ url: b.url, icon: b.icon || "website", label: b.label || b.url }))].slice(0, 14);
+        const layer = document.createElement("div"); layer.className = "constel"; document.body.appendChild(layer); onCleanup(() => layer.remove());
+        st.nodes = links.map((l) => {
+          const a = document.createElement("a"); a.href = l.url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.title = l.label; a.setAttribute("aria-label", l.label);
+          a.innerHTML = svgIcon(l.icon); layer.appendChild(a);
+          return { el: a, x: rand(0.05, 0.95), y: rand(0.08, 0.92), vx: rand(-1, 1) * 0.00025, vy: rand(-1, 1) * 0.00025 };
+        });
+        st.dust = Array.from({ length: 70 }, () => ({ x: rand(0, 1), y: rand(0, 1), r: rand(0.3, 1.2), ph: rand(0, 6.28) }));
+      },
+    };
+    const DRAW = {
+      pills3d(t) {
+        ctx.clearRect(0, 0, W, H);
+        for (const q of st.p) {
+          q.y -= q.vy * (0.5 + q.z); q.a += q.va; q.s += q.vs; if (q.y < -0.15) { q.y = 1.15; q.x = rand(0, 1); }
+          const px = (q.x + (mx - 0.5) * 0.04 * q.z) * W, py = (q.y + (my - 0.5) * 0.04 * q.z) * H;
+          const L = 70 * q.z * dpr, R = L * 0.4, fore = 0.32 + 0.68 * Math.abs(Math.cos(q.s));
+          ctx.save(); ctx.globalAlpha = 0.25 + q.z * 0.7; ctx.translate(px, py); ctx.rotate(q.a);
+          ctx.drawImage(q.img, -L * fore / 2 - R / 2, -R / 2, L * fore + R, R); ctx.restore();
+        }
+      },
+      bubbles(t) {
+        ctx.clearRect(0, 0, W, H);
+        const g = ctx.createLinearGradient(0, H * 0.7, 0, H); g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, `rgba(${rgb},.12)`); ctx.fillStyle = g; ctx.fillRect(0, H * 0.7, W, H * 0.3);
+        if (Math.random() < 0.35) st.fizz.push({ x: rand(0.2, 0.8), y: 1, r: rand(1, 2.4), v: rand(0.004, 0.009), life: 1 });
+        for (const f of st.fizz) { f.y -= f.v; f.life -= 0.012; ctx.fillStyle = `rgba(255,255,255,${f.life * 0.6})`; ctx.beginPath(); ctx.arc(f.x * W + Math.sin(t / 90 + f.y * 30) * 3, f.y * H, f.r * dpr, 0, 6.283); ctx.fill(); }
+        st.fizz = st.fizz.filter((f) => f.life > 0);
+        for (const b of st.p) {
+          b.y -= b.v * (0.6 + b.r / 10); if (b.y < -0.05) { b.y = 1.05; b.x = rand(0, 1); }
+          const s = b.r * 2 * dpr * (1 + Math.sin(t / 400 + b.ph) * 0.04);
+          ctx.drawImage(bubble, b.x * W + Math.sin(t / 700 + b.ph) * 10 * dpr - s / 2, b.y * H - s / 2, s, s);
+        }
+      },
+      liquid(t) {
+        ctx.clearRect(0, 0, W, H);
+        st.tilt += ((mx - 0.5) * 0.9 - st.tilt) * 0.03;
+        const base = H * 0.78, time = t / 1000;
+        const surf = (x, k) => base + st.tilt * (x - W / 2) * 0.12 + Math.sin(x / (210 * dpr) + time * (1.1 + k * 0.4) + k * 2) * (16 + k * 6) * dpr + Math.sin(x / (75 * dpr) - time * 1.7) * 4 * dpr;
+        for (let k = 2; k >= 0; k--) {
+          ctx.beginPath(); for (let x = 0; x <= W; x += 10 * dpr) { const y = surf(x, k) + k * 10 * dpr; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+          ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+          const g = ctx.createLinearGradient(0, base - 40 * dpr, 0, H); g.addColorStop(0, `rgba(${rgb},${0.34 - k * 0.09})`); g.addColorStop(1, `rgba(${rgb},${0.12 - k * 0.03})`); ctx.fillStyle = g; ctx.fill();
+        }
+        ctx.beginPath(); for (let x = 0; x <= W; x += 10 * dpr) { const y = surf(x, 0); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+        ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 1.5 * dpr; ctx.stroke();
+        for (const b of st.b) { b.y -= b.v; if (b.y < 0) { b.y = 1; b.x = rand(0, 1); } const x = b.x * W, top = surf(x, 0), y = top + 8 * dpr + b.y * (H - top); ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = dpr; ctx.beginPath(); ctx.arc(x + Math.sin(t / 500 + b.x * 9) * 4 * dpr, y, b.r * dpr, 0, 6.283); ctx.stroke(); }
+      },
+      ink(t) {
+        const sw = Math.ceil(W / 10), sh = Math.ceil(H / 10);
+        if (st.small.width !== sw) { st.small.width = sw; st.small.height = sh; }
+        if ((t > st.next || st.seed > 0) && st.p.length < 9) { const seeded = st.seed-- > 0; st.p.push({ x: rand(0.1, 0.9) * sw, y: rand(0.1, 0.9) * sh, r: 2, max: rand(0.25, 0.55) * Math.max(sw, sh), c: st.cols[(Math.random() * st.cols.length) | 0], life: seeded ? rand(0.15, 0.4) : 0, vx: rand(-0.04, 0.04), vy: rand(-0.04, 0.04) }); if (seeded) st.p[st.p.length - 1].r = st.p[st.p.length - 1].max * 0.6; st.next = t + rand(1200, 2600); }
+        const s = st.sctx; s.clearRect(0, 0, sw, sh);
+        for (const q of st.p) {
+          q.life += 0.0016; q.r += (q.max - q.r) * 0.004; q.x += q.vx; q.y += q.vy;
+          const a = Math.sin(Math.min(1, q.life) * Math.PI) * 0.7;
+          for (let k = 0; k < 3; k++) { const ox = Math.sin(t / 3000 + k * 2 + q.max) * q.r * 0.25, oy = Math.cos(t / 3500 + k * 3) * q.r * 0.2; const g = s.createRadialGradient(q.x + ox, q.y + oy, 0, q.x + ox, q.y + oy, q.r * (0.7 + k * 0.15)); g.addColorStop(0, `rgba(${q.c},${a / (k + 1)})`); g.addColorStop(1, `rgba(${q.c},0)`); s.fillStyle = g; s.fillRect(0, 0, sw, sh); }
+        }
+        st.p = st.p.filter((q) => q.life < 1);
+        ctx.clearRect(0, 0, W, H); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.drawImage(st.small, 0, 0, W, H);
+      },
+      warp(t) {
+        const e = Math.max(0, 1 - (t - st.t0) / 1800), speed = 0.0025 + e * e * 0.06;
+        ctx.fillStyle = `rgba(0,0,0,${0.35 - e * 0.25})`; ctx.globalCompositeOperation = "destination-out"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over";
+        const cx = W / 2 + (mx - 0.5) * W * 0.15, cy = H / 2 + (my - 0.5) * H * 0.15, f = Math.max(W, H) * 0.5;
+        for (const s of st.p) {
+          const pz = s.z; s.z -= speed; if (s.z <= 0.02) { s.x = rand(-1, 1); s.y = rand(-1, 1); s.z = 1; continue; }
+          const x = cx + (s.x / s.z) * f * 0.5, y = cy + (s.y / s.z) * f * 0.5, x0 = cx + (s.x / pz) * f * 0.5, y0 = cy + (s.y / pz) * f * 0.5;
+          if (x < 0 || x > W || y < 0 || y > H) continue;
+          const b = Math.min(1, (1 - s.z) * 1.3);
+          ctx.strokeStyle = e > 0.05 ? `rgba(${rgb},${b})` : `rgba(255,255,255,${b})`; ctx.lineWidth = Math.max(0.6, (1 - s.z) * 2.2) * dpr;
+          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+        }
+      },
+      pixelrain(t) {
+        const c = st.cell, n = Math.ceil(W / c);
+        if (st.cols.length !== n) st.cols = Array.from({ length: n }, () => ({ y: rand(-40, 0), v: rand(0.25, 0.8), len: (rand(6, 22)) | 0 }));
+        ctx.globalCompositeOperation = "destination-out"; ctx.fillStyle = "rgba(0,0,0,.16)"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over";
+        st.cols.forEach((col, i) => {
+          if (Math.random() > 0.6) return; col.y += col.v; const row = col.y | 0;
+          if (row * c > H + col.len * c) { col.y = rand(-30, 0); col.v = rand(0.25, 0.8); }
+          ctx.fillStyle = `rgba(${rgb},.85)`; ctx.fillRect(i * c + 1, (row - 1) * c + 1, c - 2, c - 2);
+          ctx.fillStyle = "rgba(255,255,255,.9)"; ctx.fillRect(i * c + 1, row * c + 1, c - 2, c - 2);
+        });
+      },
+      constellation(t) {
+        ctx.clearRect(0, 0, W, H);
+        const card = root.querySelector(".card"), r = card ? card.getBoundingClientRect() : null, pad = 34;
+        for (const d of st.dust) { ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.35 * Math.abs(Math.sin(t / 1500 + d.ph))})`; ctx.beginPath(); ctx.arc(d.x * W, d.y * H, d.r * dpr, 0, 6.283); ctx.fill(); }
+        for (const n of st.nodes) {
+          n.x += n.vx; n.y += n.vy; if (n.x < 0.04 || n.x > 0.96) n.vx *= -1; if (n.y < 0.06 || n.y > 0.94) n.vy *= -1;
+          if (r) { const px = n.x * innerWidth, py = n.y * innerHeight; if (px > r.left - pad && px < r.right + pad && py > r.top - pad && py < r.bottom + pad) { const cx = (r.left + r.right) / 2; n.x += (px < cx ? -1 : 1) * 0.004; n.vx = Math.abs(n.vx) * (px < cx ? -1 : 1); } }
+          n.el.style.transform = `translate(${n.x * innerWidth}px, ${n.y * innerHeight}px)`;
+        }
+        ctx.lineWidth = dpr;
+        st.nodes.forEach((a, i) => {
+          const near = st.nodes.map((b, j) => ({ j, d: Math.hypot(a.x - b.x, (a.y - b.y) * H / W) })).filter((o) => o.j !== i).sort((x, y) => x.d - y.d).slice(0, 2);
+          for (const o of near) { if (o.j < i && near.length > 1) continue; const b = st.nodes[o.j]; ctx.strokeStyle = `rgba(${rgb},${Math.max(0.08, 0.45 - o.d)})`; ctx.beginPath(); ctx.moveTo(a.x * W, a.y * H); ctx.lineTo(b.x * W, b.y * H); ctx.stroke(); }
+          const g = ctx.createRadialGradient(a.x * W, a.y * H, 0, a.x * W, a.y * H, 26 * dpr); g.addColorStop(0, `rgba(${rgb},.35)`); g.addColorStop(1, `rgba(${rgb},0)`); ctx.fillStyle = g; ctx.fillRect(a.x * W - 26 * dpr, a.y * H - 26 * dpr, 52 * dpr, 52 * dpr);
+        });
+      },
+    };
+    size(); SETUP[kind](); listen(window, "resize", size);
+    if (reduce) { DRAW[kind](0); return; }
+    const loop = (t) => { raf = requestAnimationFrame(loop); if (document.hidden || t - last < 28) return; last = t; DRAW[kind](t); };
+    raf = requestAnimationFrame(loop); onCleanup(() => cancelAnimationFrame(raf));
+  }
+  function setupOverlay(kind, prof) {
+    const cv = root.querySelector("canvas.fx");
     if (kind === "none") return;
+    if (["pills3d", "bubbles", "liquid", "ink", "warp", "pixelrain", "constellation"].includes(kind)) return fancyOverlay(kind, cv, prof);
+    const ctx = cv.getContext("2d");
     const rgb = hexToRgb(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
     let W, H, dpr = Math.min(2, devicePixelRatio || 1), parts = [], raf, mx = -1e4, my = -1e4, t0 = performance.now(), flash = 0;
     const rand = (a, b) => a + Math.random() * (b - a);
