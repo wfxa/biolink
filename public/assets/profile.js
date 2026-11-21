@@ -48,13 +48,14 @@
     R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px", blob: "42% 58% 63% 37% / 41% 44% 56% 59%", capsule: "999px" }[p.avatar.shape]);
     R.setProperty("--av-w", p.avatar.shape === "capsule" ? "0.72" : "1");
     R.setProperty("--card-bw", p.card.borderWidth + "px");
+    set("--tip-bg", p.tooltip.color); set("--tip-fg", p.tooltip.text);
     R.setProperty("--ps", p.music.pulseStrength / 5); R.setProperty("--ic-size", p.icons.size + "px"); R.setProperty("--ic-gap", p.icons.gap + "px");
     R.setProperty("--av-border", p.avatar.border + "px"); set("--av-border-color", p.avatar.borderColor);
     R.setProperty("--vig", p.background.vignette / 100);
     const cc = document.getElementById("custom-css"); if (cc && d.__css !== undefined) cc.textContent = d.__css;
 
     const b = document.body;
-    b.className = [`cs-${p.card.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
+    b.className = [`cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border", p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
@@ -94,6 +95,8 @@
     setupWidgets(p);
     setupClock(p);
     setupMotion(p);
+    setupCards(p, d);
+    setupPet(p);
     setupCursor(p.cursor);
     setupEmbeds(p);
     setupDiscord(p);
@@ -529,6 +532,91 @@
     listen(document, "mouseleave", () => (card.style.transform = ""));
   }
 
+  /* ---------- card extras: holo, liquid glass, window, magazine, bento, mouse shadow, video sound ---------- */
+  function setupCards(p, d) {
+    const cards = [...root.querySelectorAll(".card")], cs = p.card.style;
+    const follow = (el, fn) => listen(el, "pointermove", (e) => { const r = el.getBoundingClientRect(); fn((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); });
+    if (cs === "holo") cards.forEach((c) => {
+      c.insertAdjacentHTML("beforeend", `<i class="holo" aria-hidden="true"></i><i class="holo-glare" aria-hidden="true"></i>`);
+      follow(c, (x, y) => { c.style.setProperty("--hx", (x * 100).toFixed(1) + "%"); c.style.setProperty("--hy", (y * 100).toFixed(1) + "%"); c.style.setProperty("--ha", ((x - 0.5) * 120).toFixed(1) + "deg"); c.classList.add("hov"); });
+      listen(c, "pointerleave", () => c.classList.remove("hov"));
+    });
+    if (cs === "liquid") cards.forEach((c) => {
+      c.insertAdjacentHTML("beforeend", `<i class="lg-edge" aria-hidden="true"></i><i class="lg-shine" aria-hidden="true"></i>`);
+      follow(c, (x, y) => { c.style.setProperty("--lx", (x * 100).toFixed(1) + "%"); c.style.setProperty("--ly", (y * 100).toFixed(1) + "%"); });
+    });
+    if (cs === "window") cards.forEach((c, i) => {
+      const title = p.card.windowTitle || (i === 0 ? `${p.displayName || d.username}.exe` : "more.txt");
+      c.insertAdjacentHTML("afterbegin", `<div class="wbar"><span class="wico"></span><b>${esc(title)}</b><span class="wbtns"><button type="button" data-w="min" aria-label="Minimise">_</button><button type="button" data-w="max" aria-label="Maximise">□</button><button type="button" data-w="close" aria-label="Close">×</button></span></div>`);
+      c.querySelectorAll("[data-w]").forEach((btn) => (btn.onclick = (e) => {
+        e.stopPropagation(); const w = btn.dataset.w;
+        if (w === "min") { c.classList.add("wmin"); setTimeout(() => c.classList.remove("wmin"), 1400); }
+        if (w === "max") { c.classList.remove("wmax"); void c.offsetWidth; c.classList.add("wmax"); }
+        if (w === "close") {
+          c.classList.remove("wshake"); void c.offsetWidth; c.classList.add("wshake");
+          const msgs = ["nice try", "you can't close me", "access denied", "error: still here", "not today"];
+          const t = document.createElement("div"); t.className = "wtoast"; t.innerHTML = `<b>⚠ ${esc(title)}</b><span>${msgs[(Math.random() * msgs.length) | 0]}</span>`; document.body.appendChild(t); setTimeout(() => t.remove(), 1800);
+        }
+      }));
+    });
+    if (cs === "magazine" && cards[0]) {
+      const c = cards[0];
+      if (p.avatar.src) c.style.setProperty("--cover", `url("${p.avatar.src.replace(/"/g, "")}")`);
+      c.insertAdjacentHTML("afterbegin", `<div class="mast"><b>${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")} · ${new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</span></div>`);
+    }
+    if (p.layout.arrangement === "bento") cards.forEach((c) => {
+      [...c.children].forEach((el) => {
+        if (el.matches(".head,.banner,.foot,.spot,.holo,.holo-glare,.lg-edge,.lg-shine,.wbar,.mast,.rxtop,.rxfoot,.votes") || !el.innerHTML.trim()) return;
+        el.classList.add("bx");
+        if (el.querySelector(".buttons,.widgets,.pstack,.projects,iframe,.player,.pagelinks,.lyrics") || el.matches(".player")) el.classList.add("bx-full");
+      });
+    });
+    if (p.card.mouseShadow && !coarse && !reduce) listen(window, "pointermove", (e) => cards.forEach((c) => {
+      const r = c.getBoundingClientRect(), dx = (r.left + r.width / 2 - e.clientX) / innerWidth, dy = (r.top + r.height / 2 - e.clientY) / innerHeight;
+      c.style.setProperty("--shx", (dx * 60).toFixed(1) + "px"); c.style.setProperty("--shy", (dy * 60 + 20).toFixed(1) + "px");
+    }));
+    const vid = root.querySelector(".bg video.media");
+    if (vid && p.background.videoSound) {
+      const b = document.createElement("button"); b.className = "vsound"; b.type = "button"; b.setAttribute("aria-label", "Turn background sound on");
+      const draw = () => { b.innerHTML = svgIcon(vid.muted ? "mute" : "volume") + `<span>${vid.muted ? "sound off" : "sound on"}</span>`; b.setAttribute("aria-label", vid.muted ? "Turn background sound on" : "Turn background sound off"); };
+      b.onclick = () => { vid.muted = !vid.muted; if (!vid.muted) { vid.volume = Math.min(1, p.music.volume / 100 + 0.2); vid.play().catch(() => {}); if (audio && !audio.paused) audio.pause(); } draw(); };
+      draw(); document.body.appendChild(b); onCleanup(() => b.remove());
+    }
+  }
+
+  /* ---------- a little pet that wanders and follows the cursor ---------- */
+  const PETS = {
+    cat: `<svg viewBox="0 0 40 32"><path class="pb" d="M8 30c-3 0-4-2-4-5 0-6 4-11 11-12l-1-8 5 5h6l5-5-1 8c4 2 6 6 6 11 0 4-2 6-5 6z"/><path class="pt" d="M33 24c4-1 6-5 5-9" fill="none" stroke-width="3" stroke-linecap="round"/><circle class="pe" cx="15" cy="19" r="1.6"/><circle class="pe" cx="24" cy="19" r="1.6"/><path d="M18.5 22.5l1 .8 1-.8" class="pn" fill="none" stroke-width="1"/></svg>`,
+    dog: `<svg viewBox="0 0 40 32"><path class="pb" d="M9 30c-3 0-5-2-5-6 0-6 5-11 13-11h6c7 0 12 5 12 11 0 4-2 6-5 6z"/><path class="pb2" d="M10 14c-4 0-6 6-4 10 3-1 5-5 5-9zM30 14c4 0 6 6 4 10-3-1-5-5-5-9z"/><circle class="pe" cx="16" cy="19" r="1.6"/><circle class="pe" cx="24" cy="19" r="1.6"/><ellipse class="pn2" cx="20" cy="23" rx="2" ry="1.4"/></svg>`,
+    pill: `<svg viewBox="0 0 40 32"><rect class="pb" x="4" y="6" width="32" height="20" rx="10"/><path class="pb2" d="M20 6h6a10 10 0 0 1 0 20h-6z"/><circle class="pe" cx="15" cy="15" r="1.7"/><circle class="pe" cx="25" cy="15" r="1.7"/><path d="M18 19.5q2 1.6 4 0" class="pn" fill="none" stroke-width="1.2"/><path class="pf" d="M12 26v4M28 26v4" stroke-width="2.4" stroke-linecap="round"/></svg>`,
+    ghost: `<svg viewBox="0 0 40 32"><path class="pb" d="M8 30V15a12 12 0 0 1 24 0v15l-4-3-4 3-4-3-4 3-4-3z"/><circle class="pe" cx="16" cy="15" r="1.8"/><circle class="pe" cx="24" cy="15" r="1.8"/><ellipse class="pn2" cx="20" cy="20" rx="1.6" ry="2"/></svg>`,
+    duck: `<svg viewBox="0 0 40 32"><path class="pb" d="M6 22c0-5 4-7 9-7 0-6 4-9 9-9s8 4 8 8c0 2-1 3-2 4 4 1 6 3 6 6 0 4-4 7-12 7H14c-5 0-8-3-8-9z"/><path class="pk" d="M31 13l7 1-7 3z"/><circle class="pe" cx="27" cy="12" r="1.6"/><path class="pw" d="M12 22c4 3 9 3 12 0" fill="none" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+    frog: `<svg viewBox="0 0 40 32"><path class="pb" d="M6 26c0-8 6-13 14-13s14 5 14 13c0 3-3 5-14 5S6 29 6 26z"/><circle class="pb" cx="13" cy="12" r="5"/><circle class="pb" cx="27" cy="12" r="5"/><circle class="pe2" cx="13" cy="12" r="2.6"/><circle class="pe" cx="13" cy="12" r="1.3"/><circle class="pe2" cx="27" cy="12" r="2.6"/><circle class="pe" cx="27" cy="12" r="1.3"/><path d="M15 22q5 3 10 0" class="pn" fill="none" stroke-width="1.3"/></svg>`,
+  };
+  function setupPet(p) {
+    if (p.pet.type === "none" || !PETS[p.pet.type]) return;
+    const el = document.createElement("div"); el.className = `pet pet-${p.pet.type}`; el.style.setProperty("--ps", p.pet.size + "px"); el.innerHTML = `<div class="pin">${PETS[p.pet.type]}</div>`;
+    document.body.appendChild(el); onCleanup(() => el.remove());
+    let x = innerWidth * 0.2, y = innerHeight - p.pet.size - 10, tx = x, ty = y, raf, idle = 0, face = 1, mx = null, my = null;
+    const ground = () => innerHeight - p.pet.size - 10, fly = p.pet.type === "ghost";
+    listen(window, "pointermove", (e) => { mx = e.clientX; my = e.clientY; idle = 0; });
+    el.onclick = () => { const h = document.createElement("i"); h.className = "pheart"; h.textContent = "♥"; el.appendChild(h); setTimeout(() => h.remove(), 900); el.classList.remove("hop"); void el.offsetWidth; el.classList.add("hop"); };
+    const tick = () => {
+      idle++;
+      if (p.pet.follow && mx != null) { tx = mx - p.pet.size / 2 + (mx > x ? -p.pet.size : p.pet.size) * 0.8; ty = fly ? my + 18 : ground(); }
+      if (!p.pet.follow || idle > 400) { if (Math.random() < 0.004 || Math.abs(tx - x) < 2) { if (Math.random() < 0.01) tx = Math.random() * (innerWidth - p.pet.size); } ty = fly ? innerHeight * 0.6 + Math.sin(idle / 60) * 30 : ground(); }
+      tx = Math.max(0, Math.min(innerWidth - p.pet.size, tx));
+      const dx = tx - x, dy = ty - y, sp = Math.hypot(dx, dy);
+      x += dx * 0.05; y += dy * (fly ? 0.05 : 0.2);
+      if (Math.abs(dx) > 1) face = dx > 0 ? 1 : -1;
+      el.classList.toggle("walk", sp > 3); el.classList.toggle("sit", sp <= 3 && idle > 120);
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; el.style.setProperty("--face", face);
+      raf = requestAnimationFrame(tick);
+    };
+    if (!reduce) tick(); else el.style.transform = `translate(${x}px, ${y}px)`;
+    onCleanup(() => cancelAnimationFrame(raf));
+  }
+
   /* cursor + clicks */
   function setupCursor(cur) {
     document.body.style.cursor = cur.image ? `url("${cur.image}") 4 4, auto` : "";
@@ -702,10 +790,11 @@
         } else if (p.background.type === "auto") { const img = root.querySelector(".bg .auto"); if (img && p.avatar.src && img.getAttribute("src") !== p.avatar.src) img.src = p.avatar.src; }
         if (p.live.games) for (const a of (L.activities || []).filter((x) => x.type === 0 || x.type === 1 || x.type === 3).slice(0, 2)) {
           const img = a.assets && a.assets.large_image;
-          const src = img ? (img.startsWith("mp:") ? `https://media.discordapp.net/${img.slice(3)}` : a.application_id ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${img}.png` : "") : "";
+          const asset = (k) => k ? (k.startsWith("mp:") ? `https://media.discordapp.net/${k.slice(3)}` : a.application_id && !k.includes(":") ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${k}.png` : "") : "";
+          const src = asset(img), small = asset(a.assets && a.assets.small_image);
           const start = a.timestamps && a.timestamps.start, verb = a.type === 1 ? "streaming" : a.type === 3 ? "watching" : p.live.playingLabel;
           if (W) blocks.push(`<div class="pcard gm">${label(verb, `<i class="gic">${svgIcon("game")}</i>`)}
-            <div class="part">${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:svgIcon('game')}))">` : svgIcon("game")}</div>
+            <div class="part">${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:svgIcon('game')}))">` : svgIcon("game")}${small ? `<img class="psmall" src="${esc(small)}" alt="" title="${esc((a.assets && a.assets.small_text) || "")}" onerror="this.remove()">` : ""}</div>
             <div class="pbody"><b class="mq"><span>${esc(a.name)}</span></b>${a.details ? `<span class="sub mq"><span>${esc(a.details)}</span></span>` : ""}${a.state ? `<span class="sub">${esc(a.state)}</span>` : ""}
             ${start ? `<span class="elapsed" data-start="${start}">0:00 elapsed</span>` : ""}</div></div>`);
           else blocks.push(`<div class="box presence"><div class="art">${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(verb)}</small><b>${esc(a.name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);

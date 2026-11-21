@@ -8,6 +8,12 @@
   let me, saved, draft, view = location.hash.slice(1) || "home";
   let mode = localStorage.getItem("dose-mode") || "all";
   try { me = await api("/api/me"); } catch { location.href = "/login"; return; }
+  if (me.impersonatedBy) {
+    const bar = document.createElement("div"); bar.className = "impbar";
+    bar.innerHTML = `<span>👁 Viewing <b>${esc(me.username)}</b>'s dashboard as ${esc(me.impersonatedBy)} · read-only, nothing you change will save</span><button class="btn small" id="impBack">Back to my account</button>`;
+    document.body.appendChild(bar);
+    bar.querySelector("#impBack").onclick = async () => { await fetch("/api/auth/unimpersonate", { method: "POST" }); location.href = "/admin#users"; };
+  }
   saved = clone(me.profile); draft = clone(me.profile);
   const O = me.options, premium = me.premium, isStaff = me.role === "owner" || me.role === "staff";
   const L = (k) => O.LIMITS[k][premium ? 1 : 0];
@@ -109,6 +115,53 @@
     icons: (v) => `<span class="pv pv-scene"><span class="pv-icons pv-is-${v}"><i></i><i></i><i></i><i></i></span></span>`,
     arr: (v) => `<span class="pv pv-scene"><span class="pv-arr pv-arr-${v}"><i class="pv-av pv-av-${draft.avatar.shape}" style="${pvFace()}"></i><span><b></b><em></em></span></span></span>`,
   };
+  /* asks Lanyard what it sees, then explains what's missing */
+  async function lanyardCheck() {
+    const out = $("#lcout"); out.innerHTML = `<p class="muted" style="font-size:12.5px">Checking…</p>`;
+    const row = (ok, t, d) => `<div class="lrow ${ok ? "ok" : "bad"}"><i>${ok ? "✓" : "!"}</i><div><b>${t}</b>${d ? `<small>${d}</small>` : ""}</div></div>`;
+    try {
+      const r = await fetch(`https://api.lanyard.rest/v1/users/${draft.discord.id}`); const j = await r.json();
+      if (!j.success) { out.innerHTML = row(false, "Lanyard can't see you", `Join the Lanyard Discord server (<a href="https://discord.gg/lanyard" target="_blank" rel="noopener">discord.gg/lanyard</a>) with this account, then check again. Also make sure the ID under Profile is yours.`); return; }
+      const L = j.data, acts = (L.activities || []).filter((a) => a.type !== 4), games = acts.filter((a) => a.type === 0 || a.type === 1 || a.type === 3);
+      out.innerHTML = `<div class="lchecks">${[
+        row(true, `Status: ${L.discord_status}`, `signed in as @${esc((L.discord_user || {}).username || "")}`),
+        row(L.listening_to_spotify, L.listening_to_spotify ? `Spotify: ${esc(L.spotify.song)} – ${esc(L.spotify.artist)}` : "No Spotify right now", L.listening_to_spotify ? "" : "If you are playing music: in Discord, Settings → Connections → Spotify → turn on \"Display Spotify as your status\"."),
+        row(games.length > 0, games.length ? `Activity: ${games.map((a) => esc(a.name)).join(", ")}` : "No games or apps detected", games.length ? "" : "If you are playing something: right-click the Lanyard server → Privacy Settings → turn on Activity Status. Also Settings → Activity Privacy → turn on \"Share my activity\"."),
+        row(true, `${acts.length} activit${acts.length === 1 ? "y" : "ies"} visible in total`, `If it says 0 while Discord shows you playing, it's the Discord privacy setting above, not ${esc(me.site)}.`),
+      ].join("")}</div>`;
+    } catch { out.innerHTML = row(false, "Couldn't reach Lanyard", "Try again in a moment."); }
+  }
+  const PET_EMO = { none: "—", cat: "🐈‍⬛", dog: "🐕", pill: "💊", ghost: "👻", duck: "🦆", frog: "🐸" };
+  /* colours pulled out of the profile picture */
+  function bindPalette() {
+    const go = $("#palGo"); if (!go) return;
+    go.onclick = () => {
+      const img = new Image(); img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas"); c.width = c.height = 48; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, 48, 48);
+          const px = g.getImageData(0, 0, 48, 48).data, bins = {};
+          for (let i = 0; i < px.length; i += 4) { if (px[i + 3] < 128) continue; const k = `${px[i] >> 4},${px[i + 1] >> 4},${px[i + 2] >> 4}`; const o = bins[k] || (bins[k] = { n: 0, r: 0, g: 0, b: 0 }); o.n++; o.r += px[i]; o.g += px[i + 1]; o.b += px[i + 2]; }
+          const cols = Object.values(bins).map((o) => [o.r / o.n, o.g / o.n, o.b / o.n, o.n]);
+          const pick = []; cols.sort((a, b) => b[3] - a[3]);
+          for (const c2 of cols) { if (pick.every((q) => Math.hypot(q[0] - c2[0], q[1] - c2[1], q[2] - c2[2]) > 60)) pick.push(c2); if (pick.length >= 6) break; }
+          const hex = (c2) => "#" + c2.slice(0, 3).map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+          const sat = (c2) => { const mx = Math.max(...c2.slice(0, 3)), mn = Math.min(...c2.slice(0, 3)); return mx ? (mx - mn) / mx : 0; }, lum = (c2) => (0.2126 * c2[0] + 0.7152 * c2[1] + 0.0722 * c2[2]) / 255;
+          const list = pick.map(hex);
+          const auto = { accent: hex([...pick].sort((a, b) => sat(b) * (0.4 + lum(b)) - sat(a) * (0.4 + lum(a)))[0]), dark: hex([...pick].sort((a, b) => lum(a) - lum(b))[0]), light: hex([...pick].sort((a, b) => lum(b) - lum(a))[0]) };
+          const box = $("#pal"); box.innerHTML = list.map((h) => `<button type="button" class="sw" data-sw="${h}" style="background:${h}" title="${h}"></button>`).join("") + `<button class="btn small" id="palAuto">Use them for me</button>`;
+          const to = $("#palto");
+          $$("[data-sw]", box).forEach((b) => (b.onclick = () => {
+            to.hidden = false; to.innerHTML = `<span class="sw big" style="background:${b.dataset.sw}"></span><span class="muted" style="font-size:12px">${b.dataset.sw} goes on</span>${[["colors.accent", "Accent"], ["colors.name", "Name"], ["colors.text", "Text"], ["colors.bio", "Bio"], ["colors.icons", "Icons"], ["colors.linkBg", "Link background"], ["colors.cards", "Cards"], ["background.color", "Background"], ["name.from", "Gradient start"], ["name.to", "Gradient end"]].map(([k, l]) => `<button class="chip" data-palk="${k}">${l}</button>`).join("")}`;
+            $$("[data-palk]", to).forEach((x) => (x.onclick = () => { set(x.dataset.palk, b.dataset.sw); toast(`${x.textContent} set.`); }));
+          }));
+          $("#palAuto").onclick = () => { set("colors.accent", auto.accent); set("colors.cards", auto.dark); set("background.color", auto.dark); set("name.from", auto.light); set("name.to", auto.accent); toast("Colours matched to your picture."); reView(); };
+        } catch { toast("Couldn't read that picture. Upload it instead of using a link.", true); }
+      };
+      img.onerror = () => toast("Couldn't load your picture.", true);
+      img.src = draft.avatar.src;
+    };
+  }
   /* live previews for the sharing page */
   function discPv() {
     const big = draft.share.ogLarge && (draft.share.ogImage || draft.banner), img = draft.share.ogImage || (draft.share.ogLarge && draft.banner) || draft.avatar.src;
@@ -175,7 +228,7 @@
         F.chips("background.type", "Type", [["auto", "Auto"], ["color", "Colour"], ["image", "Image"], ["video", "Video"], ["animated", "Animated"]], { premium: ["video"], rerender: true, hint: "Auto blurs your picture, then swaps to album art while you listen" }),
         ...(draft.background.type === "color" ? [F.color("background.color", "Colour", { noClear: true })] : []),
         ...(draft.background.type === "image" ? [F.upload("background.image", "background", "Image", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp" })] : []),
-        ...(draft.background.type === "video" ? (premium ? [F.upload("background.video", "background", "Video", { accept: "video/mp4,video/webm", note: "plays muted, on loop" })] : [F.note("Video backgrounds come with Premium.")]) : []),
+        ...(draft.background.type === "video" ? (premium ? [F.upload("background.video", "background", "Video", { accept: "video/mp4,video/webm", note: "plays muted, on loop" }), F.toggle("background.videoSound", "Let visitors turn the sound on", { hint: "a small speaker button in the corner" })] : [F.note("Video backgrounds come with Premium.")]) : []),
         ...(draft.background.type === "animated" ? [F.chips("background.animated", "Animation", [["gradient", "Gradient"], ["mesh", "Mesh"], ["waves", "Waves"], ["grid", "Grid"], ["music", "Moves with my music"]], { hint: draft.background.animated === "music" ? "the colours shift and swell with songs you upload" : "" , rerender: true }), F.color("background.color", "Base colour", { noClear: true })] : []),
         F.range("background.blur", "Blur", 0, 40, "px"), F.range("background.dim", "Darken", 0, 95, "%"),
         F.range("background.vignette", "Vignette", 0, 100, "%", { adv: true }),
@@ -186,7 +239,12 @@
 
     style: { title: "Style", icon: "star", lead: "The surface, the colours, the type, your name and your buttons.", panels: () => [
       P("Card", "The surface your page sits on.", [
-        F.chips("card.style", "Card style", pvOpts([["glass", "Glass"], ["solid", "Solid"], ["outline", "Outline"], ["label", "Label"], ["tinted", "Tinted"], ["none", "None"]], PV.card), { pv: true }),
+        F.chips("card.style", "Card style", pvOpts([["glass", "Glass"], ["liquid", "Liquid glass"], ["holo", "Holographic"], ["solid", "Solid"], ["outline", "Outline"], ["label", "Label"], ["tinted", "Tinted"], ["blob", "Blob"], ["window", "Old window"], ["magazine", "Magazine"], ["none", "None"]], PV.card), { pv: true, rerender: true }),
+        ...(draft.card.style === "window" ? [F.chips("card.windowTheme", "Window style", [["win98", "Windows 98"], ["xp", "Windows XP"], ["mac9", "Mac OS 9"]]), F.text("card.windowTitle", "Window title", { ph: (draft.displayName || me.username) + ".exe", max: 40 })] : []),
+        ...(draft.card.style === "magazine" ? [F.note("Magazine uses your profile picture as the cover, so a tall photo looks best.")] : []),
+        F.toggle("card.frostedEdges", "Frosted edges", { hint: "the card fades into the background, no hard border" }),
+        F.toggle("card.mouseShadow", "Shadow follows the mouse", { hint: "like a light at the cursor" }),
+        F.toggle("card.reflection", "Reflection", { hint: "a faint mirror image under the card" }),
         F.toggle("card.oneCard", "Everything on one card", { hint: "off = each section gets its own card", wide: true }),
         F.range("card.darkness", "Tint", 0, 100, "%"), F.range("card.blur", "Blur", 0, 40, "px"),
         F.range("card.radius", "Corners", 0, 40, "px", { adv: true }), F.range("card.borderWidth", "Border width", 0, 4, "px", { adv: true }),
@@ -199,6 +257,7 @@
       ]),
       P("Colours", "Leave a box empty to use the default.", [
         F.chips("colors.theme", "Colour source", [["pick", "Manual"], ["picture", "Match my picture"]]),
+        F.custom("palette", "Colours from my picture", () => `<div class="field wide" data-key="palette">${lbl("Colours from my picture", draft.avatar.src ? "tap a colour, then pick where it goes" : "add a picture under Media first")}<div class="palrow"><button class="btn small" id="palGo" ${draft.avatar.src ? "" : "disabled"}>Pick colours from my picture</button><div class="pal" id="pal"></div></div><div class="palto" id="palto" hidden></div></div>`, bindPalette),
         F.color("colors.accent", "Accent", { hint: "glows, buttons, effects", noClear: true }), F.color("colors.text", "Text", { noClear: true }),
         F.color("colors.name", "Name", { adv: true, ph: "same as text" }), F.color("colors.bio", "Bio text", { adv: true, ph: "same as text" }),
         F.color("colors.small", "Small text", { adv: true, ph: "default grey" }), F.color("colors.icons", "Icons", { adv: true, ph: "white" }),
@@ -240,8 +299,12 @@
         F.chips("icons.style", "Style", pvOpts([["boxed", "Boxed"], ["round", "Round"], ["plain", "Plain"]], PV.icons), { pv: true }),
         F.range("icons.size", "Size", 34, 64, "px"), F.range("icons.gap", "Spacing", 4, 20, "px", { adv: true }),
       ]),
+      P("Hover labels", "The little labels on badges and your uid.", [
+        F.chips("tooltip.style", "Look", [["dark", "Dark"], ["glass", "Glass"], ["solid", "Accent"], ["pill", "Pill"]].map(([v, l]) => [v, l, `<span class="pv pv-scene"><span class="pv-tip pv-tip-${v}">verified</span></span>`]), { pv: true }),
+        F.color("tooltip.color", "Background colour", { ph: "default" }), F.color("tooltip.text", "Text colour", { ph: "default" }),
+      ], { adv: true }),
       P("Layout", "", [
-        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"], ["rx", "Prescription"]], PV.arr), { pv: true }),
+        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"], ["bento", "Bento grid"], ["rx", "Prescription"]], PV.arr), { pv: true }),
         F.chips("layout.spacing", "Spacing", [["compact", "Compact"], ["normal", "Normal"], ["airy", "Airy"]]),
         F.range("layout.width", "Page width", 340, 760, "px", { adv: true }),
         F.select("layout.entrance", "How the card arrives", [["rise", "Rise"], ["fade", "Fade"], ["zoom", "Zoom"], ["none", "None"]], { adv: true }),
@@ -249,6 +312,10 @@
     ] },
 
     effects: { title: "Effects", icon: "bolt", lead: "Motion, cursor, sound and the screen people tap through first.", panels: () => [
+      P("Pet", "A little creature that walks around your page and follows the cursor. Visitors can click it.", [
+        F.chips("pet.type", "", [["none", "None"], ["cat", "Cat"], ["dog", "Dog"], ["pill", "Pill buddy"], ["ghost", "Ghost"], ["duck", "Duck"], ["frog", "Frog"]].map(([v, l]) => [v, l, `<span class="pv pv-dots"><span class="pv-pet">${PET_EMO[v]}</span></span>`]), { pv: true, rerender: true }),
+        ...(draft.pet.type !== "none" ? [F.toggle("pet.follow", "Follows the cursor", { hint: "off = wanders on its own" }), F.range("pet.size", "Size", 28, 72, "px")] : []),
+      ]),
       P("Atmosphere", "Drifts over your background.", [F.chips("overlay", "", O.OVERLAYS.map((x) => [x, OVERLAY_NAMES[x]]), { premium: O.PREMIUM_OVERLAYS })]),
       P("Texture & counter", "", [
         F.select("texture", "Texture", [["none", "None"], ["grain", "Film grain"], ["scanlines", "Scanlines"], ["dots", "Halftone"], ["grid", "Graph paper"], ["vhs", "Tape"], ["crt", "Old monitor"]], { hint: "laid over the whole page" }),
@@ -315,6 +382,7 @@
     live: { title: "Discord", icon: "discord", lead: "Show what you're up to on Discord, as it happens.", panels: () => [
       P("Presence", "", [
         ...(draft.discord.id ? [] : [F.note(`Add your Discord ID under <a href="#profile" data-go="profile">Profile</a> first, or sign in with Discord.`)]),
+        ...(draft.discord.id ? [F.custom("lanyardCheck", "Check", () => `<div class="field wide"><div class="lcheck"><button class="btn small" id="lcheck">Check my Discord activity</button><span class="muted" style="font-size:12px">shows what your page can see right now</span></div><div id="lcout"></div></div>`, () => { const b = $("#lcheck"); if (b) b.onclick = lanyardCheck; })] : []),
         F.chips("live.style", "Card style", [["widget", "Wide cards"], ["simple", "Simple"]], { rerender: true }),
         ...(draft.live.style === "widget" ? [F.toggle("live.discordCard", "Discord status card", { hint: "your Discord picture, name, status, custom status and device" }),
           F.toggle("live.discordBadges", "Discord badges & server tag", { hint: "HypeSquad, Early Supporter, Active Developer, Nitro and boosting, plus your server tag" }),

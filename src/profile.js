@@ -62,7 +62,7 @@ const SCHEMA = {
   banner: IMG(),
   background: {
     type: E(["auto", "color", "image", "video", "animated"], "animated"), color: C("#07060a"),
-    image: IMG(), video: P(UP("background")), animated: E(ANIMATED_BGS, "gradient"),
+    image: IMG(), video: P(UP("background")), videoSound: B(false), animated: E(ANIMATED_BGS, "gradient"),
     blur: N(0, 40, 0), dim: N(0, 95, 35), vignette: N(0, 100, 40), motion: E(["none", "zoom", "pan"], "none"), filter: E(["none", "grayscale", "sepia", "contrast"], "none"),
   },
   overlay: { t: "enum", list: OVERLAYS, d: "particles", premiumValues: PREMIUM_OVERLAYS },
@@ -75,8 +75,9 @@ const SCHEMA = {
   playlist: { t: "list", max: LIMITS.playlist, item: { src: UP("music"), title: S(60), cover: IMG() }, need: "src" },
   music: { layout: E(["bar", "default", "compact", "banner", "vinyl", "covervinyl"], "bar"), volume: N(0, 100, 50), showPlayer: B(true), showVolume: B(true), shuffle: B(false), visualizer: B(true), pulse: B(false), pulseStrength: N(1, 10, 5) },
   card: {
-    style: E(["glass", "solid", "outline", "label", "tinted", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
-    borderColor: C(), borderWidth: N(0, 4, 1), shadow: E(["none", "soft", "deep"], "soft"), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
+    style: E(["glass", "solid", "outline", "label", "tinted", "holo", "liquid", "window", "blob", "magazine", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
+    borderColor: C(), borderWidth: N(0, 4, 1), shadow: E(["none", "soft", "deep"], "soft"), frostedEdges: B(false), reflection: B(false), mouseShadow: B(false),
+    windowTheme: E(["win98", "mac9", "xp"], "win98"), windowTitle: S(40), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
   },
   colors: {
     theme: E(["pick", "picture"], "pick"), accent: C("#5ef2b0"), text: C("#ece7ef"), name: C(), bio: C(), small: C(),
@@ -91,7 +92,7 @@ const SCHEMA = {
   buttons: { style: E(["glass", "filled", "outline", "soft"], "glass"), shape: E(["rounded", "pill", "square"], "rounded"), hover: E(["glow", "lift", "fill", "slide", "none"], "glow"), align: E(["center", "left"], "center"), arrow: B(true) },
   icons: { size: N(34, 64, 46), style: E(["boxed", "round", "plain"], "boxed"), gap: N(4, 20, 10) },
   layout: {
-    arrangement: E(["centered", "classic", "minimal", "rx"], "centered"), spacing: E(["compact", "normal", "airy"], "normal"),
+    arrangement: E(["centered", "classic", "minimal", "rx", "bento"], "centered"), spacing: E(["compact", "normal", "airy"], "normal"),
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),
   },
   sections: { t: "sections" },
@@ -102,6 +103,8 @@ const SCHEMA = {
   pages: { t: "list", max: LIMITS.pages, item: { id: { t: "id" }, slug: { t: "re", re: /^[a-z0-9-]{1,24}$/, d: "", pre: (v) => String(v || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") }, title: S(40), body: S(3000), links: { t: "list", max: 10, item: { label: S(40), url: { t: "url" } }, need: "url" } }, need: "slug" },
   widgets: { t: "list", max: 12, item: { id: { t: "id" }, type: E(WIDGETS, "quote"), value: S(200), label: S(40), extra: S(60), wide: B(false), size: E(["auto", "small", "wide", "tall", "big"], "auto") }, need: "type" },
   widgetStyle: E(["brand", "card", "minimal"], "brand"),
+  tooltip: { style: E(["dark", "glass", "solid", "pill"], "dark"), color: C(), text: C() },
+  pet: { type: E(["none", "cat", "dog", "pill", "ghost", "duck", "frog"], "none"), follow: B(true), size: N(28, 72, 44) },
   textBlock: S(1500),
   embeds: { t: "list", max: LIMITS.embeds, item: { t: "embed", d: "" } },
   countdown: { label: S(40), date: { t: "re", re: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, d: "" }, done: S(40) },

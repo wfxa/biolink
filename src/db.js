@@ -117,6 +117,10 @@ if (!cols.includes("premium_until")) db.exec("ALTER TABLE users ADD COLUMN premi
 if (!cols.includes("note")) db.exec("ALTER TABLE users ADD COLUMN note TEXT");
 if (!cols.includes("discord_premium")) db.exec("ALTER TABLE users ADD COLUMN discord_premium INTEGER NOT NULL DEFAULT 0");
 if (!cols.includes("discord_flags")) db.exec("ALTER TABLE users ADD COLUMN discord_flags INTEGER NOT NULL DEFAULT 0");
+if (!cols.includes("name_locked_until")) db.exec("ALTER TABLE users ADD COLUMN name_locked_until INTEGER");
+if (!cols.includes("ban_until")) db.exec("ALTER TABLE users ADD COLUMN ban_until INTEGER");
+if (!cols.includes("staff_perms")) db.exec("ALTER TABLE users ADD COLUMN staff_perms TEXT");
+if (!cols.includes("role_id")) db.exec("ALTER TABLE users ADD COLUMN role_id INTEGER");
 if (!cols.includes("view_bonus")) db.exec("ALTER TABLE users ADD COLUMN view_bonus INTEGER NOT NULL DEFAULT 0");
 db.exec(`
 CREATE TABLE IF NOT EXISTS aliases (
@@ -190,10 +194,39 @@ CREATE TABLE IF NOT EXISTS spotify_plays (
   PRIMARY KEY (user_id, started)
 );
 CREATE INDEX IF NOT EXISTS idx_spotify_plays ON spotify_plays(user_id, started);
+CREATE TABLE IF NOT EXISTS roles (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  name     TEXT NOT NULL,
+  color    TEXT NOT NULL DEFAULT '#9b8cff',
+  badge_id INTEGER,
+  perms    TEXT NOT NULL DEFAULT '[]',
+  ts       INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS name_history (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  old     TEXT, new TEXT, by_name TEXT,
+  ts      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_name_history ON name_history(user_id, ts);
+CREATE TABLE IF NOT EXISTS error_log (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts      INTEGER NOT NULL,
+  method  TEXT, path TEXT, message TEXT, stack TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, ts);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts);
 `);
 
+{
+  const sc = db.prepare("PRAGMA table_info(sessions)").all().map((c) => c.name);
+  if (!sc.includes("imp_by")) db.exec("ALTER TABLE sessions ADD COLUMN imp_by INTEGER");
+  const ac = db.prepare("PRAGMA table_info(audit)").all().map((c) => c.name);
+  if (!ac.includes("undo")) db.exec("ALTER TABLE audit ADD COLUMN undo TEXT");
+  if (!ac.includes("undone")) db.exec("ALTER TABLE audit ADD COLUMN undone INTEGER NOT NULL DEFAULT 0");
+  const bc = db.prepare("PRAGMA table_info(badges)").all().map((c) => c.name);
+  if (!bc.includes("custom")) db.exec("ALTER TABLE badges ADD COLUMN custom INTEGER NOT NULL DEFAULT 0");
+}
 // Built-in badges. auto = 1 means the site hands it out by itself.
 const SYSTEM_BADGES = [
   ["owner",     "Owner",        "crown",  "#ffcc4d", "Runs the pharmacy.", 1],
@@ -211,7 +244,7 @@ const SYSTEM_BADGES = [
   ["bughunter", "Bug hunter",   "bug",    "#7df0c8", "Found and reported a real bug.", 0],
 ];
 const insBadge = db.prepare("INSERT OR IGNORE INTO badges (slug,name,icon,color,system,description,auto) VALUES (?,?,?,?,1,?,?)");
-const updBadge = db.prepare("UPDATE badges SET name = ?, description = ?, auto = ? WHERE slug = ? AND system = 1");
+const updBadge = db.prepare("UPDATE badges SET name = CASE WHEN custom = 1 THEN name ELSE ? END, description = CASE WHEN custom = 1 THEN description ELSE ? END, auto = ? WHERE slug = ? AND system = 1");
 for (const b of SYSTEM_BADGES) { insBadge.run(...b); updBadge.run(b[1], b[4], b[5], b[0]); }
 
 const getSetting = (key, fallback) => {

@@ -56,14 +56,39 @@ function createSession(res, req, userId) {
 function currentUser(req) {
   const sid = parseCookies(req).sid;
   if (!sid || !/^[a-f0-9]{64}$/.test(sid)) return null;
-  const row = db.prepare("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?").get(sid, now());
-  if (row && (!row.last_seen || now() - row.last_seen > 60000)) db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(now(), row.id);
+  const row = db.prepare("SELECT u.*, s.imp_by FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?").get(sid, now());
+  if (row && !row.imp_by && (!row.last_seen || now() - row.last_seen > 60000)) db.prepare("UPDATE users SET last_seen = ? WHERE id = ?").run(now(), row.id);
   return row || null;
 }
-function audit(actor, action, target, details) {
-  db.prepare("INSERT INTO audit (actor_id, actor, action, target, details, ts) VALUES (?,?,?,?,?,?)")
-    .run(actor ? actor.id : null, actor ? actor.username : "system", action, target || null, details ? String(details).slice(0, 300) : null, now());
+function audit(actor, action, target, details, undo) {
+  db.prepare("INSERT INTO audit (actor_id, actor, action, target, details, ts, undo) VALUES (?,?,?,?,?,?,?)")
+    .run(actor ? actor.id : null, actor ? actor.username : "system", action, target || null, details ? String(details).slice(0, 300) : null, now(), undo ? JSON.stringify(undo) : null);
 }
+/* ---------------- team permissions ---------------- */
+const PERMS = {
+  "users.ban": "Ban, unban and temp-ban", "users.premium": "Give and remove premium", "users.badges": "Give badges", "users.rename": "Rename users and lock names",
+  "users.reset": "Reset pages and copy styles", "users.views": "Change views", "users.notes": "Write private notes", "users.delete": "Delete accounts",
+  "users.impersonate": "View the dashboard as a user", "reports": "Handle reports and comments", "badges.manage": "Create and edit badges", "invites": "Invite codes",
+  "gifts": "Gift codes", "names": "Held names", "settings": "Site settings", "audit": "See the activity log and errors", "export": "Export users and the log", "roles": "Manage roles and staff permissions",
+};
+const DEFAULT_STAFF = ["users.ban", "users.badges", "users.notes", "users.rename", "users.reset", "reports", "names", "audit"];
+const parseList = (t) => { try { const a = JSON.parse(t || "[]"); return Array.isArray(a) ? a.filter((k) => PERMS[k]) : []; } catch { return []; } };
+function permsFor(u) {
+  if (!u || u.banned) return new Set();
+  if (u.role === "owner") return new Set(Object.keys(PERMS));
+  const set = new Set(u.role === "staff" ? (u.staff_perms ? parseList(u.staff_perms) : DEFAULT_STAFF) : []);
+  if (u.role_id) { const r = db.prepare("SELECT perms FROM roles WHERE id = ?").get(u.role_id); if (r) parseList(r.perms).forEach((k) => set.add(k)); }
+  return set;
+}
+function logError(req, err) {
+  try {
+    db.prepare("INSERT INTO error_log (ts, method, path, message, stack) VALUES (?,?,?,?,?)").run(now(), req ? req.method : "", req ? String(req.url).slice(0, 200) : "", String(err && err.message || err).slice(0, 300), String(err && err.stack || "").slice(0, 2000));
+    db.prepare("DELETE FROM error_log WHERE id NOT IN (SELECT id FROM error_log ORDER BY id DESC LIMIT 300)").run();
+  } catch {}
+}
+process.on("uncaughtException", (e) => { console.error(e); logError(null, e); });
+process.on("unhandledRejection", (e) => { console.error(e); logError(null, e); });
+function nameChanged(userId, oldName, newName, by) { db.prepare("INSERT INTO name_history (user_id, old, new, by_name, ts) VALUES (?,?,?,?,?)").run(userId, oldName, newName, by || null, now()); }
 
 /* ---------------- rate limiting ---------------- */
 const buckets = new Map();
@@ -74,6 +99,11 @@ function limited(key, max, windowMs) {
   return b.n > max;
 }
 setInterval(() => { const t = now(); for (const [k, b] of buckets) if (t > b.reset) buckets.delete(k); }, 60000).unref();
+const expireBans = () => {
+  const rows = db.prepare("SELECT id, username FROM users WHERE banned = 1 AND ban_until IS NOT NULL AND ban_until < ?").all(now());
+  for (const r of rows) { db.prepare("UPDATE users SET banned = 0, ban_reason = NULL, ban_until = NULL WHERE id = ?").run(r.id); audit(null, "temp ban ended", r.username); }
+};
+setInterval(expireBans, 5 * 60000).unref(); setTimeout(expireBans, 4000).unref();
 const expirePremium = () => {
   const r = db.prepare("UPDATE users SET premium = 0, premium_until = NULL WHERE premium = 1 AND premium_until IS NOT NULL AND premium_until < ?").run(now());
   if (r.changes) audit(null, "premium expired", `${r.changes} user(s)`);
@@ -110,7 +140,8 @@ function badgesFor(u) {
   if (totalViews(u.id) >= config.MILESTONE_VIEWS) auto.push("milestone");
   const rows = db.prepare(`
     SELECT b.* FROM badges b WHERE b.slug IN (${auto.map(() => "?").join(",") || "''"})
-    UNION SELECT b.* FROM badges b JOIN user_badges ub ON ub.badge_id = b.id WHERE ub.user_id = ?`).all(...auto, u.id);
+    UNION SELECT b.* FROM badges b JOIN user_badges ub ON ub.badge_id = b.id WHERE ub.user_id = ?
+    UNION SELECT b.* FROM badges b JOIN roles r ON r.badge_id = b.id WHERE r.id = ?`).all(...auto, u.id, u.role_id || -1);
   const order = ["owner", "staff", "verified", "premium", "milestone", "early"];
   return rows.sort((a, b) => ((order.indexOf(a.slug) + 1 || 99) - (order.indexOf(b.slug) + 1 || 99)))
     .map((b) => ({ id: b.id, slug: b.slug, name: b.name, icon: b.icon, color: b.color, description: b.description }));
@@ -402,7 +433,7 @@ async function route(req, res) {
       return redirect(res, "/dashboard?discord=linked#account");
     }
     if (existing) {
-      if (existing.banned) return authPage(res, "This account is banned" + (existing.ban_reason ? `: ${existing.ban_reason}` : "."));
+      if (existing.banned) return authPage(res, "This account is banned" + (existing.ban_until ? ` until ${new Date(existing.ban_until).toLocaleDateString("en-GB")}` : "") + (existing.ban_reason ? `: ${existing.ban_reason}` : "."));
       db.prepare("UPDATE users SET discord_name = ?, discord_premium = ?, discord_flags = ? WHERE id = ?").run(dname, Number(d.premium_type) || 0, Number(d.public_flags) || 0, existing.id);
       res.removeHeader("Set-Cookie");
       createSession(res, req, existing.id);
@@ -464,9 +495,16 @@ async function route(req, res) {
     const u = db.prepare("SELECT * FROM users WHERE username = ?").get(String(username || ""));
     if (u && !u.password_hash) return fail(res, 401, "This account signs in with Discord. Use Continue with Discord.");
     if (!u || !checkPassword(String(password || ""), u.password_hash)) return fail(res, 401, "Wrong username or password.");
-    if (u.banned) return fail(res, 403, "This account is banned" + (u.ban_reason ? `: ${u.ban_reason}` : "."));
+    if (u.banned) return fail(res, 403, "This account is banned" + (u.ban_until ? ` until ${new Date(u.ban_until).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : "") + (u.ban_reason ? `: ${u.ban_reason}` : "."));
     createSession(res, req, u.id);
     return send(res, 200, { ok: true }, { "Set-Cookie": res.getHeader("Set-Cookie") });
+  }
+  if (p === "/api/auth/unimpersonate" && method === "POST") {
+    const ck = parseCookies(req), sec = isHttps(req) ? "; Secure" : "";
+    if (ck.sid) db.prepare("DELETE FROM sessions WHERE token = ? AND imp_by IS NOT NULL").run(ck.sid);
+    const back = /^[a-f0-9]{64}$/.test(ck.sid_back || "") && db.prepare("SELECT token FROM sessions WHERE token = ? AND expires_at > ? AND imp_by IS NULL").get(ck.sid_back, now());
+    res.setHeader("Set-Cookie", [back ? `sid=${ck.sid_back}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${config.SESSION_DAYS * 86400}${sec}` : `sid=; Path=/; Max-Age=0`, "sid_back=; Path=/; Max-Age=0"]);
+    return send(res, 200, { ok: true, back: !!back });
   }
   if (p === "/api/auth/logout" && method === "POST") {
     const sid = parseCookies(req).sid;
@@ -666,7 +704,7 @@ async function route(req, res) {
       const comments = prof.social.comments ? db.prepare(`SELECT c.id, c.body, c.ts, u.username, u.profile, u.premium, u.id uid FROM comments c JOIN users u ON u.id = c.author_id
         WHERE c.page_id = ? AND u.banned = 0 ORDER BY c.ts DESC LIMIT 100`).all(page.id).map((c) => ({
           id: c.id, body: c.body, ts: c.ts, username: c.username, avatar: Profile.load(c.profile, { premium: !!c.premium }).avatar.src,
-          canDelete: !!me && (me.id === c.uid || me.id === page.id || ["owner", "staff"].includes(me.role)),
+          canDelete: !!me && (me.id === c.uid || me.id === page.id || permsFor(me).has("reports")),
         })) : [];
       return send(res, 200, { likes: prof.social.likes, comments: prof.social.comments, up: v.likes || 0, down: v.dislikes || 0, mine, list: comments, signedIn: !!me });
     }
@@ -692,7 +730,7 @@ async function route(req, res) {
     if (!me) return fail(res, 401, "Sign in to do that.");
     const c = db.prepare("SELECT * FROM comments WHERE id = ?").get(Number(cd[1]));
     if (!c) return fail(res, 404, "Comment not found.");
-    if (!(c.author_id === me.id || c.page_id === me.id || ["owner", "staff"].includes(me.role))) return fail(res, 403, "You can't delete that.");
+    if (!(c.author_id === me.id || c.page_id === me.id || permsFor(me).has("reports"))) return fail(res, 403, "You can't delete that.");
     db.prepare("DELETE FROM comments WHERE id = ?").run(c.id);
     return send(res, 200, { ok: true });
   }
@@ -701,13 +739,15 @@ async function route(req, res) {
   if (p.startsWith("/api/me")) {
     if (!me) return fail(res, 401, "Please sign in.");
     if (me.banned) return fail(res, 403, "This account is banned.");
+    if (me.imp_by && method !== "GET") return fail(res, 403, "You're viewing as this person, read-only. Nothing was changed.");
 
     if (p === "/api/me" && method === "GET") {
       return send(res, 200, { ...publicUser(me), options: Profile.OPTIONS, limits: config.UPLOAD_LIMITS, site: config.SITE_NAME,
         announcement: getSetting("dashAnnouncement", ""),
         aliases: db.prepare("SELECT name FROM aliases WHERE user_id = ? ORDER BY ts").all(me.id).map((a) => a.name),
         aliasLimit: me.premium ? 3 : 1,
-        premiumUntil: me.premium_until || null,
+        premiumUntil: me.premium_until || null, nameLockedUntil: me.name_locked_until || null,
+        impersonatedBy: me.imp_by ? (db.prepare("SELECT username FROM users WHERE id = ?").get(me.imp_by) || {}).username || "the team" : null,
         linkClicks: Object.fromEntries(db.prepare("SELECT link_id, COUNT(*) n FROM clicks WHERE user_id = ? AND ts >= ? GROUP BY link_id").all(me.id, now() - 30 * DAY).map((r) => [r.link_id, r.n])),
         allBadges: db.prepare("SELECT id, slug, name, icon, color, description, auto FROM badges ORDER BY system DESC, id").all(),
         account: { hasPassword: !!me.password_hash, discordName: me.discord_name || null, discordLinked: !!me.discord_id, discordLogin: discordOn() } });
@@ -749,10 +789,12 @@ async function route(req, res) {
         db.prepare("UPDATE users SET username = ? WHERE id = ?").run(username, me.id);
         return send(res, 200, { ok: true, username });
       }
+      if (me.name_locked_until && me.name_locked_until > now()) return fail(res, 403, me.name_locked_until > now() + 3650 * DAY ? "The team has locked your username." : `The team has locked your username until ${new Date(me.name_locked_until).toLocaleDateString("en-GB")}.`);
       const problem = nameProblem(username, me.id);
       if (problem) return fail(res, 400, problem);
       db.prepare("INSERT OR REPLACE INTO released_names (name, until) VALUES (?, ?)").run(me.username, now() + config.NAME_HOLD_HOURS * 3600000);
       db.prepare("UPDATE users SET username = ? WHERE id = ?").run(username, me.id);
+      nameChanged(me.id, me.username, username, me.username);
       return send(res, 200, { ok: true, username });
     }
     if (p === "/api/me/password" && method === "POST") {
@@ -832,8 +874,11 @@ async function route(req, res) {
 
   /* ---- owner panel API ---- */
   if (p.startsWith("/api/admin")) {
-    if (!me || !["owner", "staff"].includes(me.role)) return fail(res, 403, "Owner or staff only.");
-    const isOwner = me.role === "owner";
+    if (me && me.imp_by) return fail(res, 403, "You're viewing as someone else. Go back to your own account first.");
+    const perms = permsFor(me);
+    if (!perms.size) return fail(res, 403, "Team only.");
+    const isOwner = me.role === "owner", can = (k) => perms.has(k);
+    const NOPE = "You don't have permission for that.";
 
     if (p === "/api/admin/stats" && method === "GET") {
       const since = now() - 14 * DAY;
@@ -862,7 +907,7 @@ async function route(req, res) {
         activeToday: db.prepare("SELECT COUNT(*) n FROM users WHERE last_seen >= ?").get(now() - DAY).n,
         topPages: db.prepare("SELECT u.username, SUM(h.n) n FROM hits h JOIN users u ON u.id = h.user_id WHERE h.day >= ? GROUP BY h.user_id ORDER BY n DESC LIMIT 5").all(new Date(now() - 7 * DAY).toISOString().slice(0, 10)),
         topSources: db.prepare("SELECT COALESCE(referrer,'direct') name, COUNT(*) n FROM views WHERE ts >= ? GROUP BY name ORDER BY n DESC LIMIT 5").all(now() - 7 * DAY),
-        isOwner,
+        isOwner, perms: [...perms], permList: PERMS,
       });
     }
     if (p === "/api/admin/users" && method === "GET") {
@@ -878,77 +923,214 @@ async function route(req, res) {
         users: rows.map((u) => ({
           id: u.id, username: u.username, memberNo: u.member_no, role: u.role, premium: !!u.premium, banned: !!u.banned,
           banReason: u.ban_reason, created: u.created_at, views: totalViews(u.id), discord: u.discord_name || null,
-          lastSeen: u.last_seen || null, premiumUntil: u.premium_until || null, note: u.note || "", realViews: realViews(u.id), viewBonus: u.view_bonus || 0, shownViews: totalViews(u.id),
+          lastSeen: u.last_seen || null, premiumUntil: u.premium_until || null, note: u.note || "", banUntil: u.ban_until || null, nameLockedUntil: u.name_locked_until || null,
+          roleId: u.role_id || null, staffPerms: u.role === "staff" ? (u.staff_perms ? parseList(u.staff_perms) : DEFAULT_STAFF) : null, realViews: realViews(u.id), viewBonus: u.view_bonus || 0, shownViews: totalViews(u.id),
           reports: db.prepare("SELECT COUNT(*) n FROM reports WHERE page_id = ? AND status = 'open'").get(u.id).n,
           aliases: db.prepare("SELECT name FROM aliases WHERE user_id = ?").all(u.id).map((a) => a.name),
           badges: db.prepare("SELECT badge_id FROM user_badges WHERE user_id = ?").all(u.id).map((r) => r.badge_id),
         })),
       });
     }
-    const um = p.match(/^\/api\/admin\/users\/(\d+)(\/reset)?$/);
+    const um = p.match(/^\/api\/admin\/users\/(\d+)(\/reset|\/clone|\/impersonate|\/history)?$/);
     if (um) {
       const target = db.prepare("SELECT * FROM users WHERE id = ?").get(Number(um[1]));
       if (!target) return fail(res, 404, "User not found.");
-      if (target.role === "owner" && !isOwner) return fail(res, 403, "Staff can't change owners.");
-      if (um[2] && method === "POST") {
+      if (target.role === "owner" && !isOwner && target.id !== me.id) return fail(res, 403, "Only owners can change owners.");
+      if (um[2] === "/history" && method === "GET") {
+        return send(res, 200, {
+          names: db.prepare("SELECT old, new, by_name, ts FROM name_history WHERE user_id = ? ORDER BY ts DESC LIMIT 50").all(target.id),
+          log: db.prepare("SELECT id, actor, action, details, ts, undone FROM audit WHERE target = ? OR target LIKE ? ORDER BY ts DESC LIMIT 60").all(target.username, `%${target.username}%`),
+        });
+      }
+      if (um[2] === "/reset" && method === "POST") {
+        if (!can("users.reset")) return fail(res, 403, NOPE);
         const prof = Profile.DEFAULTS(); prof.displayName = target.username;
         db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(prof), target.id);
-        audit(me, "reset page", target.username);
+        audit(me, "reset page", target.username, "", { t: "profile", id: target.id, prev: target.profile });
+        return send(res, 200, { ok: true });
+      }
+      if (um[2] === "/clone" && method === "POST") {
+        // Copies the look (not the words, links or pictures) from this user onto another page.
+        if (!can("users.reset")) return fail(res, 403, NOPE);
+        const { to } = await readJson(req, 1024);
+        const dest = db.prepare("SELECT * FROM users WHERE username = ?").get(String(to || ""));
+        if (!dest) return fail(res, 404, "No user with that name.");
+        if (dest.role === "owner" && !isOwner && dest.id !== me.id) return fail(res, 403, "Only owners can change owners.");
+        const src = Profile.load(target.profile, { premium: true }), out = Profile.load(dest.profile, { premium: !!dest.premium });
+        for (const k of ["card", "colors", "fonts", "name", "buttons", "layout", "motion", "cursor", "overlay", "texture", "bioEffect", "icons", "badgeRow", "widgetStyle", "enter", "viewCounter", "tooltip", "pet"]) if (k in src) out[k] = JSON.parse(JSON.stringify(src[k]));
+        out.background = { ...src.background, image: dest.premium || !src.background.video ? src.background.image : "", video: dest.premium ? src.background.video : "" };
+        out.name.cycle = Profile.load(dest.profile, { premium: !!dest.premium }).name.cycle; out.badgeRow.items = [];
+        db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(Profile.clean(out, { premium: !!dest.premium })), dest.id);
+        audit(me, "copied style", dest.username, `from ${target.username}`, { t: "profile", id: dest.id, prev: dest.profile });
+        return send(res, 200, { ok: true });
+      }
+      if (um[2] === "/impersonate" && method === "POST") {
+        if (!can("users.impersonate")) return fail(res, 403, NOPE);
+        if (target.id === me.id) return fail(res, 400, "That's you.");
+        const token = crypto.randomBytes(32).toString("hex");
+        db.prepare("INSERT INTO sessions (token,user_id,expires_at,imp_by) VALUES (?,?,?,?)").run(token, target.id, now() + 2 * 3600000, me.id);
+        audit(me, "viewed as", target.username, "read-only, 2 hours max");
+        const sec = isHttps(req) ? "; Secure" : "";
+        res.setHeader("Set-Cookie", [`sid=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${sec}`, `sid_back=${parseCookies(req).sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${sec}`]);
         return send(res, 200, { ok: true });
       }
       if (method === "PATCH") {
         const b = await readJson(req);
+        const need = [["premium", "users.premium"], ["note", "users.notes"], ["banned", "users.ban"], ["badges", "users.badges"], ["username", "users.rename"], ["lockName", "users.rename"], ["roleId", "roles"], ["staffPerms", "roles"]];
+        for (const [k, perm] of need) if (b[k] !== undefined && !can(perm)) return fail(res, 403, NOPE);
         if (typeof b.premium === "boolean") {
           const until = b.premium && b.premiumDays ? now() + Math.min(3650, Math.max(1, Number(b.premiumDays))) * DAY : null;
           db.prepare("UPDATE users SET premium = ?, premium_until = ? WHERE id = ?").run(b.premium ? 1 : 0, until, target.id);
-          audit(me, b.premium ? "gave premium" : "removed premium", target.username, until ? `until ${new Date(until).toISOString().slice(0, 10)}` : "");
+          audit(me, b.premium ? "gave premium" : "removed premium", target.username, until ? `until ${new Date(until).toISOString().slice(0, 10)}` : "", { t: "premium", id: target.id, prev: [target.premium, target.premium_until] });
         }
         if (typeof b.note === "string") db.prepare("UPDATE users SET note = ? WHERE id = ?").run(b.note.slice(0, 500), target.id);
         if (b.setViews != null || b.addViews != null) {
-          if (!isOwner) return fail(res, 403, "Only owners can change views.");
+          if (!can("users.views")) return fail(res, 403, NOPE);
           const real = realViews(target.id), before = totalViews(target.id);
           const want = b.setViews != null ? Number(b.setViews) : before + Number(b.addViews);
           if (!Number.isFinite(want)) return fail(res, 400, "That isn't a number.");
           const goal = Math.max(0, Math.min(1e9, Math.round(want)));
           db.prepare("UPDATE users SET view_bonus = ? WHERE id = ?").run(goal - real, target.id);
-          audit(me, "changed views", target.username, `${before.toLocaleString()} → ${goal.toLocaleString()}`);
+          audit(me, "changed views", target.username, `${before.toLocaleString()} → ${goal.toLocaleString()}`, { t: "views", id: target.id, prev: target.view_bonus || 0 });
         }
         if (typeof b.banned === "boolean") {
           if (target.id === me.id) return fail(res, 400, "You can't ban yourself.");
-          db.prepare("UPDATE users SET banned = ?, ban_reason = ? WHERE id = ?").run(b.banned ? 1 : 0, b.banned ? String(b.banReason || "").slice(0, 200) : null, target.id);
+          const days = Number(b.banDays) > 0 ? Math.min(3650, Number(b.banDays)) : 0, until = b.banned && days ? now() + days * DAY : null;
+          db.prepare("UPDATE users SET banned = ?, ban_reason = ?, ban_until = ? WHERE id = ?").run(b.banned ? 1 : 0, b.banned ? String(b.banReason || "").slice(0, 200) : null, until, target.id);
           if (b.banned) db.prepare("DELETE FROM sessions WHERE user_id = ?").run(target.id);
-          audit(me, b.banned ? "banned" : "unbanned", target.username, b.banReason);
+          audit(me, b.banned ? (days ? `banned for ${days} day${days === 1 ? "" : "s"}` : "banned") : "unbanned", target.username, b.banReason, { t: "ban", id: target.id, prev: [target.banned, target.ban_reason, target.ban_until] });
         }
         if (typeof b.role === "string") {
           if (!isOwner) return fail(res, 403, "Only owners can change roles.");
           if (!["user", "staff", "owner"].includes(b.role)) return fail(res, 400, "Unknown role.");
           if (target.id === me.id && b.role !== "owner") return fail(res, 400, "You can't remove your own owner role.");
           db.prepare("UPDATE users SET role = ? WHERE id = ?").run(b.role, target.id);
-          audit(me, "changed role", target.username, b.role);
+          audit(me, "changed role", target.username, b.role, { t: "role", id: target.id, prev: target.role });
+        }
+        if (b.roleId !== undefined) {
+          const rid = b.roleId ? Number(b.roleId) : null;
+          if (rid && !db.prepare("SELECT 1 FROM roles WHERE id = ?").get(rid)) return fail(res, 400, "That role doesn't exist.");
+          db.prepare("UPDATE users SET role_id = ? WHERE id = ?").run(rid, target.id);
+          audit(me, "set custom role", target.username, rid ? (db.prepare("SELECT name FROM roles WHERE id = ?").get(rid) || {}).name : "none", { t: "roleid", id: target.id, prev: target.role_id });
+        }
+        if (Array.isArray(b.staffPerms)) {
+          const list = b.staffPerms.filter((k) => PERMS[k]);
+          db.prepare("UPDATE users SET staff_perms = ? WHERE id = ?").run(JSON.stringify(list), target.id);
+          audit(me, "set staff permissions", target.username, `${list.length} permission(s)`, { t: "perms", id: target.id, prev: target.staff_perms });
         }
         if (Array.isArray(b.badges)) {
+          const prev = db.prepare("SELECT badge_id FROM user_badges WHERE user_id = ?").all(target.id).map((r) => r.badge_id);
           db.prepare("DELETE FROM user_badges WHERE user_id = ?").run(target.id);
           const ins = db.prepare("INSERT OR IGNORE INTO user_badges (user_id,badge_id) SELECT ?, id FROM badges WHERE id = ?");
           for (const id of b.badges.slice(0, 30)) ins.run(target.id, Number(id));
-          audit(me, "set badges", target.username, `${b.badges.length} badge(s)`);
+          audit(me, "set badges", target.username, `${b.badges.length} badge(s)`, { t: "badges", id: target.id, prev });
+        }
+        if (b.lockName !== undefined) {
+          const days = Number(b.lockName), until = days > 0 ? now() + Math.min(36500, days) * DAY : null;
+          db.prepare("UPDATE users SET name_locked_until = ? WHERE id = ?").run(until, target.id);
+          audit(me, until ? "locked username" : "unlocked username", target.username, until ? (days >= 36500 ? "for good" : `for ${days} days`) : "", { t: "lock", id: target.id, prev: target.name_locked_until });
         }
         if (typeof b.username === "string" && b.username !== target.username) {
           const problem = nameProblem(b.username, target.id, true);
           if (problem) return fail(res, 400, problem);
           db.prepare("UPDATE users SET username = ? WHERE id = ?").run(b.username, target.id);
           db.prepare("DELETE FROM held_names WHERE name = ?").run(b.username);
-          audit(me, "renamed", target.username, b.username);
+          nameChanged(target.id, target.username, b.username, me.username);
+          audit(me, "renamed", b.username, `${target.username} → ${b.username}`, { t: "rename", id: target.id, prev: target.username });
         }
         return send(res, 200, { ok: true });
       }
       if (method === "DELETE") {
-        if (!isOwner) return fail(res, 403, "Only owners can delete accounts.");
+        if (!can("users.delete")) return fail(res, 403, NOPE);
         if (target.id === me.id) return fail(res, 400, "Delete your own account from the dashboard.");
         db.prepare("DELETE FROM users WHERE id = ?").run(target.id);
         cleanupUploads(target, {});
         audit(me, "deleted account", target.username);
         return send(res, 200, { ok: true });
       }
+    }
+    /* undo an owner action from the activity log */
+    const ud = p.match(/^\/api\/admin\/audit\/(\d+)\/undo$/);
+    if (ud && method === "POST") {
+      const row = db.prepare("SELECT * FROM audit WHERE id = ?").get(Number(ud[1]));
+      if (!row || !row.undo) return fail(res, 400, "That one can't be undone.");
+      if (row.undone) return fail(res, 400, "Already undone.");
+      const u = JSON.parse(row.undo), t = db.prepare("SELECT * FROM users WHERE id = ?").get(u.id);
+      if (!t) return fail(res, 404, "That account no longer exists.");
+      if (t.role === "owner" && !isOwner && t.id !== me.id) return fail(res, 403, "Only owners can change owners.");
+      const NEED = { profile: "users.reset", premium: "users.premium", views: "users.views", ban: "users.ban", role: "roles", roleid: "roles", perms: "roles", badges: "users.badges", lock: "users.rename", rename: "users.rename" };
+      if (!can(NEED[u.t]) || (u.t === "role" && !isOwner)) return fail(res, 403, NOPE);
+      const run = {
+        profile: () => db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(u.prev, t.id),
+        premium: () => db.prepare("UPDATE users SET premium = ?, premium_until = ? WHERE id = ?").run(u.prev[0], u.prev[1], t.id),
+        views: () => db.prepare("UPDATE users SET view_bonus = ? WHERE id = ?").run(u.prev, t.id),
+        ban: () => db.prepare("UPDATE users SET banned = ?, ban_reason = ?, ban_until = ? WHERE id = ?").run(u.prev[0], u.prev[1], u.prev[2], t.id),
+        role: () => db.prepare("UPDATE users SET role = ? WHERE id = ?").run(u.prev, t.id),
+        roleid: () => db.prepare("UPDATE users SET role_id = ? WHERE id = ?").run(u.prev, t.id),
+        perms: () => db.prepare("UPDATE users SET staff_perms = ? WHERE id = ?").run(u.prev, t.id),
+        lock: () => db.prepare("UPDATE users SET name_locked_until = ? WHERE id = ?").run(u.prev, t.id),
+        badges: () => { db.prepare("DELETE FROM user_badges WHERE user_id = ?").run(t.id); for (const id of u.prev) db.prepare("INSERT OR IGNORE INTO user_badges (user_id,badge_id) VALUES (?,?)").run(t.id, id); },
+        rename: () => { const problem = nameProblem(u.prev, t.id, true); if (problem) throw new Error(problem); db.prepare("UPDATE users SET username = ? WHERE id = ?").run(u.prev, t.id); nameChanged(t.id, t.username, u.prev, me.username + " (undo)"); },
+      }[u.t];
+      if (!run) return fail(res, 400, "That one can't be undone.");
+      try { run(); } catch (e) { return fail(res, 400, e.message); }
+      db.prepare("UPDATE audit SET undone = 1 WHERE id = ?").run(row.id);
+      audit(me, "undid", t.username, `${row.action} (by ${row.actor})`);
+      return send(res, 200, { ok: true });
+    }
+    /* roles */
+    if (p === "/api/admin/roles" && method === "GET") {
+      return send(res, 200, db.prepare("SELECT r.*, (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id) members FROM roles r ORDER BY r.id").all().map((r) => ({ ...r, perms: parseList(r.perms) })));
+    }
+    if (p === "/api/admin/roles" && method === "POST") {
+      if (!can("roles")) return fail(res, 403, NOPE);
+      const b = await readJson(req, 4096); const name = String(b.name || "").trim().slice(0, 30);
+      if (!name) return fail(res, 400, "Give the role a name.");
+      const color = /^#[0-9a-f]{6}$/i.test(b.color) ? b.color : "#9b8cff";
+      const perms2 = (Array.isArray(b.perms) ? b.perms : []).filter((k) => PERMS[k] && (isOwner || perms.has(k)));
+      const badgeId = b.badgeId && db.prepare("SELECT id FROM badges WHERE id = ?").get(Number(b.badgeId)) ? Number(b.badgeId) : null;
+      if (b.id) db.prepare("UPDATE roles SET name = ?, color = ?, badge_id = ?, perms = ? WHERE id = ?").run(name, color, badgeId, JSON.stringify(perms2), Number(b.id));
+      else db.prepare("INSERT INTO roles (name, color, badge_id, perms, ts) VALUES (?,?,?,?,?)").run(name, color, badgeId, JSON.stringify(perms2), now());
+      audit(me, b.id ? "edited role" : "created role", "", name);
+      return send(res, 200, { ok: true });
+    }
+    const rlm = p.match(/^\/api\/admin\/roles\/(\d+)$/);
+    if (rlm && method === "DELETE") {
+      if (!can("roles")) return fail(res, 403, NOPE);
+      const r = db.prepare("SELECT * FROM roles WHERE id = ?").get(Number(rlm[1])); if (!r) return fail(res, 404, "Not found.");
+      db.prepare("UPDATE users SET role_id = NULL WHERE role_id = ?").run(r.id); db.prepare("DELETE FROM roles WHERE id = ?").run(r.id);
+      audit(me, "deleted role", "", r.name);
+      return send(res, 200, { ok: true });
+    }
+    /* edit a badge */
+    const bem = p.match(/^\/api\/admin\/badges\/(\d+)$/);
+    if (bem && method === "PATCH") {
+      if (!can("badges.manage")) return fail(res, 403, NOPE);
+      const bd = db.prepare("SELECT * FROM badges WHERE id = ?").get(Number(bem[1])); if (!bd) return fail(res, 404, "Badge not found.");
+      const b = await readJson(req, 2048);
+      const ICONS = ["crown", "shield", "gem", "star", "check", "heart", "flame", "bolt", "code", "music", "moon", "skull", "trophy", "bug", "brush", "gift", "play", "game"];
+      const name = String(b.name || bd.name).trim().slice(0, 30) || bd.name;
+      db.prepare("UPDATE badges SET name = ?, icon = ?, color = ?, description = ?, custom = 1 WHERE id = ?").run(name, ICONS.includes(b.icon) ? b.icon : bd.icon, /^#[0-9a-f]{6}$/i.test(b.color) ? b.color : bd.color, b.description != null ? String(b.description).slice(0, 120) : bd.description, bd.id);
+      audit(me, "edited badge", "", name);
+      return send(res, 200, { ok: true });
+    }
+    /* errors + audit export */
+    if (p === "/api/admin/errors" && method === "GET") {
+      if (!can("audit")) return fail(res, 403, NOPE);
+      return send(res, 200, db.prepare("SELECT * FROM error_log ORDER BY id DESC LIMIT 100").all());
+    }
+    if (p === "/api/admin/errors" && method === "DELETE") {
+      if (!can("audit")) return fail(res, 403, NOPE);
+      db.prepare("DELETE FROM error_log").run(); return send(res, 200, { ok: true });
+    }
+    if (p === "/api/admin/audit.csv" && method === "GET") {
+      if (!can("export")) return fail(res, 403, NOPE);
+      const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const rows = db.prepare("SELECT * FROM audit ORDER BY ts DESC").all();
+      const csv = ["time,who,action,target,details,undone"].concat(rows.map((r) => [new Date(r.ts).toISOString(), r.actor, r.action, r.target, r.details, r.undone ? "yes" : ""].map(q).join(","))).join("\n");
+      audit(me, "exported the activity log");
+      res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${config.SITE_NAME}-activity.csv"` });
+      return res.end(csv);
     }
     if (p === "/api/admin/users/bulk" && method === "POST") {
       const b = await readJson(req);
@@ -970,17 +1152,19 @@ async function route(req, res) {
       };
       if (!A[b.action]) return fail(res, 400, "Unknown action.");
       if ((b.action === "badge" || b.action === "unbadge") && !badge) return fail(res, 400, "Pick a badge.");
-      if (b.action === "delete" && !isOwner) return fail(res, 403, "Only owners can delete accounts.");
+      const need = { ban: "users.ban", unban: "users.ban", premium: "users.premium", unpremium: "users.premium", badge: "users.badges", unbadge: "users.badges", reset: "users.reset", delete: "users.delete" }[b.action];
+      if (!can(need)) return fail(res, 403, NOPE);
       db.exec("BEGIN"); try { targets.forEach(A[b.action]); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
       audit(me, `bulk ${b.action}`, targets.map((t) => t.username).join(", ").slice(0, 300), `${targets.length} user(s)${badge ? " · " + badge.name : ""}${days && b.action === "premium" ? ` · ${days} days` : ""}`);
       return send(res, 200, { ok: true, count: targets.length, skipped: ids.length - targets.length });
     }
+    if (p.startsWith("/api/admin/gifts") && !can("gifts")) return fail(res, 403, NOPE);
     if (p === "/api/admin/gifts" && method === "GET") {
       return send(res, 200, db.prepare("SELECT g.*, u.username creator FROM gift_codes g LEFT JOIN users u ON u.id = g.created_by ORDER BY g.ts DESC LIMIT 300").all()
         .map((g) => ({ ...g, redeemedBy: db.prepare("SELECT u.username FROM gift_redeems r JOIN users u ON u.id = r.user_id WHERE r.code = ? ORDER BY r.ts DESC LIMIT 5").all(g.code).map((r) => r.username) })));
     }
     if (p === "/api/admin/gifts" && method === "POST") {
-      if (!isOwner) return fail(res, 403, "Only owners can make gift codes.");
+      if (!can("gifts")) return fail(res, 403, NOPE);
       const { count, days, maxUses, note, expiresDays } = await readJson(req, 1024);
       const n = Math.min(50, Math.max(1, Number(count) || 1)), d = Math.min(3650, Math.max(1, Number(days) || 30)), mu = Math.min(1000, Math.max(1, Number(maxUses) || 1));
       const exp = Number(expiresDays) > 0 ? now() + Math.min(365, Number(expiresDays)) * DAY : null;
@@ -995,11 +1179,12 @@ async function route(req, res) {
     }
     const gm = p.match(/^\/api\/admin\/gifts\/([A-Z0-9-]{4,30})$/);
     if (gm && method === "DELETE") {
-      if (!isOwner) return fail(res, 403, "Only owners can delete gift codes.");
+      if (!can("gifts")) return fail(res, 403, NOPE);
       db.prepare("DELETE FROM gift_codes WHERE code = ?").run(gm[1]);
       audit(me, "deleted gift code", "", gm[1]);
       return send(res, 200, { ok: true });
     }
+    if (p.startsWith("/api/admin/names") && !can("names")) return fail(res, 403, NOPE);
     if (p === "/api/admin/names" && method === "GET") {
       return send(res, 200, db.prepare("SELECT h.*, u.username creator FROM held_names h LEFT JOIN users u ON u.id = h.created_by ORDER BY h.ts DESC").all()
         .map((h) => ({ ...h, takenBy: (db.prepare("SELECT username FROM users WHERE username = ?").get(h.name) || {}).username || null })));
@@ -1028,6 +1213,7 @@ async function route(req, res) {
       if (problem) return fail(res, 400, problem);
       db.prepare("UPDATE users SET username = ? WHERE id = ?").run(hm[1], t.id);
       db.prepare("DELETE FROM held_names WHERE name = ?").run(hm[1]);
+      nameChanged(t.id, t.username, hm[1], me.username);
       audit(me, "gave name", t.username, hm[1]);
       return send(res, 200, { ok: true });
     }
@@ -1035,7 +1221,7 @@ async function route(req, res) {
       return send(res, 200, db.prepare("SELECT b.*, (SELECT COUNT(*) FROM user_badges ub WHERE ub.badge_id = b.id) holders FROM badges b ORDER BY system DESC, id").all());
     }
     if (p === "/api/admin/badges" && method === "POST") {
-      if (!isOwner) return fail(res, 403, "Only owners can create badges.");
+      if (!can("badges.manage")) return fail(res, 403, NOPE);
       const { name, icon, color, description } = await readJson(req);
       const n = String(name || "").trim().slice(0, 30);
       if (!n) return fail(res, 400, "Give the badge a name.");
@@ -1047,7 +1233,7 @@ async function route(req, res) {
     }
     const bm = p.match(/^\/api\/admin\/badges\/(\d+)$/);
     if (bm && method === "DELETE") {
-      if (!isOwner) return fail(res, 403, "Only owners can delete badges.");
+      if (!can("badges.manage")) return fail(res, 403, NOPE);
       const b = db.prepare("SELECT * FROM badges WHERE id = ?").get(Number(bm[1]));
       if (!b) return fail(res, 404, "Badge not found.");
       if (b.system) return fail(res, 400, "Built-in badges can't be deleted.");
@@ -1055,6 +1241,8 @@ async function route(req, res) {
       audit(me, "deleted badge", b.name);
       return send(res, 200, { ok: true });
     }
+    if ((p === "/api/admin/reports" || p.startsWith("/api/admin/reports/")) && !can("reports")) return fail(res, 403, NOPE);
+    if (p.startsWith("/api/admin/names") && !can("names")) return fail(res, 403, NOPE);
     if (p === "/api/admin/reports" && method === "GET") {
       const status = ["open", "resolved", "dismissed"].includes(url.searchParams.get("status")) ? url.searchParams.get("status") : "open";
       const rows = db.prepare(`SELECT r.*, p.username page, p.banned, rp.username reporter FROM reports r JOIN users p ON p.id = r.page_id
@@ -1072,13 +1260,17 @@ async function route(req, res) {
       return send(res, 200, { ok: true });
     }
     if (p === "/api/admin/audit" && method === "GET") {
-      return send(res, 200, db.prepare("SELECT * FROM audit ORDER BY ts DESC LIMIT 300").all());
+      if (!can("audit")) return fail(res, 403, NOPE);
+      const who = url.searchParams.get("actor");
+      const rows = who ? db.prepare("SELECT * FROM audit WHERE actor = ? ORDER BY ts DESC LIMIT 300").all(who) : db.prepare("SELECT * FROM audit ORDER BY ts DESC LIMIT 300").all();
+      return send(res, 200, { rows: rows.map((r) => ({ ...r, canUndo: !!r.undo && !r.undone, undo: undefined })), actors: db.prepare("SELECT actor, COUNT(*) n FROM audit GROUP BY actor ORDER BY n DESC").all() });
     }
+    if (p.startsWith("/api/admin/invites") && !can("invites")) return fail(res, 403, NOPE);
     if (p === "/api/admin/invites" && method === "GET") {
       return send(res, 200, db.prepare("SELECT i.*, u.username creator FROM invites i LEFT JOIN users u ON u.id = i.created_by ORDER BY i.ts DESC").all());
     }
     if (p === "/api/admin/invites" && method === "POST") {
-      if (!isOwner) return fail(res, 403, "Only owners can make invite codes.");
+      if (!can("invites")) return fail(res, 403, NOPE);
       const { count, maxUses, note } = await readJson(req, 1024);
       const n = Math.min(50, Math.max(1, Number(count) || 1)), mu = Math.min(1000, Math.max(1, Number(maxUses) || 1));
       const codes = [];
@@ -1092,12 +1284,12 @@ async function route(req, res) {
     }
     const ivm = p.match(/^\/api\/admin\/invites\/([A-Z0-9-]{4,20})$/);
     if (ivm && method === "DELETE") {
-      if (!isOwner) return fail(res, 403, "Only owners can delete invite codes.");
+      if (!can("invites")) return fail(res, 403, NOPE);
       db.prepare("DELETE FROM invites WHERE code = ?").run(ivm[1]);
       return send(res, 200, { ok: true });
     }
     if (p === "/api/admin/export.csv" && method === "GET") {
-      if (!isOwner) return fail(res, 403, "Only owners can export users.");
+      if (!can("export")) return fail(res, 403, NOPE);
       const rows = db.prepare("SELECT id, member_no, username, role, premium, banned, discord_name, created_at, last_seen FROM users ORDER BY member_no").all();
       const q = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const csv = ["member_no,username,role,premium,banned,discord,joined,last_seen,views"].concat(rows.map((u) =>
@@ -1107,7 +1299,7 @@ async function route(req, res) {
       return res.end(csv);
     }
     if (p === "/api/admin/settings" && method === "PUT") {
-      if (!isOwner) return fail(res, 403, "Only owners can change site settings.");
+      if (!can("settings")) return fail(res, 403, NOPE);
       const b = await readJson(req);
       if (typeof b.signupsOpen === "boolean") setSetting("signupsOpen", b.signupsOpen);
       if (typeof b.announcement === "string") setSetting("announcement", b.announcement.slice(0, 200));
@@ -1130,14 +1322,14 @@ async function route(req, res) {
 
   /* ---- pages ---- */
   if (method !== "GET" && method !== "HEAD") return send(res, 405, "Method not allowed");
-  const staff = me && ["owner", "staff"].includes(me.role);
+  const staff = me && permsFor(me).size > 0;
   if (getSetting("maintenance", false) && !staff && !["/login", "/admin"].includes(p) && !p.startsWith("/assets/") && !p.startsWith("/uploads/") && p !== "/favicon.ico") {
     return send(res, 503, template("maintenance.html").replace("{{MSG}}", escapeHtml(getSetting("maintenanceMsg", "") || "We're restocking the shelves. Back soon.")));
   }
   if (p === "/") return send(res, 200, template("index.html"));
   if (p === "/login" || p === "/signup") return me ? redirect(res, "/dashboard") : send(res, 200, template("auth.html"));
   if (p === "/dashboard") return me ? send(res, 200, template("dashboard.html"), { "Cache-Control": "no-store" }) : redirect(res, "/login");
-  if (p === "/admin") return me && ["owner", "staff"].includes(me.role) ? send(res, 200, template("admin.html"), { "Cache-Control": "no-store" }) : redirect(res, me ? "/dashboard" : "/login");
+  if (p === "/admin") return me && !me.imp_by && permsFor(me).size > 0 ? send(res, 200, template("admin.html"), { "Cache-Control": "no-store" }) : redirect(res, me ? "/dashboard" : "/login");
   if (p === "/leaderboard") return send(res, 200, template("leaderboard.html"));
   if (p === "/demo") {
     // A pretend page for the "try it" builder on the home page.
@@ -1192,7 +1384,7 @@ http.createServer((req, res) => {
   route(req, res).catch((err) => {
     if (err.message === "bad_json") return fail(res, 400, "Bad request.");
     if (err.message === "too_big") return fail(res, 413, "That's too big.");
-    console.error(err);
+    console.error(err); logError(req, err);
     if (!res.headersSent) fail(res, 500, "Something went wrong on our side.");
   });
 }).listen(config.PORT, () => {

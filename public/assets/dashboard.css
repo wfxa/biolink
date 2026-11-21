@@ -402,3 +402,38 @@ a.vrow:hover{background:rgba(255,255,255,.04)}
 .wsz button[aria-pressed=true]{background:#fff;color:#000}
 .wfields .span2{grid-column:1 / -1}
 .wrow{grid-template-columns:34px 1fr auto}
+.lcheck{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lchecks{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.lrow{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+.lrow i{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:800}
+.lrow.ok i{background:color-mix(in srgb,#3ddc84 25%,transparent);color:#3ddc84}.lrow.bad i{background:color-mix(in srgb,#ffb547 25%,transparent);color:#ffb547}
+.lrow b{display:block;font-size:13px}.lrow small{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+.impbar{position:fixed;left:50%;top:10px;translate:-50% 0;z-index:200;display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:999px;background:#ffb547;color:#1a1204;font-size:12.5px;box-shadow:0 12px 30px -10px rgba(0,0,0,.7)}
+.impbar .btn{background:#1a1204;color:#fff;border-color:#1a1204}
+/* new card previews */
+.pv-cs-holo{background:linear-gradient(115deg,#ff7ab655,#ffd36e55,#7cffc455,#6ec8ff55,#b48cff55),rgba(14,12,18,.7);border-color:rgba(255,255,255,.3);background-size:200% 200%;animation:pvholo 3s linear infinite}
+@keyframes pvholo{to{background-position:200% 0}}
+.pv-cs-liquid{background:linear-gradient(160deg,rgba(255,255,255,.22),rgba(255,255,255,.05));border-color:rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 10px 14px -10px rgba(255,255,255,.5),0 10px 22px -12px rgba(0,0,0,.8)}
+.pv-cs-blob{border-radius:42% 58% 55% 45%/18% 22% 24% 20%;animation:pvblob 4s ease-in-out infinite}
+@keyframes pvblob{50%{border-radius:58% 42% 46% 54%/22% 16% 20% 24%}}
+.pv-cs-window{background:#c0c0c0;border:0;border-radius:2px;padding-top:12px;box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #fff,3px 3px 0 rgba(0,0,0,.4)}
+.pv-cs-window::before{content:"";position:absolute;left:2px;right:2px;top:2px;height:7px;background:linear-gradient(90deg,#000080,#1084d0)}
+.pv-cs-window b{background:#111}.pv-cs-window em{background:#555}.pv-cs-window u{background:#999}
+.pv-cs-magazine{background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.8)),linear-gradient(135deg,var(--pa2),#333);border:0;padding-top:30px;align-items:flex-start;padding-left:8px}
+.pv-cs-magazine::before{content:"DOSE";position:absolute;top:4px;left:0;right:0;text-align:center;font:900 13px Georgia,serif;color:#fff;letter-spacing:.05em}
+.pv-cs-magazine .pv-av{display:none}
+.pv-arr-bento{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:70%}
+.pv-arr-bento .pv-av{grid-column:1/-1;justify-self:center}
+.pv-arr-bento>span{display:block;height:16px;border-radius:4px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15)}
+.pv-arr-bento>span b,.pv-arr-bento>span em{display:none}
+.pv-arr-bento::after{content:"";grid-column:1/-1;height:10px;border-radius:4px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15)}
+.pv-tip{font-size:11px;padding:4px 9px;border-radius:7px;background:#000;color:#fff;border:1px solid rgba(255,255,255,.15)}
+.pv-tip-glass{background:rgba(255,255,255,.14);backdrop-filter:blur(6px);border-color:rgba(255,255,255,.3)}
+.pv-tip-solid{background:var(--pa2);color:#0b0d0e;border:0;font-weight:700}
+.pv-tip-pill{background:#fff;color:#111;border-radius:999px;border:0;font-weight:600}
+.pv-pet{font-size:30px;line-height:1}
+.palrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pal{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sw{width:30px;height:30px;border-radius:9px;border:2px solid rgba(255,255,255,.2);cursor:pointer;transition:transform .15s}.sw:hover{transform:scale(1.12)}
+.sw.big{width:22px;height:22px;border-radius:7px;cursor:default}
+.palto{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding:10px;border-radius:12px;border:1px dashed var(--line)}
