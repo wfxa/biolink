@@ -45,13 +45,16 @@
     R.setProperty("--name-size", p.name.autoSize ? "clamp(28px,8vw,42px)" : p.name.size + "px");
     R.setProperty("--name-weight", p.name.weight); R.setProperty("--name-spacing", p.name.spacing / 100 + "em");
     R.setProperty("--g1", p.name.from); R.setProperty("--g2", p.name.to);
-    R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px" }[p.avatar.shape]);
+    R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px", blob: "42% 58% 63% 37% / 41% 44% 56% 59%", capsule: "999px" }[p.avatar.shape]);
+    R.setProperty("--av-w", p.avatar.shape === "capsule" ? "0.72" : "1");
+    R.setProperty("--card-bw", p.card.borderWidth + "px");
+    R.setProperty("--ic-size", p.icons.size + "px"); R.setProperty("--ic-gap", p.icons.gap + "px");
     R.setProperty("--av-border", p.avatar.border + "px"); set("--av-border-color", p.avatar.borderColor);
     R.setProperty("--vig", p.background.vignette / 100);
     const cc = document.getElementById("custom-css"); if (cc && d.__css !== undefined) cc.textContent = d.__css;
 
     const b = document.body;
-    b.className = [`cs-${p.card.style}`, `bs-${p.buttons.style}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
+    b.className = [`cs-${p.card.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border", p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
@@ -123,7 +126,7 @@
   function headHtml(p, d) {
     const name = p.displayName || d.username;
     const u = p.underName, items = [];
-    if (u.handle) items.push(`<span>${esc(p.handle || "@" + d.username)}</span>`);
+    if (u.handle && p.handle.trim()) items.push(`<span>${esc(p.handle)}</span>`);
     if (u.status && p.discord.id && p.live.status) items.push(`<span class="status" hidden><i class="sdot"></i><em style="font-style:normal"></em></span>`);
     if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
     if (u.time && p.details.timezone) items.push(`<span>${svgIcon("clock")}<span class="localtime">--:--</span></span>`);
@@ -136,7 +139,6 @@
       ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
       <div class="head ${p.banner ? "has-banner" : ""}">
         ${p.avatar.hidden ? "" : `<div class="avatar dec-${p.avatar.decoration}">
-          <span class="uid">uid ${d.memberNo}</span>
           ${p.avatar.decoration !== "none" ? `<span class="deco"></span>` : ""}
           <div class="face">${p.avatar.src ? `<img src="${esc(p.avatar.src)}" alt="" crossorigin="anonymous">` : esc(name.slice(0, 2))}</div>
           ${p.discord.id && p.live.status ? `<span class="dot" hidden></span>` : ""}
@@ -144,7 +146,7 @@
         </div>`}
         <div class="who">
           ${p.aboveName ? `<div class="above">${esc(p.aboveName)}</div>` : ""}
-          <h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1>
+          <div class="namewrap">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1></div>
           ${items.length ? `<div class="line ${u.style === "pills" || p.viewCounter === "pill" ? "pills" : ""}">${items.join("")}</div>` : ""}
           ${d.badges.length ? `<div class="badges">${d.badges.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
         </div>

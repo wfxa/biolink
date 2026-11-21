@@ -53,7 +53,7 @@ const SCHEMA = {
   },
   underName: { style: E(["plain", "pills"], "plain"), handle: B(true), status: B(true), location: B(true), time: B(true), joined: B(false) },
   avatar: {
-    src: IMG(), shape: E(["circle", "rounded", "square"], "circle"), decoration: E(DECORATIONS, "ring"), discordDecoration: B(false),
+    src: IMG(), shape: E(["circle", "rounded", "square", "blob", "capsule"], "circle"), hover: E(["none", "grow", "spin", "tilt", "bounce"], "none"), decoration: E(DECORATIONS, "ring"), discordDecoration: B(false),
     size: N(56, 160, 104), border: N(0, 8, 0), borderColor: C(), hidden: B(false),
   },
   banner: IMG(),
@@ -72,8 +72,8 @@ const SCHEMA = {
   playlist: { t: "list", max: LIMITS.playlist, item: { src: UP("music"), title: S(60) }, need: "src" },
   music: { volume: N(0, 100, 50), showPlayer: B(true), shuffle: B(false), visualizer: B(true) },
   card: {
-    style: E(["glass", "solid", "outline", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
-    borderColor: C(), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
+    style: E(["glass", "solid", "outline", "label", "tinted", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
+    borderColor: C(), borderWidth: N(0, 4, 1), shadow: E(["none", "soft", "deep"], "soft"), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
   },
   colors: {
     theme: E(["pick", "picture"], "pick"), accent: C("#5ef2b0"), text: C("#ece7ef"), name: C(), bio: C(), small: C(),
@@ -82,9 +82,10 @@ const SCHEMA = {
   fonts: { body: E(FONTS, "JetBrains Mono"), name: { t: "enum", list: ["", ...FONTS], d: "" } },
   name: {
     autoSize: B(true), size: N(20, 80, 40), weight: N(300, 900, 800), spacing: N(-8, 12, -2), uppercase: B(false),
-    gradient: B(false), from: C("#ffffff"), to: C("#5ef2b0"), effect: E(NAME_EFFECTS, "glow"),
+    gradient: B(false), from: C("#ffffff"), to: C("#5ef2b0"), effect: E(NAME_EFFECTS, "glow"), showUid: B(true),
   },
-  buttons: { style: E(["glass", "filled", "outline"], "glass"), shape: E(["rounded", "pill", "square"], "rounded") },
+  buttons: { style: E(["glass", "filled", "outline", "soft"], "glass"), shape: E(["rounded", "pill", "square"], "rounded"), hover: E(["glow", "lift", "fill", "slide", "none"], "glow"), align: E(["center", "left"], "center"), arrow: B(true) },
+  icons: { size: N(34, 64, 46), style: E(["boxed", "round", "plain"], "boxed"), gap: N(4, 20, 10) },
   layout: {
     arrangement: E(["centered", "classic", "minimal"], "centered"), spacing: E(["compact", "normal", "airy"], "normal"),
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),

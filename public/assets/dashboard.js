@@ -20,8 +20,9 @@
     const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
     $("#savebar").hidden = !dirty; $("#dirty").hidden = !dirty;
     if (!skipHistory) { clearTimeout(htimer); htimer = setTimeout(() => { const s = JSON.stringify(draft); if (s !== hist[hpos]) { hist = hist.slice(0, hpos + 1); hist.push(s); if (hist.length > 80) hist.shift(); hpos = hist.length - 1; } histBtns(); }, 350); }
-    pushPreview();
+    pushPreview(); pvAccent();
   }
+  function pvAccent() { const m = document.querySelector("main") || document.body; m.style.setProperty("--pa", draft.colors.accent || "#5ef2b0"); }
   const histBtns = () => { $("#undo").disabled = hpos <= 0; $("#redo").disabled = hpos >= hist.length - 1; };
   const travel = (d) => { const n = hpos + d; if (n < 0 || n >= hist.length) return; hpos = n; draft = JSON.parse(hist[hpos]); changed(true); histBtns(); show(view, true); };
   $("#undo").onclick = () => travel(-1); $("#redo").onclick = () => travel(1);
@@ -74,9 +75,9 @@
     range: (k, label, min, max, unit = "", o = {}) => ({ k, label, o, html: () => `<label class="field ${o.wide ? "wide" : ""}" data-key="${k}"><span class="lbl">${label}<span class="rangeval" data-out="${k}">${get(k)}${unit}</span></span><input type="range" data-k="${k}" data-unit="${unit}" min="${min}" max="${max}" value="${get(k)}"></label>` }),
     color: (k, label, o = {}) => ({ k, label, o, html: () => `<div class="field" data-key="${k}">${lbl(label, o.hint)}<div class="colorrow"><input type="color" data-k="${k}" value="${get(k) || o.fallback || "#888888"}"><input type="text" data-ktext="${k}" placeholder="${esc(o.ph || "default")}" value="${esc(get(k))}" maxlength="7">${o.noClear ? "" : `<button class="x" data-clear="${k}" title="Use default" aria-label="Use default">✕</button>`}</div></div>` }),
     select: (k, label, opts, o = {}) => ({ k, label, o, html: () => `<label class="field ${o.wide ? "wide" : ""}" data-key="${k}">${lbl(label, o.hint)}<select data-k="${k}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${get(k) === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>` }),
-    chips: (k, label, opts, o = {}) => ({ k, label, o, html: () => `<div class="field wide" data-key="${k}">${label ? lbl(label, o.hint) : ""}<div class="${o.cards ? "cards" : "chips"}">${opts.map(([v, l, extra]) => {
+    chips: (k, label, opts, o = {}) => ({ k, label, o, html: () => `<div class="field wide" data-key="${k}">${label ? lbl(label, o.hint) : ""}<div class="${o.pv ? "cards pvcards" : o.cards ? "cards" : "chips"}">${opts.map(([v, l, extra]) => {
       const locked = (o.premium || []).includes(v) && !premium;
-      return `<button type="button" class="${o.cards ? "" : "chip"}" data-chip="${k}" data-v="${esc(v)}" aria-pressed="${get(k) === v}" ${locked ? "disabled title='Premium'" : ""} ${o.rerender ? 'data-rerender="1"' : ""}>${extra || ""}${o.cards ? `<span>${esc(l)}</span>` : esc(l)}${(o.premium || []).includes(v) ? `<span class="lk">${premium ? "★" : "premium"}</span>` : ""}</button>`;
+      return `<button type="button" class="${o.cards || o.pv ? "" : "chip"}" data-chip="${k}" data-v="${esc(v)}" aria-pressed="${get(k) === v}" ${locked ? "disabled title='Premium'" : ""} ${o.rerender ? 'data-rerender="1"' : ""}>${extra || ""}${o.cards || o.pv ? `<span>${esc(l)}</span>` : esc(l)}${(o.premium || []).includes(v) ? `<span class="lk">${premium ? "★" : "premium"}</span>` : ""}</button>`;
     }).join("")}</div></div>` }),
     upload: (k, kind, label, o = {}) => ({ k, label, o, html: () => {
       const v = get(k), vid = /\.(mp4|webm)(\?|$)/.test(v || ""), aud = /\.(mp3|ogg|wav|m4a|aac)$/.test(v || "");
@@ -93,6 +94,20 @@
   const P = (title, desc, fields, o = {}) => ({ title, desc, fields, o });
 
   /* ================= views ================= */
+  /* little live previews for option cards */
+  const pvFace = () => draft.avatar.src ? `background-image:url('${esc(draft.avatar.src)}')` : "";
+  const pvInit = () => draft.avatar.src ? "" : esc((draft.displayName || me.username).slice(0, 2));
+  const PV = {
+    shape: (v) => `<span class="pv pv-dots"><i class="pv-av pv-av-${v}" style="${pvFace()}">${pvInit()}</i></span>`,
+    deco: (v) => `<span class="pv pv-dots"><i class="pv-av pv-av-${draft.avatar.shape} pv-dec pv-dec-${v}" style="${pvFace()}">${pvInit()}</i></span>`,
+    hover: (v) => `<span class="pv pv-dots"><i class="pv-av pv-av-${draft.avatar.shape} pv-ah-${v}" style="${pvFace()}">${pvInit()}</i></span>`,
+    card: (v) => `<span class="pv pv-scene"><span class="pv-card pv-cs-${v}"><i class="pv-av pv-av-${draft.avatar.shape}" style="${pvFace()}"></i><b></b><em></em><u></u></span></span>`,
+    btn: (style, shape) => `<span class="pv pv-scene"><span class="pv-btn pv-bs-${style} pv-bsh-${shape}"><i></i><b></b></span><span class="pv-btn pv-bs-${style} pv-bsh-${shape}"><i></i><b></b></span></span>`,
+    bhover: (v) => `<span class="pv pv-scene"><span class="pv-btn pv-bs-${draft.buttons.style} pv-bsh-${draft.buttons.shape} pv-bh-${v}"><i></i><b></b></span></span>`,
+    icons: (v) => `<span class="pv pv-scene"><span class="pv-icons pv-is-${v}"><i></i><i></i><i></i><i></i></span></span>`,
+    arr: (v) => `<span class="pv pv-scene"><span class="pv-arr pv-arr-${v}"><i class="pv-av pv-av-${draft.avatar.shape}" style="${pvFace()}"></i><span><b></b><em></em></span></span></span>`,
+  };
+  const pvOpts = (list, fn) => list.map(([v, l]) => [v, l, fn(v)]);
   const fontChips = () => O.FONTS.map((f) => [f, f, `<span class="aa" style="font-family:'${f}'">Aa</span>`]);
   const EFFECT_NAMES = { none: "None", shine: "Shine", glow: "Glow", neon: "Neon", colorshift: "Color shift", glitch: "Glitch", wave: "Wave", typewriter: "Typewriter", scramble: "Scramble", flicker: "Flicker", float: "Float", blurin: "Blur in", split: "Split", focus: "Focus", sparkle: "Sparkle", stroke: "Outline" };
   const OVERLAY_NAMES = { none: "Nothing", particles: "Particles", stars: "Night sky", comets: "Comets", snow: "Snow", pixelsnow: "8-bit snow", rain: "Rain", storm: "Storm", blossom: "Blossom", fireflies: "Fireflies", matrix: "Matrix", aurora: "Northern lights", fog: "Fog" };
@@ -104,7 +119,7 @@
     profile: { title: "Profile", icon: "heart", lead: "What goes on your label: your name, a few lines about you and the details people look for.", panels: () => [
       P("Name tag", "What people read first.", [
         F.text("displayName", "Display name", { ph: me.username, max: 40 }),
-        F.text("handle", "Sub-name", { ph: "@" + me.username, hint: "small text under your name", max: 40 }),
+        F.text("handle", "Sub-name", { ph: "e.g. @" + me.username, hint: "small text under your name · leave empty to hide it", max: 40 }),
         F.text("aboveName", "Greeting", { ph: "hi, it's", hint: "tiny line above your name", max: 40, adv: true }),
         F.text("discord.id", "Discord user ID", { ph: "123456789012345678", hint: "for live status", max: 21 }),
         F.area("bio", "Bio", { max: 400, ph: "say who you are. new lines stay new lines." }),
@@ -130,8 +145,9 @@
     media: { title: "Media", icon: "brush", lead: "Your picture, a banner and whatever sits behind it all.", panels: () => [
       P("Picture", "", [
         F.upload("avatar.src", "avatar", "Picture", { link: true, round: true, accept: "image/png,image/jpeg,image/gif,image/webp", note: "png, jpg, gif or webp" }),
-        F.chips("avatar.shape", "Shape", [["circle", "Circle"], ["rounded", "Rounded"], ["square", "Square"]]),
-        F.select("avatar.decoration", "Frame", [["none", "No frame"], ["ring", "Turning ring"], ["rainbow", "Spectrum ring"], ["pulse", "Heartbeat"], ["orbit", "Satellite"], ["dashed", "Stitched"]], { hint: "moves around your picture" }),
+        F.chips("avatar.shape", "Shape", pvOpts([["circle", "Circle"], ["rounded", "Rounded"], ["square", "Square"], ["blob", "Blob"], ["capsule", "Capsule"]], PV.shape), { pv: true, rerender: true }),
+        F.chips("avatar.decoration", "Frame", pvOpts([["none", "No frame"], ["ring", "Turning ring"], ["rainbow", "Spectrum"], ["pulse", "Heartbeat"], ["orbit", "Satellite"], ["dashed", "Stitched"]], PV.deco), { pv: true, hint: "moves around your picture" }),
+        F.chips("avatar.hover", "On hover", pvOpts([["none", "Nothing"], ["grow", "Grow"], ["spin", "Spin"], ["tilt", "Tilt"], ["bounce", "Bounce"]], PV.hover), { pv: true, hint: "hover a tile to try it", adv: true }),
         F.toggle("avatar.discordDecoration", "Use my Discord avatar frame", { hint: "needs your Discord ID" }),
         F.range("avatar.size", "Size", 56, 160, "px", { adv: true }), F.range("avatar.border", "Border width", 0, 8, "px", { adv: true }),
         F.color("avatar.borderColor", "Border colour", { adv: true, ph: "accent colour" }), F.toggle("avatar.hidden", "No picture", { adv: true }),
@@ -152,10 +168,12 @@
 
     style: { title: "Style", icon: "star", lead: "The surface, the colours, the type, your name and your buttons.", panels: () => [
       P("Card", "The surface your page sits on.", [
-        F.chips("card.style", "Card style", [["glass", "Glass"], ["solid", "Solid"], ["outline", "Outline"], ["none", "None"]], { cards: true }),
+        F.chips("card.style", "Card style", pvOpts([["glass", "Glass"], ["solid", "Solid"], ["outline", "Outline"], ["label", "Label"], ["tinted", "Tinted"], ["none", "None"]], PV.card), { pv: true }),
         F.toggle("card.oneCard", "Everything on one card", { hint: "off = each section gets its own card", wide: true }),
         F.range("card.darkness", "Tint", 0, 100, "%"), F.range("card.blur", "Blur", 0, 40, "px"),
-        F.range("card.radius", "Corners", 0, 40, "px", { adv: true }), F.color("card.borderColor", "Border colour", { adv: true }),
+        F.range("card.radius", "Corners", 0, 40, "px", { adv: true }), F.range("card.borderWidth", "Border width", 0, 4, "px", { adv: true }),
+        F.color("card.borderColor", "Border colour", { adv: true }),
+        F.chips("card.shadow", "Shadow", [["none", "None"], ["soft", "Soft"], ["deep", "Deep"]], { adv: true }),
         F.toggle("card.glow", "Soft glow", { hint: "a halo in your accent colour" }),
         F.toggle("card.animatedBorder", "Animated border", { hint: premium ? "light travels around the edge" : "Premium", lock: true, adv: true }),
         F.toggle("card.lift", "Raise links on hover", { adv: true }),
@@ -178,15 +196,23 @@
         ...(draft.name.autoSize ? [] : [F.range("name.size", "Size", 20, 80, "px")]),
         F.range("name.weight", "Weight", 300, 900, "", { adv: true }), F.range("name.spacing", "Letter spacing", -8, 12, "", { adv: true }),
         F.toggle("name.uppercase", "Uppercase", { adv: true }), F.toggle("name.gradient", "Gradient colour"),
+        F.toggle("name.showUid", "Show uid on hover", { hint: "a small tag with your number when someone hovers your name" }),
         ...(draft.name.gradient ? [F.color("name.from", "Gradient from", { noClear: true }), F.color("name.to", "Gradient to", { noClear: true })] : []),
       ]),
       P("Name style", "Pick how your name moves.", [F.chips("name.effect", "", O.NAME_EFFECTS.map((e) => [e, EFFECT_NAMES[e], `<span class="aa">Aa</span>`]), { cards: true })]),
       P("Buttons", "Shape and finish of your link buttons.", [
-        F.chips("buttons.style", "Style", [["glass", "Glass"], ["filled", "Filled"], ["outline", "Outline"]], { cards: true }),
-        F.chips("buttons.shape", "Shape", [["rounded", "Rounded"], ["pill", "Pill"], ["square", "Square"]], { cards: true }),
+        F.chips("buttons.style", "Style", [["glass", "Glass"], ["filled", "Filled"], ["outline", "Outline"], ["soft", "Soft"]].map(([v, l]) => [v, l, PV.btn(v, draft.buttons.shape)]), { pv: true, rerender: true }),
+        F.chips("buttons.shape", "Shape", [["rounded", "Rounded"], ["pill", "Pill"], ["square", "Square"]].map(([v, l]) => [v, l, PV.btn(draft.buttons.style, v)]), { pv: true, rerender: true }),
+        F.chips("buttons.hover", "On hover", pvOpts([["glow", "Glow"], ["lift", "Lift"], ["fill", "Fill"], ["slide", "Slide"], ["none", "Nothing"]], PV.bhover), { pv: true, hint: "hover a tile to try it", adv: true }),
+        F.chips("buttons.align", "Text", [["center", "Centred"], ["left", "Left"]], { adv: true }),
+        F.toggle("buttons.arrow", "Arrow on the right", { adv: true }),
+      ]),
+      P("Social icons", "The row of little icons.", [
+        F.chips("icons.style", "Style", pvOpts([["boxed", "Boxed"], ["round", "Round"], ["plain", "Plain"]], PV.icons), { pv: true }),
+        F.range("icons.size", "Size", 34, 64, "px"), F.range("icons.gap", "Spacing", 4, 20, "px", { adv: true }),
       ]),
       P("Layout", "", [
-        F.chips("layout.arrangement", "Arrangement", [["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"]], { cards: true }),
+        F.chips("layout.arrangement", "Arrangement", pvOpts([["centered", "Stacked"], ["classic", "Side by side"], ["minimal", "Compact"]], PV.arr), { pv: true }),
         F.chips("layout.spacing", "Spacing", [["compact", "Compact"], ["normal", "Normal"], ["airy", "Airy"]]),
         F.range("layout.width", "Page width", 340, 760, "px", { adv: true }),
         F.select("layout.entrance", "How the card arrives", [["rise", "Rise"], ["fade", "Fade"], ["zoom", "Zoom"], ["none", "None"]], { adv: true }),
@@ -301,6 +327,7 @@
     $$("[data-s]", side).forEach((b) => (b.onclick = () => show(b.dataset.s)));
   }
   function show(id, keep) {
+    pvAccent();
     if (!VIEWS[id] && !SIMPLE[id]) id = "home";
     view = id; window.history.replaceState(null, "", "#" + id);
     $$("[data-s]", side).forEach((b) => b.setAttribute("aria-current", b.dataset.s === id));

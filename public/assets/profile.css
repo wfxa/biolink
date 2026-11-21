@@ -75,7 +75,7 @@ canvas.fx{z-index:1}canvas.cursorfx{z-index:70}
 .cs-solid .card{backdrop-filter:none;-webkit-backdrop-filter:none;background:color-mix(in srgb,var(--cards) 100%,#000)}
 .cs-outline .card{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:var(--card-border,color-mix(in srgb,var(--text) 25%,transparent))}
 .cs-none .card{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border-color:transparent;padding-left:4px;padding-right:4px}
-.glow .card{box-shadow:0 30px 80px -26px color-mix(in srgb,var(--accent) 45%,transparent),0 0 0 1px color-mix(in srgb,var(--accent) 12%,transparent)}
+.glow .card{--shg:0 30px 80px -26px color-mix(in srgb,var(--accent) 45%,transparent),0 0 0 1px color-mix(in srgb,var(--accent) 12%,transparent)}
 .cs-none.glow .card{box-shadow:none}
 .anim-border .card::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
   background:conic-gradient(from var(--ab,0deg),transparent 0 70%,var(--accent) 85%,transparent);animation:abspin 4s linear infinite;
@@ -128,8 +128,11 @@ canvas.fx{z-index:1}canvas.cursorfx{z-index:70}
 .dec-ring .deco,.dec-rainbow .deco{rotate:none!important}
 .avatar .ddeco{position:absolute;inset:-12%;width:124%;height:124%;z-index:2;pointer-events:none}
 .avatar .dot{position:absolute;right:4%;bottom:4%;z-index:3;width:22%;height:22%;max-width:22px;max-height:22px;border-radius:50%;border:3px solid #15111a;background:#747f8d}
-.avatar .uid{position:absolute;left:50%;bottom:calc(100% + 8px);translate:-50% 0;z-index:5;white-space:nowrap;font-size:11px;padding:4px 8px;border-radius:7px;background:#000;border:1px solid var(--line);opacity:0;pointer-events:none;transition:opacity .2s}
-.avatar:hover .uid{opacity:1}
+.namewrap{position:relative;max-width:100%}
+.namewrap .uid{position:absolute;left:50%;bottom:calc(100% + 6px);translate:-50% 4px;z-index:6;white-space:nowrap;font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:0;padding:4px 9px;border-radius:7px;background:#000;color:#fff;border:1px solid var(--line);opacity:0;pointer-events:none;transition:opacity .18s,translate .18s}
+.namewrap:hover .uid{opacity:1;translate:-50% 0}
+.arr-classic .namewrap .uid,.arr-minimal .namewrap .uid{left:0;translate:0 4px}
+.arr-classic .namewrap:hover .uid,.arr-minimal .namewrap:hover .uid{translate:0 0}
 .above{font-size:12px;color:var(--small);letter-spacing:.06em}
 .name{font-family:var(--name-font);font-weight:var(--name-weight);font-size:var(--name-size);letter-spacing:var(--name-spacing);line-height:1.05;color:var(--name);position:relative;transform:translateZ(30px);overflow-wrap:anywhere}
 .name.upper{text-transform:uppercase}
@@ -357,3 +360,38 @@ canvas.fx{z-index:1}canvas.cursorfx{z-index:70}
 
 /* when the host page scrolls this preview out of view, stop CSS animations too */
 .paused *,.paused *::before,.paused *::after{animation-play-state:paused!important}
+
+/* ---------- extra options ---------- */
+.card{border-width:var(--card-bw,1px);box-shadow:var(--shg,0 0 #0000),var(--shd,0 0 #0000)}
+.sh-soft .card{--shd:0 18px 50px -24px rgba(0,0,0,.7)}
+.sh-deep .card{--shd:0 40px 90px -30px rgba(0,0,0,.95),0 10px 24px -12px rgba(0,0,0,.7)}
+.cs-none .card{--shd:0 0 #0000;--shg:0 0 #0000}
+.cs-label .card{border-style:dashed;border-color:var(--card-border,color-mix(in srgb,var(--accent) 45%,transparent));
+  background:linear-gradient(var(--accent),var(--accent)) top/100% 4px no-repeat,var(--cards)}
+.cs-tinted .card{border-color:var(--card-border,color-mix(in srgb,var(--accent) 35%,transparent));
+  background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 24%,transparent),transparent 62%),var(--cards)}
+/* picture */
+.av-blob .avatar .deco,.av-capsule .avatar .deco{border-radius:var(--av-radius)}
+.av-capsule .avatar{width:calc(var(--av-size) * var(--av-w))}
+.avatar .face{transition:scale .35s cubic-bezier(.3,1.4,.5,1),rotate .6s cubic-bezier(.3,1.2,.4,1)}
+.ah-grow .avatar:hover .face{scale:1.08}
+.ah-spin .avatar:hover .face{rotate:360deg}
+.ah-tilt .avatar:hover .face{rotate:-8deg;scale:1.04}
+.ah-bounce .avatar:hover .face{animation:avbounce .6s}
+@keyframes avbounce{30%{translate:0 -12%}55%{translate:0 2%}75%{translate:0 -4%}}
+/* social icons */
+.socials{gap:var(--ic-gap,10px)}
+.socials a{width:var(--ic-size,46px);height:var(--ic-size,46px)}
+.socials svg{width:calc(var(--ic-size,46px) * .46);height:calc(var(--ic-size,46px) * .46)}
+.is-round .socials a{border-radius:50%}
+.is-plain .socials a{background:none;border-color:transparent}
+.is-plain .socials a:hover{box-shadow:none;filter:drop-shadow(0 0 10px color-mix(in srgb,var(--accent) 70%,transparent))}
+/* buttons */
+.bs-soft .buttons a{background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid color-mix(in srgb,var(--accent) 32%,transparent)}
+.ba-left .buttons a span{text-align:left}
+.no-arrow .buttons a .arrow{display:none}
+.bh-lift .buttons a:hover,.bh-fill .buttons a:hover,.bh-slide .buttons a:hover,.bh-none .buttons a:hover{box-shadow:none}
+.bh-lift .buttons a:hover{transform:translateY(-3px)}
+.bh-fill .buttons a:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.bh-slide .buttons a:hover{transform:translateX(5px)}
+.bh-none .buttons a:hover{transform:none}
