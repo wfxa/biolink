@@ -131,6 +131,9 @@
           <div><small>visits</small><b>${u.views.toLocaleString()}</b></div><div><small>open reports</small><b>${u.reports}</b></div>
           <div><small>discord</small><b>${esc(u.discord || "not linked")}</b></div><div><small>spare names</small><b>${u.aliases.length ? u.aliases.map(esc).join(", ") : "none"}</b></div>
         </div>
+        ${owner ? `<div class="sec"><span class="tag-mono">views · real ${u.realViews.toLocaleString()}${u.viewBonus ? ` · adjusted ${u.viewBonus > 0 ? "+" : ""}${u.viewBonus.toLocaleString()}` : ""}</span>
+          <div class="acts"><input type="number" id="vNum" placeholder="number" min="0" style="width:130px;height:34px;padding:0 12px;border-radius:999px">
+            <button class="btn small primary" data-v="set">Set to</button><button class="btn small" data-v="add">Add</button><button class="btn small" data-v="sub">Remove</button>${u.viewBonus ? `<button class="btn small" data-v="real">Back to real</button>` : ""}</div></div>` : ""}
         <div class="acts"><a class="btn small" href="/${esc(u.username)}" target="_blank" rel="noopener">Open page ↗</a><button class="btn small" data-a="rename">Rename</button><button class="btn small" data-a="reset">Reset page</button></div>
         <div class="sec"><span class="tag-mono">premium</span>
           <div class="acts">${u.premium ? `<button class="btn small" data-a="unprem">Remove premium</button><span class="muted" style="font-size:12px;align-self:center">${u.premiumUntil ? "ends " + date(u.premiumUntil) : "no end date"}</span>`
@@ -146,6 +149,12 @@
     d.classList.add("open"); $("#scrim").classList.add("on");
     $("#dx").onclick = closeDrawer;
     const patch = async (body, msg) => { try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body }); toast(msg); closeDrawer(); loadUsers(); } catch (e) { toast(e.message, true); } };
+    $$("[data-v]", d).forEach((b) => (b.onclick = () => {
+      const n = Number($("#vNum").value), v = b.dataset.v;
+      if (v !== "real" && ($("#vNum").value === "" || !Number.isFinite(n))) return toast("Type a number first.", true);
+      const body = v === "set" ? { setViews: n } : v === "add" ? { addViews: n } : v === "sub" ? { addViews: -n } : { setViews: u.realViews };
+      patch(body, "Views updated.");
+    }));
     $$("[data-prem]", d).forEach((b) => (b.onclick = () => patch({ premium: true, premiumDays: Number(b.dataset.prem) || undefined }, `${u.username} has premium${Number(b.dataset.prem) ? ` for ${b.dataset.prem} days` : ""}.`)));
     $$("[data-role]", d).forEach((b) => (b.onclick = async () => {
       if (b.dataset.role === "owner" && !(await modal({ title: `Make ${u.username} an owner?`, body: "Owners can change everything, including your own account.", confirm: "Make owner", danger: true }))) return;
