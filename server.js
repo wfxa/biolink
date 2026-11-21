@@ -120,10 +120,84 @@ const realViews = (userId) => Math.max(
   db.prepare("SELECT COUNT(*) n FROM views WHERE user_id = ?").get(userId).n);
 // Owners can adjust the shown count; the adjustment is stored separately so real stats stay untouched.
 const totalViews = (userId) => Math.max(0, realViews(userId) + ((db.prepare("SELECT view_bonus b FROM users WHERE id = ?").get(userId) || { b: 0 }).b || 0));
+/* Boosting: Discord only shows this to bots in the same server, so we ask the site's bot about the site's server(s). */
+const boostCache = new Map();
+async function boostSince(discordId) {
+  if (!config.DISCORD_BOT_TOKEN || !config.DISCORD_GUILD_ID || !discordId) return null;
+  const hit = boostCache.get(discordId); if (hit && hit.until > now()) return hit.v;
+  let v = null;
+  for (const g of config.DISCORD_GUILD_ID.split(",").map((x) => x.trim()).filter(Boolean)) {
+    try {
+      const r = await fetch(`https://discord.com/api/v10/guilds/${g}/members/${discordId}`, { headers: { Authorization: `Bot ${config.DISCORD_BOT_TOKEN}` }, signal: AbortSignal.timeout(4000) });
+      if (r.ok) { const m = await r.json(); if (m.premium_since) { const t = Date.parse(m.premium_since); if (!v || t < v) v = t; } }
+    } catch {}
+  }
+  boostCache.set(discordId, { v, until: now() + 60 * 60000 });
+  return v;
+}
+async function warmBoosts() {
+  if (!config.DISCORD_BOT_TOKEN || !config.DISCORD_GUILD_ID) return;
+  for (const u of db.prepare("SELECT discord_id FROM users WHERE discord_id IS NOT NULL AND banned = 0").all()) { await boostSince(u.discord_id); await new Promise((r) => setTimeout(r, 250)); }
+}
+setTimeout(warmBoosts, 5000).unref(); setInterval(warmBoosts, 55 * 60000).unref();
+/* ---- Spotify history: one Lanyard socket for every page with a Discord ID, so "on repeat" works even when nobody's watching ---- */
+const live = { ws: null, hb: null, ids: "", map: new Map(), retry: 0 };
+const insPlay = db.prepare("INSERT OR IGNORE INTO spotify_plays (user_id, track_id, song, artist, art, started, ends) VALUES (?,?,?,?,?,?,?)");
+const lastPlay = db.prepare("SELECT * FROM spotify_plays WHERE user_id = ? ORDER BY started DESC LIMIT 1");
+function recordPlay(userId, sp) {
+  if (!sp || !sp.track_id || !sp.timestamps) return;
+  const start = Number(sp.timestamps.start), end = Number(sp.timestamps.end) || start;
+  const last = lastPlay.get(userId);
+  // Seeking moves the start time; only count it as a new play once the previous one would have finished.
+  if (last && last.track_id === sp.track_id && start < (last.ends || last.started) - 8000) return;
+  if (last && Math.abs(last.started - start) < 3000) return;
+  insPlay.run(userId, sp.track_id, String(sp.song || "").slice(0, 120), String(sp.artist || "").slice(0, 120), String(sp.album_art_url || "").slice(0, 300), start, end);
+}
+function liveTargets() {
+  const map = new Map();
+  for (const u of db.prepare("SELECT id, profile, premium FROM users WHERE banned = 0").all()) {
+    try { const p = JSON.parse(u.profile || "{}"); const id = p.discord && p.discord.id; if (id && /^\d{15,21}$/.test(id)) map.set(id, u.id); } catch {}
+  }
+  return map;
+}
+function liveConnect() {
+  if (typeof WebSocket === "undefined") return;
+  live.map = liveTargets(); live.ids = [...live.map.keys()].sort().join(",");
+  if (!live.map.size) return;
+  const ws = new WebSocket("wss://api.lanyard.rest/socket"); live.ws = ws;
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.op === 1) {
+      clearInterval(live.hb); live.hb = setInterval(() => { try { ws.send(JSON.stringify({ op: 3 })); } catch {} }, m.d.heartbeat_interval);
+      ws.send(JSON.stringify({ op: 2, d: { subscribe_to_ids: [...live.map.keys()] } })); live.retry = 0;
+    }
+    if (m.op === 0 && m.t === "INIT_STATE") for (const [id, pr] of Object.entries(m.d || {})) { const uid = live.map.get(id); if (uid && pr && pr.listening_to_spotify) recordPlay(uid, pr.spotify); }
+    if (m.op === 0 && m.t === "PRESENCE_UPDATE") { const id = m.d && (m.d.user_id || (m.d.discord_user && m.d.discord_user.id)); const uid = live.map.get(id); if (uid && m.d.listening_to_spotify) recordPlay(uid, m.d.spotify); }
+  };
+  ws.onclose = () => { clearInterval(live.hb); if (live.ws === ws) { live.ws = null; setTimeout(liveConnect, Math.min(120000, 5000 * 2 ** live.retry++)).unref(); } };
+  ws.onerror = () => { try { ws.close(); } catch {} };
+}
+setTimeout(liveConnect, 3000).unref();
+setInterval(() => { // pick up new or changed Discord IDs
+  const ids = [...liveTargets().keys()].sort().join(",");
+  if (ids !== live.ids) { const old = live.ws; live.ws = null; if (old) try { old.close(); } catch {} liveConnect(); }
+}, 5 * 60000).unref();
+setInterval(() => db.prepare("DELETE FROM spotify_plays WHERE started < ?").run(now() - 30 * DAY), 6 * 3600000).unref();
+function repeatInfo(userId) {
+  const rows = db.prepare("SELECT track_id, started FROM spotify_plays WHERE user_id = ? AND started > ? ORDER BY started DESC LIMIT 25").all(userId, now() - 8 * 3600000);
+  if (!rows.length) return { track_id: null, repeat: 0 };
+  let n = 0; for (const r of rows) { if (r.track_id !== rows[0].track_id) break; n++; }
+  return { track_id: rows[0].track_id, repeat: n };
+}
+function discordExtras(u) {
+  const hit = u.discord_id && boostCache.get(u.discord_id);
+  if (u.discord_id && (!hit || hit.until < now())) boostSince(u.discord_id).catch(() => {}); // warms the cache for next visit
+  return u.discord_id ? { id: u.discord_id, nitro: u.discord_premium || 0, boostSince: hit ? hit.v : null } : null;
+}
 function publicUser(u) {
   return {
     username: u.username, memberNo: u.member_no, premium: !!u.premium, role: u.role,
-    joined: u.created_at, badges: badgesFor(u), views: totalViews(u.id),
+    joined: u.created_at, badges: badgesFor(u), views: totalViews(u.id), discordX: discordExtras(u),
     profile: Profile.load(u.profile, { premium: !!u.premium }),
   };
 }
@@ -324,12 +398,12 @@ async function route(req, res) {
       if (existing && existing.id !== me.id) return redirect(res, "/dashboard?discord=taken#account");
       const prof = Profile.load(me.profile, { premium: !!me.premium });
       if (!prof.discord.id) prof.discord.id = String(d.id);
-      db.prepare("UPDATE users SET discord_id = ?, discord_name = ?, profile = ? WHERE id = ?").run(String(d.id), dname, JSON.stringify(prof), me.id);
+      db.prepare("UPDATE users SET discord_id = ?, discord_name = ?, profile = ?, discord_premium = ?, discord_flags = ? WHERE id = ?").run(String(d.id), dname, JSON.stringify(prof), Number(d.premium_type) || 0, Number(d.public_flags) || 0, me.id);
       return redirect(res, "/dashboard?discord=linked#account");
     }
     if (existing) {
       if (existing.banned) return authPage(res, "This account is banned" + (existing.ban_reason ? `: ${existing.ban_reason}` : "."));
-      db.prepare("UPDATE users SET discord_name = ? WHERE id = ?").run(dname, existing.id);
+      db.prepare("UPDATE users SET discord_name = ?, discord_premium = ?, discord_flags = ? WHERE id = ?").run(dname, Number(d.premium_type) || 0, Number(d.public_flags) || 0, existing.id);
       res.removeHeader("Set-Cookie");
       createSession(res, req, existing.id);
       res.setHeader("Set-Cookie", [res.getHeader("Set-Cookie"), clear]);
@@ -340,7 +414,7 @@ async function route(req, res) {
     const token = crypto.randomBytes(24).toString("hex");
     db.prepare("DELETE FROM pending_discord WHERE expires_at < ?").run(now());
     db.prepare("INSERT INTO pending_discord (token,discord_id,name,avatar,expires_at) VALUES (?,?,?,?,?)")
-      .run(token, String(d.id), dname, JSON.stringify({ id: String(d.id), avatar: d.avatar || null, username: d.username, global_name: d.global_name || null }), now() + 30 * 60000);
+      .run(token, String(d.id), dname, JSON.stringify({ id: String(d.id), avatar: d.avatar || null, username: d.username, global_name: d.global_name || null, premium_type: Number(d.premium_type) || 0, public_flags: Number(d.public_flags) || 0 }), now() + 30 * 60000);
     return redirect(res, `/signup?discord=${token}&name=${encodeURIComponent(suggestName(d))}`);
   }
   if (p.startsWith("/api/auth/discord-pending/") && method === "GET") {
@@ -376,7 +450,9 @@ async function route(req, res) {
     if (inviteRow) db.prepare("UPDATE invites SET uses = uses + 1 WHERE code = ?").run(inviteRow.code);
     if (pending) {
       db.prepare("DELETE FROM pending_discord WHERE token = ?").run(pending.token);
-      const avatar = await saveDiscordAvatar(newId, JSON.parse(pending.avatar || "{}"));
+      const pd = JSON.parse(pending.avatar || "{}");
+      db.prepare("UPDATE users SET discord_premium = ?, discord_flags = ? WHERE id = ?").run(pd.premium_type || 0, pd.public_flags || 0, newId);
+      const avatar = await saveDiscordAvatar(newId, pd);
       if (avatar) { profile.avatar.src = avatar; db.prepare("UPDATE users SET profile = ? WHERE id = ?").run(JSON.stringify(profile), newId); }
     }
     createSession(res, req, newId);
@@ -425,6 +501,13 @@ async function route(req, res) {
     const problem = nameProblem(name);
     return send(res, 200, { available: !problem, reason: problem });
   }
+  const lm = p.match(/^\/api\/live\/([a-z0-9_.]{1,20})$/i);
+  if (lm && method === "GET") {
+    const u = db.prepare("SELECT id FROM users WHERE username = ? AND banned = 0").get(lm[1]);
+    if (!u) return fail(res, 404, "Not found");
+    const recent = db.prepare("SELECT song, artist, art, track_id, started FROM spotify_plays WHERE user_id = ? ORDER BY started DESC LIMIT 10").all(u.id);
+    return send(res, 200, { ...repeatInfo(u.id), recent }, { "Cache-Control": "no-store" });
+  }
   if (p === "/api/leaderboard" && method === "GET") {
     const rows = db.prepare("SELECT * FROM users WHERE banned = 0").all().map((u) => ({ u, views: totalViews(u.id) }))
       .sort((a, b) => b.views - a.views || a.u.member_no - b.u.member_no).slice(0, 25);
@@ -464,11 +547,11 @@ async function route(req, res) {
   }
 
   /* widget data that browsers can't fetch directly (no CORS), cached for 10 minutes */
-  const wm = p.match(/^\/api\/widget\/(steam|roblox|duolingo|letterboxd|lastfm)$/);
+  const wm = p.match(/^\/api\/widget\/(steam|roblox|duolingo|letterboxd|lastfm|valorant|apex)$/);
   if (wm && method === "GET") {
     const q = String(url.searchParams.get("q") || "").trim().slice(0, 120);
     if (!q) return fail(res, 400, "Missing name.");
-    const key = wm[1] + ":" + q.toLowerCase(), hit = widgetCache.get(key);
+    const key = wm[1] + ":" + q.toLowerCase() + ":" + (url.searchParams.get("platform") || ""), hit = widgetCache.get(key);
     if (hit && hit.until > now()) return send(res, 200, hit.body, { "Cache-Control": "public, max-age=300" });
     if (limited("widget:" + clientIp(req), 40, 60000)) return fail(res, 429, "Slow down.");
     const get = (u, o = {}) => fetch(u, { ...o, signal: AbortSignal.timeout(6000), headers: { "User-Agent": "Mozilla/5.0 (dose widget)", ...(o.headers || {}) } });
@@ -503,6 +586,32 @@ async function route(req, res) {
         const item = (x.match(/<item>([\s\S]*?)<\/item>/) || [])[1]; if (!item) throw 0;
         const t = (n) => ((item.match(new RegExp(`<${n}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${n}>`)) || [])[1] || "").trim();
         body = { film: t("letterboxd:filmTitle") || t("title"), year: t("letterboxd:filmYear"), rating: t("letterboxd:memberRating"), poster: ((item.match(/<img src="([^"]+)"/) || [])[1] || ""), url: t("link") || `https://letterboxd.com/${q}/` };
+      }
+      if (wm[1] === "valorant") {
+        const [name, tag] = q.split("#").map((x) => x.trim());
+        const link = tag ? `https://tracker.gg/valorant/profile/riot/${encodeURIComponent(name + "#" + tag)}/overview` : "https://tracker.gg/valorant";
+        if (!tag) throw 0;
+        if (!process.env.HENRIK_API_KEY) body = { nokey: true, url: link };
+        else {
+          const H = { headers: { Authorization: process.env.HENRIK_API_KEY } };
+          const acc = await (await get(`https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`, H)).json();
+          if (!acc.data) throw 0;
+          const region = acc.data.region || "eu";
+          const mm = await (await get(`https://api.henrikdev.xyz/valorant/v2/mmr/${region}/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`, H)).json().catch(() => ({}));
+          const cur = (mm.data && mm.data.current_data) || {};
+          body = { name: `${acc.data.name}#${acc.data.tag}`, level: acc.data.account_level, card: acc.data.card && (acc.data.card.small || acc.data.card.wide), rank: cur.currenttierpatched || "Unrated", rr: cur.ranking_in_tier, icon: cur.images && cur.images.small, peak: mm.data && mm.data.highest_rank && mm.data.highest_rank.patched_tier, url: link };
+        }
+      }
+      if (wm[1] === "apex") {
+        const plat = (url.searchParams.get("platform") || "origin").replace(/[^a-z]/g, "") || "origin";
+        const link = `https://apex.tracker.gg/apex/profile/${plat}/${encodeURIComponent(q)}/overview`;
+        if (!process.env.TRN_API_KEY) body = { nokey: true, url: link };
+        else {
+          const j = await (await get(`https://public-api.tracker.gg/v2/apex/standard/profile/${plat}/${encodeURIComponent(q)}`, { headers: { "TRN-Api-Key": process.env.TRN_API_KEY } })).json();
+          const seg = j.data && j.data.segments && j.data.segments.find((x) => x.type === "overview"); if (!seg) throw 0;
+          const st = seg.stats || {};
+          body = { name: j.data.platformInfo.platformUserHandle, avatar: j.data.platformInfo.avatarUrl, rank: st.rankScore && st.rankScore.metadata && st.rankScore.metadata.rankName, icon: st.rankScore && st.rankScore.metadata && st.rankScore.metadata.iconUrl, level: st.level && st.level.value, kills: st.kills && st.kills.value, url: link };
+        }
       }
       if (wm[1] === "lastfm") {
         if (!process.env.LASTFM_API_KEY) body = { nokey: true, url: `https://www.last.fm/user/${encodeURIComponent(q)}` };

@@ -22,7 +22,7 @@ const CLICK_SOUNDS = ["none", "click", "bubble", "chime", "custom"];
 const BIO_EFFECTS = ["none", "typewriter", "fade", "blurin", "scramble", "words", "rotate"];
 const VIEW_STYLES = ["off", "inline", "pill", "corner", "counter"];
 const PROJECT_ICONS = ["code", "star", "bolt", "heart", "music", "brush", "game", "gem", "flame", "moon", "trophy", "gift", "repo", "website"];
-const WIDGETS = ["timezone", "weather", "joined", "birthday", "countdown", "discord", "spotify", "soundcloud", "youtube", "twitch", "github", "steam", "roblox", "chess", "lastfm", "letterboxd", "anilist", "duolingo", "gamerank", "mood", "quote", "views"];
+const WIDGETS = ["timezone", "weather", "joined", "birthday", "countdown", "discord", "spotify", "soundcloud", "youtube", "twitch", "github", "steam", "roblox", "chess", "lastfm", "letterboxd", "anilist", "duolingo", "valorant", "apex", "gamerank", "mood", "quote", "views"];
 const NAME_EXTRAS = ["blossoms", "flames", "snow", "hearts", "bubbles", "stars", "sp-white", "sp-rainbow", "sp-green", "sp-black", "sp-blue", "sp-red", "sp-gold", "sp-pink"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
 const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
@@ -100,14 +100,14 @@ const SCHEMA = {
   linkButtons: { t: "list", max: LIMITS.buttons, item: { id: { t: "id" }, label: S(40), url: { t: "url" }, icon: { t: "enum", list: ["", ...PLATFORMS], d: "" }, highlight: B(false) }, need: "url" },
   projects: { t: "list", max: LIMITS.projects, item: { id: { t: "id" }, name: S(40), tag: S(20), desc: S(140), url: { t: "url" }, icon: E(PROJECT_ICONS, "code") }, need: "name" },
   pages: { t: "list", max: LIMITS.pages, item: { id: { t: "id" }, slug: { t: "re", re: /^[a-z0-9-]{1,24}$/, d: "", pre: (v) => String(v || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") }, title: S(40), body: S(3000), links: { t: "list", max: 10, item: { label: S(40), url: { t: "url" } }, need: "url" } }, need: "slug" },
-  widgets: { t: "list", max: 12, item: { id: { t: "id" }, type: E(WIDGETS, "quote"), value: S(200), label: S(40), wide: B(false) }, need: "type" },
+  widgets: { t: "list", max: 12, item: { id: { t: "id" }, type: E(WIDGETS, "quote"), value: S(200), label: S(40), extra: S(60), wide: B(false), size: E(["auto", "small", "wide", "tall", "big"], "auto") }, need: "type" },
   widgetStyle: E(["brand", "card", "minimal"], "brand"),
   textBlock: S(1500),
   embeds: { t: "list", max: LIMITS.embeds, item: { t: "embed", d: "" } },
   countdown: { label: S(40), date: { t: "re", re: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, d: "" }, done: S(40) },
   server: { t: "re", re: /^[A-Za-z0-9-]{2,32}$/, d: "", pre: (v) => String(v || "").replace(/^(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\//i, "") },
   discord: { id: { t: "re", re: /^\d{15,21}$/, d: "" } },
-  live: { style: E(["widget", "simple"], "widget"), combine: B(false), albumColor: B(true), discordCard: B(true), discordBadges: B(true), status: B(true), spotify: B(true), lyrics: B(true), games: B(true), customStatus: B(true), listeningLabel: S(30, "listening on spotify"), playingLabel: S(30, "playing") },
+  live: { style: E(["widget", "simple"], "widget"), combine: B(false), albumColor: B(true), discordCard: B(true), hideWithCard: B(true), discordBadges: B(true), onRepeat: B(true), repeatAt: N(2, 5, 3), status: B(true), spotify: B(true), lyrics: B(true), games: B(true), customStatus: B(true), listeningLabel: S(30, "listening on spotify"), playingLabel: S(30, "playing") },
   visibility: { hidden: B(false), countOwn: B(false), anonymousVisits: B(false) },
   badgeRow: { color: C(), style: E(["tile", "plain", "glow"], "tile"), items: { t: "list", max: 40, item: { slug: { t: "re", re: /^[a-z0-9-]{1,48}$/, d: "" }, color: C(), hidden: B(false) }, need: "slug" } },
   social: { likes: B(false), comments: B(false) },

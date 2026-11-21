@@ -317,10 +317,14 @@
         ...(draft.discord.id ? [] : [F.note(`Add your Discord ID under <a href="#profile" data-go="profile">Profile</a> first, or sign in with Discord.`)]),
         F.chips("live.style", "Card style", [["widget", "Wide cards"], ["simple", "Simple"]], { rerender: true }),
         ...(draft.live.style === "widget" ? [F.toggle("live.discordCard", "Discord status card", { hint: "your Discord picture, name, status, custom status and device" }),
-          F.toggle("live.discordBadges", "Discord badges & server tag", { hint: "HypeSquad, Early Supporter, Active Developer… plus your server tag" }),
+          F.toggle("live.discordBadges", "Discord badges & server tag", { hint: "HypeSquad, Early Supporter, Active Developer, Nitro and boosting, plus your server tag" }),
+          F.note(`Nitro shows when you sign in with Discord (or press <a href="/auth/discord?link=1">refresh from Discord</a> after you get it). The boost badge shows when you boost ${esc(me.site)}'s own Discord server: Discord doesn't let any site see boosts to other servers.`),
+          F.toggle("live.onRepeat", "\"On repeat\" tag", { hint: "shows on the Spotify card when you play the same song again and again" }),
+          ...(draft.live.onRepeat ? [F.range("live.repeatAt", "Show it after", 2, 5, " plays")] : []),
           F.toggle("live.combine", "All in one card", { hint: "Discord, Spotify and games stacked inside a single card" }),
           F.toggle("live.albumColor", "Spotify card takes the album colour", { hint: "glow and progress bar match the cover" })] : []),
-        F.toggle("live.status", "Status dot", { hint: "green, yellow or red on your picture" }), F.toggle("live.spotify", "Now playing", { hint: "the Spotify track with a progress bar" }),
+        F.toggle("live.status", "Status dot on my picture", { hint: "green, yellow or red" }), F.toggle("underName.status", "Status under my name", { hint: "the \"online / offline\" chip" }),
+        ...(draft.live.style === "widget" && draft.live.discordCard ? [F.toggle("live.hideWithCard", "Hide both while the Discord card shows", { hint: "the card already shows your status" })] : []), F.toggle("live.spotify", "Now playing", { hint: "the Spotify track with a progress bar" }),
         F.toggle("live.lyrics", "Lyrics", { hint: "lines light up in time with the song" }), F.toggle("live.games", "Games & apps", { hint: "what's open right now" }),
         F.toggle("live.customStatus", "Status as bio", { hint: "your Discord status fills in when your bio is empty" }),
         F.note(`This reads your status through Lanyard. Join the <a href="https://discord.gg/lanyard" target="_blank" rel="noopener">Lanyard server</a> once and it works.`),
@@ -409,7 +413,7 @@
         set(k, v);
         const out = el.querySelector(`[data-out="${k}"]`); if (out) out.textContent = inp.value + (inp.dataset.unit || "");
         const tx = el.querySelector(`[data-ktext="${k}"]`); if (tx) tx.value = inp.value;
-        if (["name.autoSize", "name.gradient", "enter.warning", "details.weather", "music.pulse"].includes(k)) show(view, true);
+        if (["name.autoSize", "name.gradient", "enter.warning", "details.weather", "music.pulse", "live.onRepeat"].includes(k)) show(view, true);
       });
     });
     $$("[data-ktext]", el).forEach((inp) => inp.addEventListener("input", () => {
@@ -476,24 +480,45 @@
     $$("[data-addw]", main).forEach((b) => (b.onclick = () => {
       if (draft.widgets.length >= 12) return toast("You can have up to 12 widgets.", true);
       const t = b.dataset.addw, m = WM()[t];
-      draft.widgets.push({ id: Math.random().toString(36).slice(2, 10), type: t, value: t === "timezone" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "", label: "", wide: !!m.wide });
+      draft.widgets.push({ id: Math.random().toString(36).slice(2, 10), type: t, value: t === "timezone" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "", label: t === "gamerank" ? "valorant" : "", extra: "", wide: false, size: m.wide ? "wide" : "small" });
       changed(); reView(); toast(`${m.name} added.`);
       setTimeout(() => { const ins = $$("[data-wf='value']"); const last = ins[ins.length - 1]; if (last) { last.scrollIntoView({ block: "center", behavior: "smooth" }); last.focus(); } }, 50);
     }));
   }
-  const listWidgets = () => `<div class="field wide" data-key="widgets"><div class="list wlist">${draft.widgets.map((w, i) => { const m = WM()[w.type] || { name: w.type, color: "#888", icon: "gem" };
+  const wSize = (w) => (w.size && w.size !== "auto" ? w.size : w.wide || (WM()[w.type] || {}).wide ? "wide" : "small");
+  const SIZES = [["small", "Small", "1×1"], ["wide", "Wide", "2×1"], ["tall", "Tall", "1×2"], ["big", "Big", "2×2"]];
+  const widgetGrid = () => draft.widgets.length ? `<div class="field wide"><span class="lbl">Arrange <small>drag tiles to move them · tap a size to change it</small></span>
+    <div class="wgrid" id="wgrid">${draft.widgets.map((w, i) => { const m = WM()[w.type] || { name: w.type, color: "#888", icon: "gem" }, sz = wSize(w);
+      return `<div class="wtile sz-${sz}" draggable="true" data-wi="${i}" style="--wc:${m.color}"><span class="wi">${svgIcon(m.icon)}</span><b>${esc(w.type === "gamerank" ? ((window.GAME_TRACKERS[w.label] || [])[0] || m.name) : m.name)}</b>
+        <div class="wsz">${SIZES.map(([v, l, d]) => `<button type="button" data-wsz="${v}" data-i="${i}" aria-pressed="${sz === v}" title="${l} ${d}">${d}</button>`).join("")}</div></div>`; }).join("")}</div></div>` : "";
+  const listWidgets = () => `${widgetGrid()}<div class="field wide" data-key="widgets"><span class="lbl">Details</span><div class="list wlist">${draft.widgets.map((w, i) => { const m = WM()[w.type] || { name: w.type, color: "#888", icon: "gem" };
+    const games = window.GAME_TRACKERS || {};
+    const labelField = w.type === "gamerank"
+      ? `<select data-wf="label" data-i="${i}" data-re="1">${Object.entries(games).map(([k, g]) => `<option value="${k}" ${w.label === k ? "selected" : ""}>${esc(g[0])}</option>`).join("")}</select>`
+      : m.label ? `<input type="text" data-wf="label" data-i="${i}" value="${esc(w.label)}" placeholder="${esc(m.label)}" maxlength="40">` : `<input type="text" data-wf="label" data-i="${i}" value="${esc(w.label)}" placeholder="title (optional)" maxlength="40">`;
+    const extraField = w.type === "gamerank" ? `<input type="text" data-wf="extra" data-i="${i}" value="${esc(w.extra)}" placeholder="${esc(((games[w.label] || games.other)[2]) || "account name (optional)")} · links to tracker.gg" maxlength="60" class="span2">`
+      : m.extra ? `<select data-wf="extra" data-i="${i}">${m.extra.map(([v, l]) => `<option value="${v}" ${(w.extra || m.extra[0][0]) === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>` : "";
     return `<div class="wrow" style="--wc:${m.color}"><span class="wi">${svgIcon(m.icon)}</span>
       <div class="wfields"><b>${esc(m.name)}</b>
         ${m.input ? `<input type="${m.date ? (w.type === "birthday" ? "date" : "datetime-local") : "text"}" data-wf="value" data-i="${i}" value="${esc(w.value)}" placeholder="${esc(m.ph)}" maxlength="200" aria-label="${esc(m.input)}">` : `<small class="muted">nothing to fill in</small>`}
-        ${m.label ? `<input type="text" data-wf="label" data-i="${i}" value="${esc(w.label)}" placeholder="${esc(m.label)}" maxlength="40">` : `<input type="text" data-wf="label" data-i="${i}" value="${esc(w.label)}" placeholder="title (optional)" maxlength="40">`}
-      </div>
-      <label class="wwide" title="Full width"><input type="checkbox" data-ww="${i}" ${w.wide ? "checked" : ""}><span>wide</span></label>${acts(i, draft.widgets.length)}</div>`; }).join("") || `<p class="muted">No widgets yet. Pick some above.</p>`}</div>
-    ${draft.widgets.some((w) => w.type === "lastfm") ? `<p class="note">Last.fm shows your latest song only if the site owner adds a LASTFM_API_KEY. Otherwise it links to your profile.</p>` : ""}</div>`;
+        ${labelField}${extraField}
+      </div>${acts(i, draft.widgets.length)}</div>`; }).join("") || `<p class="muted">No widgets yet. Pick some above.</p>`}</div>
+    ${draft.widgets.some((w) => w.type === "lastfm") ? `<p class="note">Last.fm shows your latest song once the site owner adds a LASTFM_API_KEY. Until then it links to your profile.</p>` : ""}
+    ${draft.widgets.some((w) => w.type === "valorant" || w.type === "apex") ? `<p class="note">Live ranks show once the site owner adds HENRIK_API_KEY (Valorant) or TRN_API_KEY (Apex). Until then the tile links to your tracker.gg profile.</p>` : ""}</div>`;
   function bindWidgets() {
     const root = main.querySelector('[data-key="widgets"]'); if (!root) return;
-    $$("[data-wf]", root).forEach((inp) => inp.addEventListener(inp.type === "date" || inp.type === "datetime-local" ? "change" : "input", () => { draft.widgets[Number(inp.dataset.i)][inp.dataset.wf] = inp.value; changed(); }));
-    $$("[data-ww]", root).forEach((c) => c.addEventListener("change", () => { draft.widgets[Number(c.dataset.ww)].wide = c.checked; changed(); }));
+    $$("[data-wf]", root).forEach((inp) => inp.addEventListener(inp.tagName === "SELECT" || inp.type === "date" || inp.type === "datetime-local" ? "change" : "input", () => { draft.widgets[Number(inp.dataset.i)][inp.dataset.wf] = inp.value; changed(); if (inp.dataset.re) reView(); }));
     bindList(root, "widgets", reView);
+    const grid = $("#wgrid"); if (!grid) return;
+    $$("[data-wsz]", grid).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); const w = draft.widgets[Number(b.dataset.i)]; w.size = b.dataset.wsz; w.wide = false; changed(); reView(); }));
+    let from = null;
+    $$(".wtile", grid).forEach((t) => {
+      t.addEventListener("dragstart", (e) => { from = Number(t.dataset.wi); t.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", String(from)); } catch {} });
+      t.addEventListener("dragend", () => { t.classList.remove("dragging"); $$(".wtile", grid).forEach((x) => x.classList.remove("over")); });
+      t.addEventListener("dragover", (e) => { e.preventDefault(); t.classList.add("over"); });
+      t.addEventListener("dragleave", () => t.classList.remove("over"));
+      t.addEventListener("drop", (e) => { e.preventDefault(); const to = Number(t.dataset.wi); if (from == null || from === to) return; const [it] = draft.widgets.splice(from, 1); draft.widgets.splice(to, 0, it); from = null; changed(); reView(); });
+    });
   }
   function bindTaglines() {
     const root = main.querySelector('[data-key="taglines"]'); if (!root) return;

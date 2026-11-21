@@ -131,7 +131,8 @@
     const name = p.displayName || d.username;
     const u = p.underName, items = [];
     if (u.handle && p.handle.trim()) items.push(`<span>${esc(p.handle)}</span>`);
-    if (u.status && p.discord.id && p.live.status) items.push(`<span class="status" hidden><i class="sdot"></i><em style="font-style:normal"></em></span>`);
+    const cardShown = p.live.hideWithCard && p.live.style === "widget" && p.live.discordCard && p.sections.some((x) => x.id === "presence" && x.show);
+    if (u.status && p.discord.id && !cardShown) items.push(`<span class="status" hidden><i class="sdot"></i><em style="font-style:normal"></em></span>`);
     if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
     if (p.details.weather && p.details.location) items.push(`<span class="wx" hidden></span>`);
     if (u.time && p.details.timezone) items.push(`<span>${svgIcon("clock")}<span class="localtime">--:--</span></span>`);
@@ -147,7 +148,7 @@
         ${p.avatar.hidden ? "" : `<div class="avatar dec-${p.avatar.decoration}">
           ${p.avatar.decoration !== "none" ? `<span class="deco"></span>` : ""}
           <div class="face">${p.avatar.src ? `<img src="${esc(p.avatar.src)}" alt="" crossorigin="anonymous">` : esc(name.slice(0, 2))}</div>
-          ${p.discord.id && p.live.status ? `<span class="dot" hidden></span>` : ""}
+          ${p.discord.id && p.live.status && !(p.live.hideWithCard && p.live.style === "widget" && p.live.discordCard && p.sections.some((x) => x.id === "presence" && x.show)) ? `<span class="dot" hidden></span>` : ""}
           ${p.avatar.discordDecoration && p.discord.id ? `<img class="ddeco" alt="" hidden>` : ""}
         </div>`}
         <div class="who">
@@ -169,17 +170,18 @@
   };
   function widgetHtml(w, p, d) {
     const M = (window.WIDGET_META || {})[w.type]; if (!M) return "";
-    const wide = w.wide || M.wide, title = w.label && !M.label ? w.label : M.name;
+    const size = w.size && w.size !== "auto" ? w.size : (w.wide || M.wide ? "wide" : "small");
+    const wide = size === "wide" || size === "big", title = w.type === "gamerank" ? ((window.GAME_TRACKERS[w.label] || [])[0] || w.label || M.name) : w.label && !M.label ? w.label : M.name;
     const head = `<div class="wh"><span class="wi">${svgIcon(M.icon)}</span><small>${esc(title)}</small></div>`;
-    const tile = (body, extra = "") => `<div class="wg wg-${w.type} ${wide ? "wide" : ""}" style="--wc:${M.color}" data-wt="${w.type}" data-wv="${esc(w.value)}" ${extra}>${head}<div class="wb">${body}</div></div>`;
+    const tile = (body, extra = "") => `<div class="wg wg-${w.type} sz-${size}" style="--wc:${M.color}" data-wt="${w.type}" data-wv="${esc(w.value)}" data-we="${esc(w.extra || "")}" data-wl="${esc(w.label || "")}" ${extra}>${head}<div class="wb">${body}</div></div>`;
     const emb = ["spotify", "youtube", "soundcloud", "twitch"].includes(w.type) ? wEmbed(w) : null;
-    if (emb) return `<div class="wg wg-${w.type} wide embed" style="--wc:${M.color}">${head}<iframe src="${esc(emb.src)}" loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" ${emb.ratio ? 'class="r169"' : `style="height:${emb.h}px"`} title="${esc(M.name)}"></iframe></div>`;
+    if (emb) return `<div class="wg wg-${w.type} sz-${size === "small" || size === "tall" ? "wide" : size} embed" style="--wc:${M.color}">${head}<iframe src="${esc(emb.src)}" loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" ${emb.ratio ? 'class="r169"' : `style="height:${emb.h}px"`} title="${esc(M.name)}"></iframe></div>`;
     switch (w.type) {
       case "joined": { const days = Math.max(1, Math.floor((Date.now() - d.joined) / 864e5)); return tile(`<b>${days.toLocaleString()} day${days === 1 ? "" : "s"}</b><span>on ${esc(window.__SITE)} since ${new Date(d.joined).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>`); }
       case "views": return tile(`<b>${Number(d.views).toLocaleString()}</b><span>visits to this page</span>`);
       case "mood": return tile(`<b>${esc(w.value || "…")}</b><span>right now</span>`);
       case "quote": return tile(`<b class="q">“${esc(w.value)}”</b>${w.label ? `<span>— ${esc(w.label)}</span>` : ""}`);
-      case "gamerank": return tile(`<b>${esc(w.value || "unranked")}</b><span>${esc(w.label || "rank")}</span>`);
+      case "gamerank": { const url = window.trackerUrl(w.label, w.extra); return tile(`<b>${esc(w.value || "unranked")}</b><span>${esc(w.extra || "rank")}</span>`).replace(/<\/div>$/, url ? `<a class="wlink" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="tracker.gg profile"></a></div>` : "</div>"); }
       case "timezone": return tile(`<b class="wclock">--:--</b><span>${esc((w.value || "").split("/").pop().replace(/_/g, " ") || "local time")}</span>`);
       case "birthday": case "countdown": return tile(`<b class="wcd">…</b><span>${esc(w.type === "birthday" ? "until my birthday" : w.label || "until it's here")}</span>`);
       case "discord": return tile(`<b>loading…</b><span></span>`);
@@ -194,7 +196,7 @@
     };
     const fail = (el, msg) => fill(el, esc(el.dataset.wv || "—"), esc(msg || "couldn't load"));
     const num = (n) => Number(n || 0).toLocaleString();
-    const proxy = (type, q) => fetch(`/api/widget/${type}?q=${encodeURIComponent(q)}`).then((r) => r.json());
+    const proxy = (type, q, extra) => fetch(`/api/widget/${type}?q=${encodeURIComponent(q)}${extra ? "&platform=" + encodeURIComponent(extra) : ""}`).then((r) => r.json());
     tiles.forEach((el) => {
       const t = el.dataset.wt, v = (el.dataset.wv || "").trim();
       try {
@@ -236,6 +238,8 @@
         if (t === "roblox") { proxy("roblox", v).then((j) => j.error ? fail(el, "user not found") : fill(el, esc(j.name), `@${esc(j.user)} · ${esc(j.state)}${j.friends != null ? ` · ${num(j.friends)} friends` : ""}`, j.avatar, j.url)).catch(() => fail(el)); return; }
         if (t === "duolingo") { proxy("duolingo", v).then((j) => j.error ? fail(el, "user not found") : fill(el, `${num(j.streak)} day streak`, `${num(j.xp)} xp${j.courses.length ? " · " + esc(j.courses.join(", ")) : ""}`, "", j.url)).catch(() => fail(el)); return; }
         if (t === "letterboxd") { proxy("letterboxd", v).then((j) => j.error ? fail(el, "no films logged") : fill(el, esc(j.film) + (j.year ? ` <em>${esc(j.year)}</em>` : ""), j.rating ? "★".repeat(Math.floor(j.rating)) + (j.rating % 1 ? "½" : "") + " · last watched" : "last watched", j.poster, j.url)).catch(() => fail(el)); return; }
+        if (t === "valorant") { proxy("valorant", v).then((j) => j.error ? fail(el, "use Name#TAG") : j.nokey ? fill(el, esc(v), "see stats on tracker.gg", "", j.url) : fill(el, `${esc(j.rank)}${j.rr != null ? ` <em>${j.rr} RR</em>` : ""}`, `${esc(j.name)} · lvl ${num(j.level)}${j.peak ? " · peak " + esc(j.peak) : ""}`, j.icon || j.card, j.url)).catch(() => fail(el)); return; }
+        if (t === "apex") { proxy("apex", v, el.dataset.we || "origin").then((j) => j.error ? fail(el, "player not found") : j.nokey ? fill(el, esc(v), "see stats on tracker.gg", "", j.url) : fill(el, esc(j.rank || "unranked"), `${esc(j.name)}${j.level ? " · lvl " + num(j.level) : ""}${j.kills ? " · " + num(j.kills) + " kills" : ""}`, j.icon || j.avatar, j.url)).catch(() => fail(el)); return; }
         if (t === "lastfm") { proxy("lastfm", v).then((j) => j.error ? fail(el, "user not found") : j.nokey ? fill(el, esc(v), "scrobbles on last.fm", "", j.url) : fill(el, esc(j.song), `${esc(j.artist)} · ${j.now ? "now playing" : "last played"}`, j.art, j.url)).catch(() => fail(el)); return; }
       } catch { fail(el); }
     });
@@ -658,10 +662,8 @@
         const r = await fetch(`https://api.lanyard.rest/v1/users/${p.discord.id}`); const j = await r.json(); if (!j.success) return;
         lanyard = j.data; const L = lanyard;
         const dot = root.querySelector(".avatar .dot"), st = root.querySelector(".line .status");
-        if (p.live.status) {
-          if (dot) { dot.hidden = false; dot.style.background = COLORS[L.discord_status]; dot.title = WORDS[L.discord_status]; }
-          if (st) { st.hidden = false; st.querySelector(".sdot").style.background = COLORS[L.discord_status]; st.querySelector("em").textContent = WORDS[L.discord_status]; }
-        }
+        if (dot) { dot.hidden = false; dot.style.background = COLORS[L.discord_status]; dot.title = WORDS[L.discord_status]; }
+        if (st) { st.hidden = false; st.querySelector(".sdot").style.background = COLORS[L.discord_status]; st.querySelector("em").textContent = WORDS[L.discord_status]; }
         const dd = root.querySelector(".ddeco"), deco = L.discord_user && L.discord_user.avatar_decoration_data;
         if (dd && deco) { dd.src = `https://cdn.discordapp.com/avatar-decoration-presets/${deco.asset}.png?size=240&passthrough=true`; dd.hidden = false; }
         const custom = (L.activities || []).find((x) => x.type === 4);
@@ -680,14 +682,14 @@
           const DEV = { desktop: "M3 4h18v12H3zM8 20h8M12 16v4", mobile: "M7 2h10v20H7zM11 18h2", web: "M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" };
           blocks.push(`<div class="pcard dc st-${st}">${label("discord", `<em class="pst"><i class="sdot" style="background:${COLORS[st]}"></i>${WORDS[st]}</em>`)}
             <div class="part av">${av ? `<img src="${esc(av)}" alt="">` : svgIcon("discord")}<i class="adot" style="background:${COLORS[st]}"></i></div>
-            <div class="pbody"><div class="dname"><b class="mq"><span>${esc(du.global_name || du.display_name || du.username || d.username)}</span></b>${p.live.discordBadges ? guildTag(du) : ""}</div>
-              <span class="sub">@${esc(du.username || "")}</span>${p.live.discordBadges ? discordBadges(du) : ""}
+            <div class="pbody"><div class="dname"><b class="mq"><span>${esc(du.global_name || du.display_name || du.username || data.username)}</span></b>${p.live.discordBadges ? guildTag(du) : ""}</div>
+              <span class="sub">@${esc(du.username || "")}</span>${p.live.discordBadges ? discordBadges(du, data.discordX && data.discordX.id === p.discord.id ? data.discordX : null) : ""}
               ${custom && (custom.state || em) && p.live.customStatus ? `<span class="cstat">${em}${esc(custom.state || "")}</span>` : ""}
               ${devs.length ? `<span class="devs">${devs.map((x) => `<svg viewBox="0 0 24 24" aria-label="on ${x}"><path d="${DEV[x]}"/></svg>`).join("")}<span>on ${devs.join(" & ")}</span></span>` : ""}</div></div>`);
         }
         if (p.live.spotify && L.listening_to_spotify && L.spotify) {
           const sp = L.spotify;
-          if (W) blocks.push(`<div class="box presence-wrap pcard-wrap"><div class="pcard sp">${label(p.live.listeningLabel, `<i class="eq"><b></b><b></b><b></b><b></b></i>`)}
+          if (W) blocks.push(`<div class="box presence-wrap pcard-wrap"><div class="pcard sp">${label(p.live.listeningLabel, `<i class="eq"><b></b><b></b><b></b><b></b></i><span class="onrep" hidden><svg viewBox="0 0 24 24"><path d="M7 7h10l-2-2 1.4-1.4L20.8 8l-4.4 4.4L15 11l2-2H7a3 3 0 0 0-3 3H2a5 5 0 0 1 5-5zm10 10H7l2 2-1.4 1.4L3.2 16l4.4-4.4L9 13l-2 2h10a3 3 0 0 0 3-3h2a5 5 0 0 1-5 5z"/></svg><em></em></span>`)}
             <a class="part" href="https://open.spotify.com/track/${esc(sp.track_id || "")}" target="_blank" rel="noopener noreferrer" title="Open in Spotify">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</a>
             <div class="pbody"><b class="mq"><span>${esc(sp.song)}</span></b><span class="sub mq"><span>${esc(sp.artist.replace(/;/g, ","))}</span></span>
             <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
@@ -709,13 +711,17 @@
           else blocks.push(`<div class="box presence"><div class="art">${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(verb)}</small><b>${esc(a.name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);
         }
         stack.innerHTML = W && p.live.combine && blocks.length > 1 ? `<div class="pcombo">${blocks.join("")}</div>` : blocks.join(""); sec.hidden = !blocks.length;
+        if (W && p.live.onRepeat && L.listening_to_spotify && L.spotify && !PREVIEW) liveInfo(data.username).then((j) => {
+          const el = stack.querySelector(".onrep"); if (!el || !j || j.track_id !== L.spotify.track_id) return;
+          if (j.repeat >= p.live.repeatAt) { el.hidden = false; el.querySelector("em").textContent = `on repeat ×${j.repeat}`; el.title = `played ${j.repeat} times in a row`; }
+        });
         if (W && p.live.albumColor && L.listening_to_spotify && L.spotify && L.spotify.album_art_url) albumColour(L.spotify.album_art_url).then((c) => { const el = stack.querySelector(".pcard.sp"); if (c && el) { el.style.setProperty("--pc", c); el.classList.add("tinted"); } });
         requestAnimationFrame(() => stack.querySelectorAll(".mq").forEach((m) => { const over = m.firstElementChild.scrollWidth - m.clientWidth; if (over > 4) { m.classList.add("go"); m.style.setProperty("--mqx", -over - 12 + "px"); m.style.setProperty("--mqd", Math.max(6, over / 18) + "s"); } }));
         if (p.live.lyrics && L.listening_to_spotify && L.spotify) {
           const key = L.spotify.track_id;
           if (lyricsFor !== key) { lyricsFor = key; lyricLines = []; loadLyrics(L.spotify).then((ls) => { if (lyricsFor === key) lyricLines = ls; }); }
         }
-      } catch {}
+      } catch (e) { if (window.__DEBUG) console.error(e); }
     };
     every(poll, 10000);
     // progress + lyrics tick
@@ -741,16 +747,29 @@
     [2, "HypeSquad Events", "bf01d1073931f921909045f3a39fd264"], [6, "HypeSquad Bravery", "8a88d63823d8a71cd5e390baa45efa02"], [7, "HypeSquad Brilliance", "011940fd013da3f7fb926e4a1cd2e618"], [8, "HypeSquad Balance", "3aa41de486fa12454c3761e8e223442e"],
     [3, "Bug Hunter", "2717692c7dca7289b35297368a940dd0"], [14, "Golden Bug Hunter", "848f79194d4be5ff5f81505cbd0ce1e6"], [17, "Early Verified Bot Developer", "6df5892e0f35b051f8b61eace34f4967"],
     [9, "Early Supporter", "7060786766c9c840eb3019e725d2b358"], [22, "Active Developer", "6bdc42827a38498929a4920da12695d9"]];
-  function discordBadges(du) {
-    const f = Number(du.public_flags || 0), list = DBADGES.filter(([bit]) => f & (1 << bit));
+  // Nitro comes from the owner's own Discord sign-in; boosting from the site's bot (only the site's own server).
+  const BOOST = [[24, "ec92202290b48d0879b7413d2dde3bab"], [18, "7142225d31238f6387d9f09efaa02759"], [15, "cb3ae83c15e970e8f3d410bc62cb8b99"], [12, "991c9f39ee33d7537d9f408c3e53141e"], [9, "996b3e870e8a22ce519b3a50e6bdd52f"], [6, "df199d2050d3ed4ebf84d64ae83989f8"], [3, "72bed924410c304dbe3d00a6e593ff59"], [2, "0e4080d1d333bc7ad29ef6528b6f2fb7"], [0, "51040c70d4f20a921ad6674ff86fc95c"]];
+  const SVG_NITRO = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff73fa" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20zm0 4.5a5.5 5.5 0 1 1 0 11a5.5 5.5 0 0 1 0-11z"/><circle cx="12" cy="12" r="2.6" fill="#ff73fa"/></svg>`;
+  const SVG_BOOST = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff73fa" d="M12 2l7 6.5v7L12 22l-7-6.5v-7z"/><path fill="#ffb3fb" d="M12 6l3.5 3.2v5.6L12 18l-3.5-3.2V9.2z"/></svg>`;
+  function discordBadges(du, x) {
+    const f = Number(du.public_flags || 0), list = DBADGES.filter(([bit]) => f & (1 << bit)).map(([, name, hash]) => `<img src="https://cdn.discordapp.com/badge-icons/${hash}.png" alt="${esc(name)}" title="${esc(name)}" onerror="this.remove()">`);
+    if (x && x.nitro) list.unshift(`<img src="https://cdn.discordapp.com/badge-icons/2ba85e8026a8614b640c2837bcdfe21b.png" alt="Nitro" title="${x.nitro === 2 ? "Nitro" : x.nitro === 3 ? "Nitro Basic" : "Nitro Classic"}" onerror="this.outerHTML=SVG_NITRO_HTML">`);
+    if (x && x.boostSince) {
+      const months = Math.floor((Date.now() - x.boostSince) / (30.44 * 864e5)), lvl = BOOST.find(([m]) => months >= m);
+      const since = new Date(x.boostSince).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+      list.splice(x.nitro ? 1 : 0, 0, `<img src="https://cdn.discordapp.com/badge-icons/${lvl[1]}.png" alt="Server boosting" title="Server boosting since ${since}" onerror="this.outerHTML=SVG_BOOST_HTML">`);
+    }
     if (!list.length) return "";
-    return `<span class="dbadges">${list.map(([, name, hash]) => `<img src="https://cdn.discordapp.com/badge-icons/${hash}.png" alt="${esc(name)}" title="${esc(name)}" onerror="this.remove()">`).join("")}</span>`;
+    return `<span class="dbadges">${list.join("")}</span>`;
   }
+  window.SVG_NITRO_HTML = SVG_NITRO; window.SVG_BOOST_HTML = SVG_BOOST;
   function guildTag(du) {
     const g = du.primary_guild || du.clan; if (!g || !g.tag || g.identity_enabled === false) return "";
     const icon = g.badge && g.identity_guild_id ? `<img src="https://cdn.discordapp.com/clan-badges/${g.identity_guild_id}/${g.badge}.png?size=16" alt="" onerror="this.remove()">` : "";
     return `<span class="gtag" title="Server tag">${icon}${esc(g.tag)}</span>`;
   }
+  let liveCache = { at: 0, p: null };
+  const liveInfo = (u) => { if (Date.now() - liveCache.at < 20000 && liveCache.p) return liveCache.p; liveCache = { at: Date.now(), p: fetch(`/api/live/${encodeURIComponent(u)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null) }; return liveCache.p; };
   /* the most colourful shade in an album cover */
   const albumCache = {};
   function albumColour(url) {

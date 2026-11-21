@@ -115,6 +115,8 @@ CREATE INDEX IF NOT EXISTS idx_comments_page ON comments(page_id, ts);
 if (!cols.includes("last_seen")) db.exec("ALTER TABLE users ADD COLUMN last_seen INTEGER");
 if (!cols.includes("premium_until")) db.exec("ALTER TABLE users ADD COLUMN premium_until INTEGER");
 if (!cols.includes("note")) db.exec("ALTER TABLE users ADD COLUMN note TEXT");
+if (!cols.includes("discord_premium")) db.exec("ALTER TABLE users ADD COLUMN discord_premium INTEGER NOT NULL DEFAULT 0");
+if (!cols.includes("discord_flags")) db.exec("ALTER TABLE users ADD COLUMN discord_flags INTEGER NOT NULL DEFAULT 0");
 if (!cols.includes("view_bonus")) db.exec("ALTER TABLE users ADD COLUMN view_bonus INTEGER NOT NULL DEFAULT 0");
 db.exec(`
 CREATE TABLE IF NOT EXISTS aliases (
@@ -179,6 +181,15 @@ CREATE TABLE IF NOT EXISTS held_names (
   created_by INTEGER,
   ts         INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS spotify_plays (
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_id TEXT NOT NULL,
+  song     TEXT, artist TEXT, art TEXT,
+  started  INTEGER NOT NULL,
+  ends     INTEGER,
+  PRIMARY KEY (user_id, started)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_plays ON spotify_plays(user_id, started);
 CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, ts);
 CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit(ts);
 `);

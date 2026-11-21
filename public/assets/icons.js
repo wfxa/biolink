@@ -1,5 +1,7 @@
 // Shared SVG icons (24x24 viewBox, filled).
 window.ICONS = {
+  valorant: "M2 4.5v8.3l7.6 9.7h7.2L2 4.5zM22 4.5L13.6 15h6.7l1.7-2.2z",
+  apex: "M12 2L2 21h5.2L12 11.6 16.8 21H22zM12 15.5l-2.6 5.5h5.2z",
   sun: "M12 7a5 5 0 1 0 0 10a5 5 0 0 0 0-10zM11 1h2v3h-2zM11 20h2v3h-2zM1 11h3v2H1zM20 11h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zM16.3 17.7l1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1z",
   chess: "M12 2a3 3 0 0 0-1.9 5.3L8 11h8l-2.1-3.7A3 3 0 0 0 12 2zM8.5 12.5l-.8 5h8.6l-.8-5zM5 19h14v3H5z",
   cake: "M12 2c1 1.5 1.5 2.5 0 4c-1.5-1.5-1-2.5 0-4zM11 7h2v3h-2zM4 11h16v4c-1.5 1-2.5 1-4 0c-1.5 1-2.5 1-4 0c-1.5 1-2.5 1-4 0c-1.5 1-2.5 1-4 0zM4 16.5c1.5.8 2.8.8 4 0c1.3.8 2.7.8 4 0c1.3.8 2.7.8 4 0c1.2.8 2.5.8 4 0V22H4z",
@@ -74,6 +76,20 @@ window.svgIcon = (name, cls = "") =>
   `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${(window.ICONS[name] || window.ICONS.website)}"/></svg>`;
 // Widget catalogue shared by the dashboard picker and the page renderer.
 // input: what the owner types · ph: placeholder · wide: takes the full row by default
+// Games for the "Any game" tile and where their tracker.gg profile lives. {n} = name, {t} = tag after #
+window.GAME_TRACKERS = {
+  cs2: ["Counter-Strike 2", "https://tracker.gg/cs2/profile/steam/{n}/overview", "Steam ID or custom URL"],
+  fortnite: ["Fortnite", "https://fortnitetracker.com/profile/all/{n}", "Epic name"],
+  r6: ["Rainbow Six Siege", "https://r6.tracker.network/r6siege/profile/ubi/{n}/overview", "Ubisoft name"],
+  overwatch: ["Overwatch 2", "https://tracker.gg/overwatch/profile/battlenet/{n}%23{t}/overview", "BattleTag (Name#1234)"],
+  lol: ["League of Legends", "https://tracker.gg/lol/profile/riot/{n}%23{t}/overview", "Riot ID (Name#TAG)"],
+  rocketleague: ["Rocket League", "https://rocketleague.tracker.network/rocket-league/profile/epic/{n}/overview", "Epic name"],
+  rivals: ["Marvel Rivals", "https://tracker.gg/marvel-rivals/profile/ign/{n}/overview", "In-game name"],
+  valorant: ["Valorant", "https://tracker.gg/valorant/profile/riot/{n}%23{t}/overview", "Riot ID (Name#TAG)"],
+  apex: ["Apex Legends", "https://apex.tracker.gg/apex/profile/origin/{n}/overview", "EA name"],
+  other: ["Other game", "", ""],
+};
+window.trackerUrl = (game, acct) => { const g = window.GAME_TRACKERS[game]; if (!g || !g[1] || !acct) return ""; const [n, t = ""] = String(acct).split("#"); return g[1].replace("{n}", encodeURIComponent(n.trim())).replace("{t}", encodeURIComponent(t.trim())); };
 window.WIDGET_META = {
   timezone:   { name: "Timezone",       color: "#0ea5e9", icon: "clock",     input: "Timezone",        ph: "Europe/London" },
   weather:    { name: "Weather",        color: "#f59e0b", icon: "sun",       input: "City",            ph: "London" },
@@ -93,7 +109,9 @@ window.WIDGET_META = {
   letterboxd: { name: "Letterboxd",     color: "#202830", icon: "letterboxd", input: "Username",       ph: "dave" },
   anilist:    { name: "AniList",        color: "#02a9ff", icon: "anilist",   input: "Username",        ph: "Josh" },
   duolingo:   { name: "Duolingo",       color: "#58cc02", icon: "owl",       input: "Username",        ph: "luis" },
-  gamerank:   { name: "Game rank",      color: "#ff4655", icon: "trophy",    input: "Rank",            ph: "Diamond 2", label: "Game (Valorant, CS2, Fortnite…)" },
+  valorant:   { name: "Valorant",       color: "#ff4655", icon: "valorant",  input: "Riot ID",         ph: "Name#TAG" },
+  apex:       { name: "Apex Legends",   color: "#cd3333", icon: "apex",      input: "Username",        ph: "your EA name", extra: [["origin", "PC (EA)"], ["psn", "PlayStation"], ["xbl", "Xbox"]] },
+  gamerank:   { name: "Any game",       color: "#7c5cff", icon: "trophy",    input: "Rank or stat",    ph: "Diamond 2", game: true },
   mood:       { name: "Mood",           color: "#f472b6", icon: "smile",     input: "How you feel",    ph: "locked in" },
   quote:      { name: "Quote",          color: "#64748b", icon: "quote",     input: "Quote",           ph: "stay hungry", label: "Who said it", wide: true },
   views:      { name: "Visits",         color: "#22c55e", icon: "eye",       input: "",                ph: "" },

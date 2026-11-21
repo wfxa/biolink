@@ -685,9 +685,26 @@ canvas.fx{z-index:1}canvas.cursorfx{z-index:70}
 .arr-rx .ws-brand .wg{box-shadow:none}
 .wg .wb>span.wxi{width:auto;opacity:1;flex:none}
 .wg .wb:has(.wxi){flex-wrap:nowrap}
-.dbadges:not(:has(img)){display:none}
+.dbadges:not(:has(img,svg)){display:none}
+.dbadges svg{width:18px;height:18px}
 .widgets{align-items:start}
 .player.ml-banner{flex-direction:column;align-items:stretch;padding:0;gap:0}
 .ml-banner .mtop .mmid{flex:1}
 .ml-banner .mstrip .mprog{flex:1}
 .ml-covervinyl .cvwrap .disc{left:22px}
+.onrep{display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:999px;background:color-mix(in srgb,var(--pc) 22%,transparent);border:1px solid color-mix(in srgb,var(--pc) 50%,transparent);color:var(--text);font-size:9.5px;letter-spacing:.06em;width:max-content;animation:repin .5s cubic-bezier(.3,1.5,.5,1)}
+.onrep[hidden]{display:none}
+.onrep svg{width:11px;height:11px;fill:var(--pc)}
+.onrep em{font-style:normal}
+@keyframes repin{from{scale:.6;opacity:0}}
+/* widget sizes: a 2-column home-screen grid */
+.widgets{grid-auto-rows:minmax(96px,auto);grid-auto-flow:row dense;align-items:stretch}
+.wg.sz-wide,.wg.sz-big{grid-column:1 / -1}
+.wg.sz-tall,.wg.sz-big{grid-row:span 2}
+.wg.sz-tall .wb,.wg.sz-big .wb{flex:1;flex-direction:column;align-items:flex-start;justify-content:flex-end;flex-wrap:nowrap}
+.wg.sz-tall .wb>b,.wg.sz-tall .wtx b,.wg.sz-big .wb>b,.wg.sz-big .wtx b{font-size:22px;white-space:normal}
+.wg.sz-tall .wimg,.wg.sz-big .wimg{width:56px;height:56px;border-radius:12px}
+.wg.sz-big .wb>b.q{font-size:20px}
+.wg.sz-tall .wxi svg,.wg.sz-big .wxi svg{width:48px;height:48px}
+.wg.sz-big.embed iframe.r169{aspect-ratio:16/10}
+@container (max-width:300px){.wg.sz-tall,.wg.sz-big{grid-row:auto}}

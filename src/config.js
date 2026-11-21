@@ -3,6 +3,8 @@ const path = require("path");
 const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || process.env.DATA_DIR || path.join(__dirname, "..", "data");
 
 module.exports = {
+  DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN || "",
+  DISCORD_GUILD_ID: process.env.DISCORD_GUILD_ID || "",
   // Change your site's name here, or set SITE_NAME in Railway → Variables.
   SITE_NAME: process.env.SITE_NAME || "dose",
   PORT: Number(process.env.PORT) || 3000,
