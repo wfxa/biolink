@@ -1,5 +1,14 @@
 // Shared SVG icons (24x24 viewBox, filled).
 window.ICONS = {
+  sun: "M12 7a5 5 0 1 0 0 10a5 5 0 0 0 0-10zM11 1h2v3h-2zM11 20h2v3h-2zM1 11h3v2H1zM20 11h3v2h-3zM4.2 5.6l1.4-1.4 2.1 2.1-1.4 1.4zM16.3 17.7l1.4-1.4 2.1 2.1-1.4 1.4zM4.2 18.4l2.1-2.1 1.4 1.4-2.1 2.1zM16.3 6.3l2.1-2.1 1.4 1.4-2.1 2.1z",
+  chess: "M12 2a3 3 0 0 0-1.9 5.3L8 11h8l-2.1-3.7A3 3 0 0 0 12 2zM8.5 12.5l-.8 5h8.6l-.8-5zM5 19h14v3H5z",
+  cake: "M12 2c1 1.5 1.5 2.5 0 4c-1.5-1.5-1-2.5 0-4zM11 7h2v3h-2zM4 11h16v4c-1.5 1-2.5 1-4 0c-1.5 1-2.5 1-4 0c-1.5 1-2.5 1-4 0c-1.5 1-2.5 1-4 0zM4 16.5c1.5.8 2.8.8 4 0c1.3.8 2.7.8 4 0c1.3.8 2.7.8 4 0c1.2.8 2.5.8 4 0V22H4z",
+  hourglass: "M6 2h12v5l-4 5 4 5v5H6v-5l4-5-4-5zM8 4v2.3l4 5 4-5V4z",
+  quote: "M4 6h6v6H7c0 2 1 3 3 3v3c-4 0-6-2-6-6zM14 6h6v6h-3c0 2 1 3 3 3v3c-4 0-6-2-6-6z",
+  lastfm: "M10.6 17.3l-.8-2.1s-1.3 1.4-3.2 1.4c-1.7 0-2.9-1.5-2.9-3.8 0-3 1.5-4.1 3-4.1 2.1 0 2.8 1.4 3.4 3.2l.8 2.4c.8 2.4 2.3 4.3 6.6 4.3 3.1 0 5.2-1 5.2-3.4 0-2-1.1-3-3.2-3.5l-1.5-.3c-1-.2-1.4-.7-1.4-1.4 0-.8.7-1.3 1.7-1.3 1.2 0 1.8.4 1.9 1.5l2.4-.3C22.4 7.8 21 6.9 18.5 6.9c-2.2 0-4.4.8-4.4 3.5 0 1.7.8 2.7 2.8 3.2l1.6.4c1.2.3 1.6.8 1.6 1.5 0 .9-.9 1.3-2.5 1.3-2.4 0-3.5-1.3-4-3l-.8-2.4C11.7 8.3 10.5 6.9 7.3 6.9 4 6.9 1.4 9.4 1.4 13c0 3.4 2.4 5.6 5.4 5.6 2.4 0 3.8-1.3 3.8-1.3z",
+  anilist: "M7.6 3L1 21h5.1l1.2-3.5h6.6l1.2 3.5h5.1L13.5 3zm1 10.6l2-6.1 2 6.1zM16.5 3v4h3.2v14H23V3z",
+  owl: "M12 3c-4.4 0-8 3.1-8 7.5V20l3-2 2 2 3-2 3 2 2-2 3 2v-9.5C20 6.1 16.4 3 12 3zM8.5 9a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5zm7 0a2.5 2.5 0 1 1 0 5a2.5 2.5 0 0 1 0-5zM12 14l1.2 1.5h-2.4z",
+  smile: "M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20zm0 2a8 8 0 1 1 0 16a8 8 0 0 1 0-16zM8.5 8.5a1.5 1.5 0 1 0 0 3a1.5 1.5 0 0 0 0-3zm7 0a1.5 1.5 0 1 0 0 3a1.5 1.5 0 0 0 0-3zM7.5 13.5h9a4.6 4.6 0 0 1-9 0z",
   discord: "M19.6 5.2A17 17 0 0 0 15.4 4l-.5 1a15.7 15.7 0 0 0-5.8 0l-.5-1a17 17 0 0 0-4.2 1.2C1.7 9.2 1 13.1 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8a11 11 0 0 1-1.7-.8l.4-.3a12.2 12.2 0 0 0 11.4 0l.4.3-1.7.8 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.5-.7-8.4-3.1-11.8zM8.7 14.6c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm6.6 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z",
   instagram: "M12 7.3A4.7 4.7 0 1 0 16.7 12 4.7 4.7 0 0 0 12 7.3zm0 7.7a3 3 0 1 1 3-3 3 3 0 0 1-3 3zm4.9-8.9a1.1 1.1 0 1 0 1.1 1.1 1.1 1.1 0 0 0-1.1-1.1zM12 2c-2.7 0-3 0-4.1.1A6 6 0 0 0 2.1 7.9C2 9 2 9.3 2 12s0 3 .1 4.1a6 6 0 0 0 5.8 5.8c1.1.1 1.4.1 4.1.1s3 0 4.1-.1a6 6 0 0 0 5.8-5.8c.1-1.1.1-1.4.1-4.1s0-3-.1-4.1a6 6 0 0 0-5.8-5.8C15 2 14.7 2 12 2zm0 1.8c2.7 0 3 0 4 .1 2.7.1 4 1.4 4.1 4.1.1 1 .1 1.3.1 4s0 3-.1 4c-.1 2.7-1.4 4-4.1 4.1-1 .1-1.3.1-4 .1s-3 0-4-.1c-2.7-.1-4-1.4-4.1-4.1-.1-1-.1-1.3-.1-4s0-3 .1-4C4 5.3 5.3 4 8 3.9c1-.1 1.3-.1 4-.1z",
   tiktok: "M16.6 2h-3.3v13.2a2.9 2.9 0 1 1-2-2.8V9a6.2 6.2 0 1 0 5.3 6.2V8.6a7.8 7.8 0 0 0 4.4 1.4V6.7A4.4 4.4 0 0 1 16.6 2z",
@@ -63,3 +72,29 @@ window.ICONS = {
 };
 window.svgIcon = (name, cls = "") =>
   `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${(window.ICONS[name] || window.ICONS.website)}"/></svg>`;
+// Widget catalogue shared by the dashboard picker and the page renderer.
+// input: what the owner types · ph: placeholder · wide: takes the full row by default
+window.WIDGET_META = {
+  timezone:   { name: "Timezone",       color: "#0ea5e9", icon: "clock",     input: "Timezone",        ph: "Europe/London" },
+  weather:    { name: "Weather",        color: "#f59e0b", icon: "sun",       input: "City",            ph: "London" },
+  joined:     { name: "Account date",   color: "#7c3aed", icon: "calendar",  input: "",                ph: "" },
+  birthday:   { name: "Birthday",       color: "#ec4899", icon: "cake",      input: "Date",            ph: "2005-07-14", date: true },
+  countdown:  { name: "Countdown",      color: "#14b8a6", icon: "hourglass", input: "Date and time",   ph: "2026-12-25T00:00", date: true, label: "What's coming" },
+  discord:    { name: "Discord server", color: "#5865f2", icon: "discord",   input: "Invite link",     ph: "discord.gg/yourserver" },
+  spotify:    { name: "Spotify",        color: "#1db954", icon: "spotify",   input: "Track, album or playlist link", ph: "open.spotify.com/track/…", wide: true },
+  soundcloud: { name: "SoundCloud",     color: "#ff5500", icon: "soundcloud", input: "Track or playlist link", ph: "soundcloud.com/artist/track", wide: true },
+  youtube:    { name: "YouTube",        color: "#ff0000", icon: "youtube",   input: "Video link",      ph: "youtube.com/watch?v=…", wide: true },
+  twitch:     { name: "Twitch",         color: "#9146ff", icon: "twitch",    input: "Channel name",    ph: "yourchannel", wide: true },
+  github:     { name: "GitHub",         color: "#24292f", icon: "github",    input: "Username",        ph: "octocat" },
+  steam:      { name: "Steam",          color: "#1b2838", icon: "steam",     input: "Profile link or custom URL name", ph: "steamcommunity.com/id/you" },
+  roblox:     { name: "Roblox",         color: "#111111", icon: "roblox",    input: "Username",        ph: "Builderman" },
+  chess:      { name: "Chess.com",      color: "#81b64c", icon: "chess",     input: "Username",        ph: "hikaru" },
+  lastfm:     { name: "Last.fm",        color: "#d51007", icon: "lastfm",    input: "Username",        ph: "rj" },
+  letterboxd: { name: "Letterboxd",     color: "#202830", icon: "letterboxd", input: "Username",       ph: "dave" },
+  anilist:    { name: "AniList",        color: "#02a9ff", icon: "anilist",   input: "Username",        ph: "Josh" },
+  duolingo:   { name: "Duolingo",       color: "#58cc02", icon: "owl",       input: "Username",        ph: "luis" },
+  gamerank:   { name: "Game rank",      color: "#ff4655", icon: "trophy",    input: "Rank",            ph: "Diamond 2", label: "Game (Valorant, CS2, Fortnite…)" },
+  mood:       { name: "Mood",           color: "#f472b6", icon: "smile",     input: "How you feel",    ph: "locked in" },
+  quote:      { name: "Quote",          color: "#64748b", icon: "quote",     input: "Quote",           ph: "stay hungry", label: "Who said it", wide: true },
+  views:      { name: "Visits",         color: "#22c55e", icon: "eye",       input: "",                ph: "" },
+};

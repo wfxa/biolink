@@ -21,6 +21,8 @@
     $("#savebar").hidden = !dirty; $("#dirty").hidden = !dirty;
     if (!skipHistory) { clearTimeout(htimer); htimer = setTimeout(() => { const s = JSON.stringify(draft); if (s !== hist[hpos]) { hist = hist.slice(0, hpos + 1); hist.push(s); if (hist.length > 80) hist.shift(); hpos = hist.length - 1; } histBtns(); }, 350); }
     pushPreview(); pvAccent();
+    const dp = document.getElementById("discPv"); if (dp) dp.innerHTML = discPv();
+    const tp = document.getElementById("tabPv"); if (tp) tp.innerHTML = tabPv();
   }
   function pvAccent() { const m = document.querySelector("main") || document.body; m.style.setProperty("--pa", draft.colors.accent || "#5ef2b0"); }
   const histBtns = () => { $("#undo").disabled = hpos <= 0; $("#redo").disabled = hpos >= hist.length - 1; };
@@ -107,9 +109,23 @@
     icons: (v) => `<span class="pv pv-scene"><span class="pv-icons pv-is-${v}"><i></i><i></i><i></i><i></i></span></span>`,
     arr: (v) => `<span class="pv pv-scene"><span class="pv-arr pv-arr-${v}"><i class="pv-av pv-av-${draft.avatar.shape}" style="${pvFace()}"></i><span><b></b><em></em></span></span></span>`,
   };
+  /* live previews for the sharing page */
+  function discPv() {
+    const big = draft.share.ogLarge && (draft.share.ogImage || draft.banner), img = draft.share.ogImage || (draft.share.ogLarge && draft.banner) || draft.avatar.src;
+    const desc = draft.meta.description || draft.bio.split("\n")[0].replace(/\|\|(.+?)\|\|/g, (_, w) => "█".repeat(Math.min(12, w.length))) || draft.handle || "@" + me.username;
+    return `<div class="disc-card ${big ? "big" : ""}" style="--bar:${draft.share.colorBar || draft.colors.accent}"><div class="dtxt"><small>${esc(location.host)}</small><b>${esc((draft.meta.title || draft.share.tabTitle || draft.displayName || me.username) + " · " + me.site)}</b><p>${esc(desc)}</p></div>${img ? `<img src="${esc(img)}" alt="">` : ""}</div>`;
+  }
+  function tabPv() {
+    const ic = draft.share.tabIcon === "custom" && draft.share.favicon ? draft.share.favicon : draft.share.tabIcon === "picture" && draft.avatar.src ? draft.avatar.src : "/assets/favicon.svg";
+    return `<div class="tabmock"><div class="tm-bar"><i></i><i></i><i></i><div class="tm-tab"><img src="${esc(ic)}" alt=""><span>${esc(draft.share.tabTitle || draft.meta.title || draft.displayName || me.username)}</span><em>✕</em></div></div>
+      <div class="tm-url"><span>‹ ›</span><div>${esc(location.host)}/${esc(me.username)}</div></div></div>`;
+  }
   const pvOpts = (list, fn) => list.map(([v, l]) => [v, l, fn(v)]);
   const fontChips = () => O.FONTS.map((f) => [f, f, `<span class="aa" style="font-family:'${f}'">Aa</span>`]);
-  const EFFECT_NAMES = { none: "None", shine: "Shine", glow: "Glow", neon: "Neon", colorshift: "Color shift", glitch: "Glitch", wave: "Wave", typewriter: "Typewriter", scramble: "Scramble", flicker: "Flicker", float: "Float", blurin: "Blur in", split: "Split", focus: "Focus", sparkle: "Sparkle", stroke: "Outline" };
+  const EFFECT_NAMES = { none: "None", shine: "Shine", glow: "Glow", neon: "Neon", colorshift: "Color shift", glitch: "Glitch", wave: "Wave", typewriter: "Typewriter", scramble: "Scramble", flicker: "Flicker", float: "Float", blurin: "Blur in", split: "Split", focus: "Focus", sparkle: "Sparkle", stroke: "Outline", shake: "Shake", rainbow: "Rainbow", loading: "Loading", flip: "Flip", bounce: "Bounce", jelly: "Jelly", pulse: "Pulse", chrome: "Chrome", fire: "Fire", ice: "Ice", toxic: "Toxic", "outline-glow": "Glow outline" };
+  const EXTRA_NAMES = { blossoms: ["Cherry blossoms", "#ff9ec0"], flames: ["Flames", "#ff7a1a"], snow: ["Snow", "#e8f6ff"], hearts: ["Hearts", "#ff5c8a"], bubbles: ["Bubbles", "#9ad8ff"], stars: ["Stars", "var(--accent)"],
+    "sp-white": ["White sparkles", "#ffffff"], "sp-rainbow": ["Rainbow sparkles", "conic-gradient(#ff4d6d,#ffe94d,#4dff9a,#4dc3ff,#9b6dff,#ff4d6d)"], "sp-green": ["Green sparkles", "#3ddc84"], "sp-black": ["Black sparkles", "#111"],
+    "sp-blue": ["Light blue sparkles", "#7fd3ff"], "sp-red": ["Red sparkles", "#ff4d5e"], "sp-gold": ["Gold sparkles", "#ffcf4d"], "sp-pink": ["Pink sparkles", "#ff8fd1"] };
   const OVERLAY_NAMES = { none: "Nothing", particles: "Particles", stars: "Night sky", comets: "Comets", snow: "Snow", pixelsnow: "8-bit snow", rain: "Rain", storm: "Storm", blossom: "Blossom", fireflies: "Fireflies", matrix: "Matrix", aurora: "Northern lights", fog: "Fog", pills3d: "3D pills", bubbles: "Fizz", liquid: "Liquid", ink: "Ink in water", warp: "Warp speed", pixelrain: "Pixel rain", constellation: "Link constellation" };
   const PLAT_NAMES = { x: "X", github: "GitHub", tiktok: "TikTok", youtube: "YouTube", soundcloud: "SoundCloud", kofi: "Ko-fi", cashapp: "Cash App", paypal: "PayPal", email: "Email" };
   const pname = (p) => PLAT_NAMES[p] || cap(p);
@@ -202,14 +218,17 @@
       ]),
       P("Name cycling", "Your name switches between a few names. Leave it empty to keep one name.", [
         F.custom("name.cycle", "Other names", () => listCycle(), bindCycle),
-        ...(draft.name.cycle.length ? [F.chips("name.cycleStyle", "Switch with", [["scramble", "Decode"], ["fade", "Fade"], ["type", "Retype"]]), F.range("name.cycleSpeed", "Each name stays", 2, 10, "s")] : []),
+        ...(draft.name.cycle.length ? [F.chips("name.cycleStyle", "Switch with", [["scramble", "Decode"], ["fade", "Fade"], ["type", "Retype"], ["morph", "Morph"]]), F.range("name.cycleSpeed", "Each name stays", 2, 10, "s")] : []),
       ]),
       P("Badge row", "", [
         F.chips("badgeRow.style", "Style", [["tile", "Tiles"], ["plain", "Plain"], ["glow", "Glow"]]),
         F.color("badgeRow.color", "One colour for all badges", { ph: "each badge's own colour" }),
         ...(draft.name.gradient ? [F.color("name.from", "Gradient from", { noClear: true }), F.color("name.to", "Gradient to", { noClear: true })] : []),
       ]),
-      P("Name style", "Pick how your name moves.", [F.chips("name.effect", "", O.NAME_EFFECTS.map((e) => [e, EFFECT_NAMES[e], `<span class="aa">Aa</span>`]), { cards: true })]),
+      P("Name style", "Pick how your name moves, then add up to two extras that float around it.", [F.chips("name.effect", "", O.NAME_EFFECTS.map((e) => [e, EFFECT_NAMES[e] || e, `<span class="aa">Aa</span>`]), { cards: true }),
+        F.custom("name.extras", "Extras", () => `<div class="field wide" data-key="name.extras">${lbl("Extras", `${draft.name.extras.length}/2 picked`)}<div class="chips">${O.NAME_EXTRAS.map((x) => `<button type="button" class="chip xchip" data-nx="${x}" aria-pressed="${draft.name.extras.includes(x)}"><i style="background:${EXTRA_NAMES[x][1]}"></i>${EXTRA_NAMES[x][0]}</button>`).join("")}</div></div>`,
+          () => $$("[data-nx]", main).forEach((b) => (b.onclick = () => { const x = b.dataset.nx, l = draft.name.extras, i = l.indexOf(x); if (i >= 0) l.splice(i, 1); else { if (l.length >= 2) return toast("Two extras at most. Remove one first.", true); l.push(x); } changed(); reView(); }))),
+      ]),
       P("Buttons", "Shape and finish of your link buttons.", [
         F.chips("buttons.style", "Style", [["glass", "Glass"], ["filled", "Filled"], ["outline", "Outline"], ["soft", "Soft"]].map(([v, l]) => [v, l, PV.btn(v, draft.buttons.shape)]), { pv: true, rerender: true }),
         F.chips("buttons.shape", "Shape", [["rounded", "Rounded"], ["pill", "Pill"], ["square", "Square"]].map(([v, l]) => [v, l, PV.btn(draft.buttons.style, v)]), { pv: true, rerender: true }),
@@ -258,6 +277,11 @@
       ]),
     ] },
 
+    widgets: { title: "Widgets", icon: "gem", lead: "Little live tiles: your time, weather, games, music and more. They sit together in one section you can move under Arrange.", panels: () => [
+      P("Add a widget", `Up to 12. Tap one to add it.`, [F.custom("wpick", "Add a widget", () => widgetPicker(), bindWidgetPicker)]),
+      P("Your widgets", "", [F.custom("widgets", "Your widgets", () => listWidgets(), bindWidgets),
+        F.chips("widgetStyle", "Look", [["brand", "Brand colours"], ["card", "Glass"], ["minimal", "Outline"]])]),
+    ] },
     links: { title: "Links", icon: "website", lead: "Icons, buttons, projects, players and everything else people tap.", panels: () => [
       P("Social icons", "Small round icons for your accounts.", [F.custom("socials", "Social icons", () => listSocials(), bindSocials)]),
       P("Link buttons", "Full-width buttons with a label. Highlight one to make it pulse.", [F.custom("linkButtons", "Link buttons", () => listButtons(), bindButtons)]),
@@ -282,7 +306,8 @@
 
     music: { title: "Music", icon: "music", lead: "Songs that play while people look around. Browsers wait for a tap before playing anything, so an opening screen helps.", panels: () => [
       P("Playlist", `Up to ${L("playlist")} songs${premium ? "" : ", 15 with Premium"}.`, [F.custom("playlist", "Playlist", () => listPlaylist(), bindPlaylist)]),
-      P("Player", "", [F.range("music.volume", "Starting volume", 0, 100, "%"), F.toggle("music.showPlayer", "Show the player on my card"), F.toggle("music.visualizer", "Bouncing bars", { hint: "little bars that move while a song plays" }),
+      P("Player", "", [F.chips("music.layout", "Layout", [["bar", "Slim bar"], ["compact", "Compact"], ["default", "Big cover"], ["banner", "Banner"], ["vinyl", "Vinyl"], ["covervinyl", "Cover + vinyl"]].map(([v, l]) => [v, l, `<span class="pv pv-scene"><span class="pv-mp pv-mp-${v}"><i class="c"></i><i class="d"></i><b></b><em></em><u></u><s></s></span></span>`]), { pv: true }),
+        F.toggle("music.showVolume", "Volume slider", { adv: true }), F.range("music.volume", "Starting volume", 0, 100, "%"), F.toggle("music.showPlayer", "Show the player on my card"), F.toggle("music.visualizer", "Bouncing bars", { hint: "little bars that move while a song plays" }),
         F.toggle("music.pulse", "Pulse to the beat", { hint: "your card and picture bump along with the bass" }),
         ...(draft.music.pulse ? [F.range("music.pulseStrength", "Pulse strength", 1, 10, "")] : []), F.toggle("music.shuffle", "Shuffle", { adv: true })]),
     ] },
@@ -290,6 +315,11 @@
     live: { title: "Discord", icon: "discord", lead: "Show what you're up to on Discord, as it happens.", panels: () => [
       P("Presence", "", [
         ...(draft.discord.id ? [] : [F.note(`Add your Discord ID under <a href="#profile" data-go="profile">Profile</a> first, or sign in with Discord.`)]),
+        F.chips("live.style", "Card style", [["widget", "Wide cards"], ["simple", "Simple"]], { rerender: true }),
+        ...(draft.live.style === "widget" ? [F.toggle("live.discordCard", "Discord status card", { hint: "your Discord picture, name, status, custom status and device" }),
+          F.toggle("live.discordBadges", "Discord badges & server tag", { hint: "HypeSquad, Early Supporter, Active Developer… plus your server tag" }),
+          F.toggle("live.combine", "All in one card", { hint: "Discord, Spotify and games stacked inside a single card" }),
+          F.toggle("live.albumColor", "Spotify card takes the album colour", { hint: "glow and progress bar match the cover" })] : []),
         F.toggle("live.status", "Status dot", { hint: "green, yellow or red on your picture" }), F.toggle("live.spotify", "Now playing", { hint: "the Spotify track with a progress bar" }),
         F.toggle("live.lyrics", "Lyrics", { hint: "lines light up in time with the song" }), F.toggle("live.games", "Games & apps", { hint: "what's open right now" }),
         F.toggle("live.customStatus", "Status as bio", { hint: "your Discord status fills in when your bio is empty" }),
@@ -308,19 +338,23 @@
         F.toggle("social.likes", "Thumbs up and down", { hint: "with counts, on your card" }),
         F.toggle("social.comments", "Comments", { hint: "a panel opens from the corner. You can remove any comment." }),
       ]),
-      P("Link preview", "How your link unfurls in Discord and other apps.", [
-        F.custom("discPreview", "Preview", () => `<div class="field wide"><div class="disc-card" style="--bar:${draft.share.colorBar || draft.colors.accent}"><div><b>${esc(draft.meta.title || draft.displayName || me.username)}</b><p>${esc(draft.meta.description || draft.bio.split("\n")[0] || draft.handle || "@" + me.username)}</p></div>${draft.avatar.src ? `<img src="${esc(draft.avatar.src)}" alt="">` : ""}</div></div>`),
+      P("Link preview", "How your link unfurls when you paste it in Discord, X and other apps.", [
+        F.custom("discPreview", "Preview", () => `<div class="field wide"><span class="lbl">Preview <small>Discord can keep an old preview for up to an hour</small></span><div id="discPv">${discPv()}</div></div>`),
+        F.upload("share.ogImage", "banner", "Preview image", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp", note: "1200 × 630 looks best · empty uses your picture" }),
+        F.toggle("share.ogLarge", "Show it as a big image", { hint: "uses your banner if you haven't set a preview image" }),
         F.color("share.colorBar", "Embed colour", { ph: "accent colour" }),
         F.text("meta.title", "Title", { ph: draft.displayName || me.username, max: 60 }),
         F.area("meta.description", "Description", { max: 160, rows: 2, ph: "defaults to your bio" }),
         F.toggle("share.noindex", "Keep out of search results", { hint: "people with the link can still visit", adv: true }),
       ]),
-      P("Browser tab", "", [
+      P("Browser tab", "What shows in the tab and in bookmarks.", [
+        F.custom("tabPreview", "Preview", () => `<div class="field wide"><div id="tabPv">${tabPv()}</div></div>`),
         F.text("share.tabTitle", "Tab name", { ph: draft.displayName || me.username, max: 60 }), F.toggle("share.animateTitle", "Typing tab name"),
         F.text("share.awayTitle", "Tab name while away", { hint: "when someone switches to another tab", max: 60 }),
-        F.chips("share.tabIcon", "Tab icon", [["picture", "My picture"], ["site", me.site + " logo"]]),
+        F.chips("share.tabIcon", "Tab icon", [["picture", "My picture"], ["custom", "Upload my own"], ["site", me.site + " logo"]], { rerender: true }),
+        ...(draft.share.tabIcon === "custom" ? [F.upload("share.favicon", "avatar", "Tab icon", { link: true, accept: "image/png,image/gif,image/webp,image/x-icon,image/jpeg", note: "square, 64 × 64 or bigger" })] : []),
         F.toggle("share.shareButton", "Share button", { hint: "in the top corner of your page", wide: true }),
-      ], { adv: true }),
+      ]),
       P("Custom CSS", premium ? "For anything the options can't do. Useful hooks: .card .name .bio .socials .buttons .badge .avatar .presence .player" : "Write your own styles with Premium.", [
         F.area("customCss", "CSS", { max: 10000, rows: 8, mono: true, ph: ".name { letter-spacing: .1em }" })], { adv: true, lock: !premium }),
     ] },
@@ -328,7 +362,7 @@
   const SIMPLE = {
     home: { title: "Home", icon: "eye" }, formulas: { title: "Formulas", icon: "flame" }, badges: { title: "Badges", icon: "gem" }, stats: { title: "Stats", icon: "trophy" }, account: { title: "Account", icon: "shield" },
   };
-  const NAV = [["", ["home", "formulas"]], ["Edit page", ["profile", "media", "style", "effects", "links", "sections", "music", "live", "sharing"]], ["You", ["badges", "stats", "account"]]];
+  const NAV = [["", ["home", "formulas"]], ["Edit page", ["profile", "media", "style", "effects", "links", "widgets", "sections", "music", "live", "sharing"]], ["You", ["badges", "stats", "account"]]];
 
   /* ================= rendering ================= */
   function renderSide() {
@@ -435,6 +469,32 @@
     bindList(root, "name.cycle", reView);
     const a = $("#addNc"); if (a) a.onclick = () => { draft.name.cycle.push(""); changed(); reView(); $$("[data-nc]").pop().focus(); };
   }
+  /* widgets */
+  const WM = () => window.WIDGET_META || {};
+  const widgetPicker = () => `<div class="field wide"><div class="wpick">${O.WIDGETS.map((t) => { const m = WM()[t]; return m ? `<button type="button" class="wpk" data-addw="${t}" style="--wc:${m.color}" ${draft.widgets.length >= 12 ? "disabled" : ""}><span class="wi">${svgIcon(m.icon)}</span><span><b>${esc(m.name)}</b><small>＋ Add widget</small></span></button>` : ""; }).join("")}</div></div>`;
+  function bindWidgetPicker() {
+    $$("[data-addw]", main).forEach((b) => (b.onclick = () => {
+      if (draft.widgets.length >= 12) return toast("You can have up to 12 widgets.", true);
+      const t = b.dataset.addw, m = WM()[t];
+      draft.widgets.push({ id: Math.random().toString(36).slice(2, 10), type: t, value: t === "timezone" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "", label: "", wide: !!m.wide });
+      changed(); reView(); toast(`${m.name} added.`);
+      setTimeout(() => { const ins = $$("[data-wf='value']"); const last = ins[ins.length - 1]; if (last) { last.scrollIntoView({ block: "center", behavior: "smooth" }); last.focus(); } }, 50);
+    }));
+  }
+  const listWidgets = () => `<div class="field wide" data-key="widgets"><div class="list wlist">${draft.widgets.map((w, i) => { const m = WM()[w.type] || { name: w.type, color: "#888", icon: "gem" };
+    return `<div class="wrow" style="--wc:${m.color}"><span class="wi">${svgIcon(m.icon)}</span>
+      <div class="wfields"><b>${esc(m.name)}</b>
+        ${m.input ? `<input type="${m.date ? (w.type === "birthday" ? "date" : "datetime-local") : "text"}" data-wf="value" data-i="${i}" value="${esc(w.value)}" placeholder="${esc(m.ph)}" maxlength="200" aria-label="${esc(m.input)}">` : `<small class="muted">nothing to fill in</small>`}
+        ${m.label ? `<input type="text" data-wf="label" data-i="${i}" value="${esc(w.label)}" placeholder="${esc(m.label)}" maxlength="40">` : `<input type="text" data-wf="label" data-i="${i}" value="${esc(w.label)}" placeholder="title (optional)" maxlength="40">`}
+      </div>
+      <label class="wwide" title="Full width"><input type="checkbox" data-ww="${i}" ${w.wide ? "checked" : ""}><span>wide</span></label>${acts(i, draft.widgets.length)}</div>`; }).join("") || `<p class="muted">No widgets yet. Pick some above.</p>`}</div>
+    ${draft.widgets.some((w) => w.type === "lastfm") ? `<p class="note">Last.fm shows your latest song only if the site owner adds a LASTFM_API_KEY. Otherwise it links to your profile.</p>` : ""}</div>`;
+  function bindWidgets() {
+    const root = main.querySelector('[data-key="widgets"]'); if (!root) return;
+    $$("[data-wf]", root).forEach((inp) => inp.addEventListener(inp.type === "date" || inp.type === "datetime-local" ? "change" : "input", () => { draft.widgets[Number(inp.dataset.i)][inp.dataset.wf] = inp.value; changed(); }));
+    $$("[data-ww]", root).forEach((c) => c.addEventListener("change", () => { draft.widgets[Number(c.dataset.ww)].wide = c.checked; changed(); }));
+    bindList(root, "widgets", reView);
+  }
   function bindTaglines() {
     const root = main.querySelector('[data-key="taglines"]'); if (!root) return;
     $$("[data-tl]", root).forEach((inp) => inp.addEventListener("input", () => { draft.taglines[Number(inp.dataset.tl)] = inp.value; changed(); }));
@@ -526,14 +586,15 @@
       const s = draft.sections[Number(inp.dataset.i)]; s[inp.dataset.sf] = inp.type === "checkbox" ? inp.checked : inp.dataset.sf === "page" ? Number(inp.value) : inp.value; changed();
     }));
   }
-  const listPlaylist = () => `<div class="field wide" data-key="playlist"><div class="list">${draft.playlist.map((s, i) => `<div class="row" style="grid-template-columns:30px 1fr auto"><span class="pic">${svgIcon("music")}</span>
-      <input type="text" data-f="title" data-i="${i}" value="${esc(s.title)}" placeholder="artist – song" maxlength="60">${acts(i, draft.playlist.length)}</div>`).join("") || `<p class="muted">No songs yet.</p>`}</div>
+  const listPlaylist = () => `<div class="field wide" data-key="playlist"><div class="list">${draft.playlist.map((s, i) => `<div class="row" style="grid-template-columns:40px 1fr auto"><label class="pcov" title="${s.cover ? "Change cover" : "Add a cover picture"}">${s.cover ? `<img src="${esc(s.cover)}" alt="">` : svgIcon("brush")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-cov="${i}" hidden></label>
+      <input type="text" data-f="title" data-i="${i}" value="${esc(s.title)}" placeholder="artist – song (the dash splits artist and title)" maxlength="60">${acts(i, draft.playlist.length)}</div>`).join("") || `<p class="muted">No songs yet.</p>`}</div>
     <div class="upload" data-drop="music" data-k="__playlist"><div class="thumb">${svgIcon("music")}</div><div style="display:flex;flex-direction:column;gap:6px"><b style="font-size:12.5px">Add a song</b>
       <div class="ub"><label class="btn small primary">Upload song<input type="file" accept="audio/*" data-upload="music" data-k="__playlist"></label></div>
       <small>mp3, ogg, wav or m4a · up to ${me.limits.music[premium ? "premium" : "free"]} MB</small></div></div></div>`;
   function bindPlaylist() {
     const root = main.querySelector('[data-key="playlist"]'); if (!root) return;
     bindList(root, "playlist", reView);
+    $$("[data-cov]", root).forEach((inp) => inp.addEventListener("change", () => { const f = inp.files[0]; if (!f) return; const i = Number(inp.dataset.cov); upload(f, "avatar", null, (url) => { draft.playlist[i].cover = url; changed(); reView(); }); }));
     const add = (f) => { if (draft.playlist.length >= L("playlist")) return toast(`You can have up to ${L("playlist")} songs.`, true); upload(f, "music", null, (url) => { draft.playlist.push({ src: url, title: f.name.replace(/\.[^.]+$/, "").slice(0, 60) }); changed(); }); };
     const inp = root.querySelector('input[data-k="__playlist"]'); const fresh = inp.cloneNode(true); inp.replaceWith(fresh);
     fresh.addEventListener("change", () => fresh.files[0] && add(fresh.files[0]));
@@ -576,7 +637,7 @@
       const mine = me.allBadges.filter((b) => owned.has(b.slug)), others = me.allBadges.filter((b) => !owned.has(b.slug));
       const row = (b, locked) => `<div class="bl ${locked ? "locked" : ""}"><span class="ic" style="color:${esc(b.color)}">${svgIcon(b.icon)}</span><div><b>${esc(b.name)}</b><small>${esc(b.description || (b.auto ? "Given automatically." : "Given by the team."))}</small></div>${locked ? `<span class="muted" style="font-size:11px">locked</span>` : ""}</div>`;
       return `<h1>Badges</h1><p class="lead">The ones you've earned sit next to your name. The rest are listed with how to get them.</p><div class="stack">
-        <div class="panel"><h3>Earned · ${mine.length}</h3><div class="badgelist">${mine.map((b) => row(b)).join("") || `<p class="muted">No badges yet.</p>`}</div></div>
+        <div class="panel"><h3>Your badge row · ${mine.length}</h3><p class="pdesc">Put them in your own order, give any badge your own colour, or hide one. Save with the bar at the bottom.</p><div id="bedit"></div></div>
         <div class="panel"><h3>Still to earn · ${others.length}</h3><div class="badgelist">${others.map((b) => row(b, true)).join("")}</div></div>
 </div>`;
     },
@@ -613,7 +674,28 @@
   SIMPLE_VIEWS.formulas = () => `<h1>Formulas</h1><p class="lead">Ready-made mixes of colour, type and effects. Pick one, then tweak anything you like. Your words, links and pictures stay as they are.</p>
     <div class="formulas">${FORMULAS.map(([n, d, [c, bg]], i) => `<button class="formula" data-fi="${i}" style="--c:${c};--bg:${bg}"><span class="fprev"><span class="capsule" style="--w:46px;--a:${c}"></span><span class="fname">${n}</span></span><b>${n}</b><small>${d}</small></button>`).join("")}</div>`;
   const deepAssign = (a, b) => { for (const k of Object.keys(b)) { if (b[k] && typeof b[k] === "object" && !Array.isArray(b[k])) { a[k] = a[k] || {}; deepAssign(a[k], b[k]); } else a[k] = b[k]; } };
+  /* badge row editor */
+  function badgeOrder() {
+    const items = draft.badgeRow.items, pos = (b) => { const i = items.findIndex((x) => x.slug === b.slug); return i < 0 ? 999 : i; };
+    return [...me.badges].sort((a, b) => pos(a) - pos(b)).map((b) => ({ ...b, it: items.find((x) => x.slug === b.slug) || { slug: b.slug, color: "", hidden: false } }));
+  }
+  function renderBadgeEditor() {
+    const box = $("#bedit"); if (!box) return;
+    const list = badgeOrder();
+    box.innerHTML = list.length ? `<div class="bedit">${list.map((b, i) => `<div class="berow ${b.it.hidden ? "off" : ""}">
+        <div class="acts"><button data-bm="-1" data-i="${i}" aria-label="Move up" ${i ? "" : "disabled"}>↑</button><button data-bm="1" data-i="${i}" aria-label="Move down" ${i < list.length - 1 ? "" : "disabled"}>↓</button></div>
+        <span class="ic" style="color:${esc(b.it.color || draft.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span><b>${esc(b.name)}</b>
+        <input type="color" data-bc="${i}" value="${b.it.color || b.color}" title="Badge colour">${b.it.color ? `<button class="btn small" data-bx="${i}">Original</button>` : ""}
+        <label class="toggle" title="Show on my page"><input type="checkbox" data-bh="${i}" ${b.it.hidden ? "" : "checked"}></label></div>`).join("")}</div>
+      <div class="bprev"><small>preview</small><div class="badges">${list.filter((b) => !b.it.hidden).map((b) => `<span class="badge" style="color:${esc(b.it.color || draft.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div></div>` : `<p class="muted">No badges yet.</p>`;
+    const commit = (l) => { draft.badgeRow.items = l.map((b) => ({ slug: b.slug, color: b.it.color || "", hidden: !!b.it.hidden })); changed(); renderBadgeEditor(); };
+    $$("[data-bm]", box).forEach((x) => (x.onclick = () => { const l = badgeOrder(), i = Number(x.dataset.i), j = i + Number(x.dataset.bm); [l[i], l[j]] = [l[j], l[i]]; commit(l); }));
+    $$("[data-bc]", box).forEach((x) => (x.onchange = () => { const l = badgeOrder(); l[Number(x.dataset.bc)].it.color = x.value; commit(l); }));
+    $$("[data-bx]", box).forEach((x) => (x.onclick = () => { const l = badgeOrder(); l[Number(x.dataset.bx)].it.color = ""; commit(l); }));
+    $$("[data-bh]", box).forEach((x) => (x.onchange = () => { const l = badgeOrder(); l[Number(x.dataset.bh)].it.hidden = !x.checked; commit(l); }));
+  }
   const SIMPLE_AFTER = {
+    badges() { renderBadgeEditor(); },
     formulas() {
       $$("[data-fi]").forEach((b) => (b.onclick = () => {
         const [n, , , mix] = FORMULAS[Number(b.dataset.fi)];

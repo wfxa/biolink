@@ -115,6 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_page ON comments(page_id, ts);
 if (!cols.includes("last_seen")) db.exec("ALTER TABLE users ADD COLUMN last_seen INTEGER");
 if (!cols.includes("premium_until")) db.exec("ALTER TABLE users ADD COLUMN premium_until INTEGER");
 if (!cols.includes("note")) db.exec("ALTER TABLE users ADD COLUMN note TEXT");
+if (!cols.includes("view_bonus")) db.exec("ALTER TABLE users ADD COLUMN view_bonus INTEGER NOT NULL DEFAULT 0");
 db.exec(`
 CREATE TABLE IF NOT EXISTS aliases (
   name    TEXT PRIMARY KEY COLLATE NOCASE,

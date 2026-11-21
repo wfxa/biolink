@@ -115,9 +115,11 @@ function badgesFor(u) {
   return rows.sort((a, b) => ((order.indexOf(a.slug) + 1 || 99) - (order.indexOf(b.slug) + 1 || 99)))
     .map((b) => ({ id: b.id, slug: b.slug, name: b.name, icon: b.icon, color: b.color, description: b.description }));
 }
-const totalViews = (userId) => Math.max(
+const realViews = (userId) => Math.max(
   db.prepare("SELECT COALESCE(SUM(n),0) n FROM hits WHERE user_id = ?").get(userId).n,
   db.prepare("SELECT COUNT(*) n FROM views WHERE user_id = ?").get(userId).n);
+// Owners can adjust the shown count; the adjustment is stored separately so real stats stay untouched.
+const totalViews = (userId) => Math.max(0, realViews(userId) + ((db.prepare("SELECT view_bonus b FROM users WHERE id = ?").get(userId) || { b: 0 }).b || 0));
 function publicUser(u) {
   return {
     username: u.username, memberNo: u.member_no, premium: !!u.premium, role: u.role,
@@ -215,16 +217,19 @@ function renderProfile(req, res, u, sub) {
   const origin = `${isHttps(req) ? "https" : "http"}://${req.headers.host}`;
   const title = (sub ? sub.title + " · " : "") + (p.share.tabTitle || p.meta.title || p.displayName || u.username);
   const desc = p.meta.description || hideSecrets(p.bio.split("\n")[0]) || hideSecrets(p.taglines[0] || "") || `${u.username} on ${config.SITE_NAME}`;
-  const ogImg = p.avatar.src ? (p.avatar.src.startsWith("/") ? origin + p.avatar.src : p.avatar.src) : "";
+  const abs = (u) => (u ? (u.startsWith("/") ? origin + u : u) : "");
+  const ogImg = abs(p.share.ogImage || (p.share.ogLarge && p.banner) || p.avatar.src);
+  const big = p.share.ogLarge && !!(p.share.ogImage || p.banner);
+  const icon = p.share.tabIcon === "custom" && p.share.favicon ? p.share.favicon : p.share.tabIcon === "picture" && p.avatar.src ? p.avatar.src : "/assets/favicon.svg";
   const html = template("profile.html")
     .replace("{{TITLE}}", escapeHtml(title))
     .replaceAll("{{DESC}}", escapeHtml(desc))
     .replaceAll("{{OG_TITLE}}", escapeHtml(`${title} · ${config.SITE_NAME}`))
-    .replace("{{OG_IMAGE}}", ogImg ? `<meta property="og:image" content="${escapeHtml(ogImg)}">` : "")
+    .replace("{{OG_IMAGE}}", (ogImg ? `<meta property="og:image" content="${escapeHtml(ogImg)}">` : "") + `<meta name="twitter:card" content="${big ? "summary_large_image" : "summary"}">`)
     .replace("{{URL}}", escapeHtml(`${origin}/${u.username}${sub ? "/" + sub.slug : ""}`))
     .replace("{{COLOR}}", p.share.colorBar || p.colors.accent || "#ff2e4d")
     .replace("{{ROBOTS}}", p.share.noindex ? '<meta name="robots" content="noindex">' : "")
-    .replace("{{ICON}}", p.share.tabIcon === "picture" && p.avatar.src ? escapeHtml(p.avatar.src) : "/assets/favicon.svg")
+    .replace("{{ICON}}", escapeHtml(icon))
     .replace("{{CUSTOM_CSS}}", () => p.customCss)
     .replace("{{DATA}}", () => JSON.stringify({ ...data, subpage: sub ? sub.slug : null }).replace(/</g, "\\u003c"));
   send(res, 200, html, { "Cache-Control": "no-store" });
@@ -275,6 +280,7 @@ function suggestName(d) {
 }
 const authPage = (res, msg) => redirect(res, "/login?error=" + encodeURIComponent(msg));
 
+const widgetCache = new Map();
 const inviteCache = new Map();
 
 /* ---------------- router ---------------- */
@@ -420,11 +426,11 @@ async function route(req, res) {
     return send(res, 200, { available: !problem, reason: problem });
   }
   if (p === "/api/leaderboard" && method === "GET") {
-    const rows = db.prepare(`SELECT u.*, COUNT(v.id) views FROM users u LEFT JOIN views v ON v.user_id = u.id
-      WHERE u.banned = 0 GROUP BY u.id ORDER BY views DESC, u.member_no ASC LIMIT 25`).all();
-    return send(res, 200, rows.map((u) => {
+    const rows = db.prepare("SELECT * FROM users WHERE banned = 0").all().map((u) => ({ u, views: totalViews(u.id) }))
+      .sort((a, b) => b.views - a.views || a.u.member_no - b.u.member_no).slice(0, 25);
+    return send(res, 200, rows.map(({ u, views }) => {
       const prof = Profile.load(u.profile, { premium: !!u.premium });
-      return { username: u.username, displayName: prof.displayName, avatar: prof.avatar.src, views: u.views, memberNo: u.member_no, badges: badgesFor(u) };
+      return { username: u.username, displayName: prof.displayName, avatar: prof.avatar.src, views, memberNo: u.member_no, badges: badgesFor(u) };
     }));
   }
   if (p === "/api/track/view" && method === "POST") {
@@ -457,6 +463,59 @@ async function route(req, res) {
     return send(res, 200, { ok: true });
   }
 
+  /* widget data that browsers can't fetch directly (no CORS), cached for 10 minutes */
+  const wm = p.match(/^\/api\/widget\/(steam|roblox|duolingo|letterboxd|lastfm)$/);
+  if (wm && method === "GET") {
+    const q = String(url.searchParams.get("q") || "").trim().slice(0, 120);
+    if (!q) return fail(res, 400, "Missing name.");
+    const key = wm[1] + ":" + q.toLowerCase(), hit = widgetCache.get(key);
+    if (hit && hit.until > now()) return send(res, 200, hit.body, { "Cache-Control": "public, max-age=300" });
+    if (limited("widget:" + clientIp(req), 40, 60000)) return fail(res, 429, "Slow down.");
+    const get = (u, o = {}) => fetch(u, { ...o, signal: AbortSignal.timeout(6000), headers: { "User-Agent": "Mozilla/5.0 (dose widget)", ...(o.headers || {}) } });
+    try {
+      let body = null;
+      if (wm[1] === "steam") {
+        const m = q.match(/steamcommunity\.com\/(id|profiles)\/([^/?#]+)/i);
+        const kind = m ? m[1] : /^\d{17}$/.test(q) ? "profiles" : "id", id = encodeURIComponent(m ? m[2] : q);
+        const x = await (await get(`https://steamcommunity.com/${kind}/${id}/?xml=1`)).text();
+        const tag = (t) => { const r = x.match(new RegExp(`<${t}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${t}>`)); return r ? r[1].trim() : ""; };
+        if (!tag("steamID")) throw 0;
+        body = { name: tag("steamID"), state: tag("onlineState"), status: tag("stateMessage").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(), avatar: tag("avatarMedium"), game: tag("gameName"), url: `https://steamcommunity.com/${kind}/${id}` };
+      }
+      if (wm[1] === "roblox") {
+        const u = (await (await get("https://users.roblox.com/v1/usernames/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ usernames: [q], excludeBannedUsers: true }) })).json()).data[0];
+        if (!u) throw 0;
+        const [th, fr, pr] = await Promise.all([
+          get(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${u.id}&size=150x150&format=Png`).then((r) => r.json()).catch(() => null),
+          get(`https://friends.roblox.com/v1/users/${u.id}/friends/count`).then((r) => r.json()).catch(() => null),
+          get("https://presence.roblox.com/v1/presence/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userIds: [u.id] }) }).then((r) => r.json()).catch(() => null),
+        ]);
+        const pt = pr && pr.userPresences && pr.userPresences[0] ? pr.userPresences[0].userPresenceType : 0;
+        body = { name: u.displayName, user: u.name, avatar: th && th.data && th.data[0] ? th.data[0].imageUrl : "", friends: fr ? fr.count : null, state: ["offline", "online", "in game", "in studio"][pt] || "offline", url: `https://www.roblox.com/users/${u.id}/profile` };
+      }
+      if (wm[1] === "duolingo") {
+        const j = await (await get(`https://www.duolingo.com/2017-06-30/users?username=${encodeURIComponent(q)}&fields=name,username,picture,streak,totalXp,courses`)).json();
+        const u = j.users && j.users[0]; if (!u) throw 0;
+        body = { name: u.name || u.username, streak: u.streak || 0, xp: u.totalXp || 0, courses: (u.courses || []).slice(0, 3).map((c) => c.title), url: `https://www.duolingo.com/profile/${encodeURIComponent(u.username)}` };
+      }
+      if (wm[1] === "letterboxd") {
+        const x = await (await get(`https://letterboxd.com/${encodeURIComponent(q)}/rss/`)).text();
+        const item = (x.match(/<item>([\s\S]*?)<\/item>/) || [])[1]; if (!item) throw 0;
+        const t = (n) => ((item.match(new RegExp(`<${n}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${n}>`)) || [])[1] || "").trim();
+        body = { film: t("letterboxd:filmTitle") || t("title"), year: t("letterboxd:filmYear"), rating: t("letterboxd:memberRating"), poster: ((item.match(/<img src="([^"]+)"/) || [])[1] || ""), url: t("link") || `https://letterboxd.com/${q}/` };
+      }
+      if (wm[1] === "lastfm") {
+        if (!process.env.LASTFM_API_KEY) body = { nokey: true, url: `https://www.last.fm/user/${encodeURIComponent(q)}` };
+        else {
+          const j = await (await get(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(q)}&api_key=${process.env.LASTFM_API_KEY}&format=json&limit=1`)).json();
+          const tr = j.recenttracks && j.recenttracks.track && j.recenttracks.track[0]; if (!tr) throw 0;
+          body = { song: tr.name, artist: tr.artist && (tr.artist["#text"] || tr.artist.name), art: ((tr.image || []).slice(-1)[0] || {})["#text"] || "", now: !!(tr["@attr"] && tr["@attr"].nowplaying), plays: j.recenttracks["@attr"] && Number(j.recenttracks["@attr"].total), url: `https://www.last.fm/user/${encodeURIComponent(q)}` };
+        }
+      }
+      widgetCache.set(key, { body, until: now() + 10 * 60000 });
+      return send(res, 200, body);
+    } catch { widgetCache.set(key, { body: { error: "not found" }, until: now() + 2 * 60000 }); return send(res, 200, { error: "not found" }); }
+  }
   const im = p.match(/^\/api\/invite\/([A-Za-z0-9-]{2,32})$/);
   if (im && method === "GET") {
     const hit = inviteCache.get(im[1]);
@@ -709,8 +768,8 @@ async function route(req, res) {
         total, page,
         users: rows.map((u) => ({
           id: u.id, username: u.username, memberNo: u.member_no, role: u.role, premium: !!u.premium, banned: !!u.banned,
-          banReason: u.ban_reason, created: u.created_at, views: u.views, discord: u.discord_name || null,
-          lastSeen: u.last_seen || null, premiumUntil: u.premium_until || null, note: u.note || "",
+          banReason: u.ban_reason, created: u.created_at, views: totalViews(u.id), discord: u.discord_name || null,
+          lastSeen: u.last_seen || null, premiumUntil: u.premium_until || null, note: u.note || "", realViews: realViews(u.id), viewBonus: u.view_bonus || 0, shownViews: totalViews(u.id),
           reports: db.prepare("SELECT COUNT(*) n FROM reports WHERE page_id = ? AND status = 'open'").get(u.id).n,
           aliases: db.prepare("SELECT name FROM aliases WHERE user_id = ?").all(u.id).map((a) => a.name),
           badges: db.prepare("SELECT badge_id FROM user_badges WHERE user_id = ?").all(u.id).map((r) => r.badge_id),
@@ -736,6 +795,15 @@ async function route(req, res) {
           audit(me, b.premium ? "gave premium" : "removed premium", target.username, until ? `until ${new Date(until).toISOString().slice(0, 10)}` : "");
         }
         if (typeof b.note === "string") db.prepare("UPDATE users SET note = ? WHERE id = ?").run(b.note.slice(0, 500), target.id);
+        if (b.setViews != null || b.addViews != null) {
+          if (!isOwner) return fail(res, 403, "Only owners can change views.");
+          const real = realViews(target.id), before = totalViews(target.id);
+          const want = b.setViews != null ? Number(b.setViews) : before + Number(b.addViews);
+          if (!Number.isFinite(want)) return fail(res, 400, "That isn't a number.");
+          const goal = Math.max(0, Math.min(1e9, Math.round(want)));
+          db.prepare("UPDATE users SET view_bonus = ? WHERE id = ?").run(goal - real, target.id);
+          audit(me, "changed views", target.username, `${before.toLocaleString()} → ${goal.toLocaleString()}`);
+        }
         if (typeof b.banned === "boolean") {
           if (target.id === me.id) return fail(res, 400, "You can't ban yourself.");
           db.prepare("UPDATE users SET banned = ?, ban_reason = ? WHERE id = ?").run(b.banned ? 1 : 0, b.banned ? String(b.banReason || "").slice(0, 200) : null, target.id);

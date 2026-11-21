@@ -1,327 +1,330 @@
-/* Dashboard layout: sidebar | toolbar + editor | live preview. */
-body{height:100vh;overflow:hidden}
-.app{display:grid;grid-template-columns:230px minmax(0,1fr) 420px;height:100vh}
-.side{border-right:1px solid rgba(255,255,255,.06);background:rgba(10,5,16,.35);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);padding:16px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
-.side .logo{padding:4px 10px 14px}
-.side .grp{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:12px 10px 4px}
-.side button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 12px;border-radius:999px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:13px}
-.side button svg{width:15px;height:15px;fill:currentColor;flex:none}
-.side button:hover{color:var(--text);background:var(--ink-2)}
-.side button{transition:background .2s,color .2s,transform .2s}
-.side button:hover{transform:translateX(3px)}
-.side button[aria-current=true]{color:#fff;background:rgba(255,255,255,.08);font-weight:600;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
-.side button[aria-current=true]::before{content:"";width:14px;height:6px;border-radius:9px;background:linear-gradient(90deg,var(--accent) 50%,var(--cap-b) 50%);position:absolute;right:12px;box-shadow:0 0 10px color-mix(in srgb,var(--accent) 80%,transparent)}
-.side button{position:relative}
-.side button[aria-current=true] svg{fill:#fff}
-.side .me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-size:12px}
-.side .me .av{width:32px;height:32px;border-radius:50%;background:var(--ink-3);overflow:hidden;display:grid;place-items:center;font-weight:700;flex:none}
-.side .me .av img{width:100%;height:100%;object-fit:cover}
-.side .me b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+// Pharmacy counter: the owner & staff panel.
+(async () => {
+  const $ = (s, el = document) => el.querySelector(s);
+  const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+  const view = $("#view");
+  let stats, badges = [], tab = location.hash.slice(1) || "overview", q = "", filter = "all", page = 0, repStatus = "open";
+  try { stats = await api("/api/admin/stats"); } catch (e) { view.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const owner = stats.isOwner;
+  $("#roleNote").textContent = owner ? "owner · full access" : "staff · people, reports and badges";
+  const ICONS = ["crown", "shield", "gem", "star", "check", "heart", "flame", "bolt", "code", "music", "moon", "skull", "trophy", "bug", "brush", "gift", "play", "game"];
+  const ago = (t) => { if (!t) return "never"; const m = Math.floor((Date.now() - t) / 60000); return m < 1 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`; };
+  const date = (t) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-.mainwrap{display:flex;flex-direction:column;min-width:0;height:100vh}
-.toolbar{display:flex;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap;background:rgba(10,5,16,.3);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
-.crumb{font-size:12px;color:var(--muted);margin-right:auto}
-.crumb b{color:var(--text);font-weight:600}
-.dirty{font-size:11px;padding:3px 10px;border-radius:99px;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
-.tbtn{width:32px;height:32px;border-radius:50%;border:1px solid var(--line-2);background:rgba(255,255,255,.06);cursor:pointer;font-size:15px}
-.tbtn:disabled{opacity:.35;cursor:default}
-.search{display:inline-flex;align-items:center;gap:10px;padding:7px 8px 7px 14px;border-radius:999px;border:1px solid var(--line-2);background:rgba(8,4,14,.5);color:var(--dim);cursor:pointer;font-size:12.5px}
-.search kbd{font:inherit;font-size:10.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted)}
-.seg{display:inline-flex;padding:3px;border-radius:999px;background:rgba(8,4,14,.5);border:1px solid var(--line-2)}
-.seg button{padding:5px 12px;border-radius:999px;border:0;background:none;color:var(--muted);font-size:12px;cursor:pointer}
-.seg button{transition:all .2s}
-.seg button[aria-pressed=true]{background:#fff;color:#13081c;font-weight:600;box-shadow:0 4px 14px -6px color-mix(in srgb,var(--accent) 80%,transparent)}
-.main{flex:1;overflow-y:auto;padding:26px clamp(16px,3vw,40px) 120px}
-.main h1{font-size:34px;margin-bottom:6px}
-.main .lead{color:var(--muted);margin-bottom:22px;font-size:13px;max-width:62ch}
-.stack{display:flex;flex-direction:column;gap:14px;max-width:760px}
-.panel h3{font-size:15px;font-family:var(--body);font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
-.panel .pdesc{font-size:12px;color:var(--muted);margin-bottom:14px}
-.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
-.fields > .wide{grid-column:1/-1}
-.field{display:flex;flex-direction:column;gap:6px;min-width:0}
-.field > .lbl{font-size:12.5px;font-weight:600;color:var(--text);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-.field > .lbl small{font-weight:400;color:var(--dim);font-size:11.5px}
-.field.flash{animation:flash 1.6s}
-@keyframes flash{0%,40%{box-shadow:0 0 0 2px var(--accent);border-radius:10px}100%{box-shadow:0 0 0 2px transparent}}
-.toggle{padding:4px 0}
-.toggle > span small{display:block;color:var(--dim);font-size:11.5px;font-weight:400}
-.toggle > span{font-weight:600;font-size:12.5px}
-.rangeval{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;font-weight:400}
-.colorrow{display:flex;gap:8px;align-items:center}
-.colorrow input[type=text]{flex:1}
-.colorrow .x{width:30px;height:30px;border-radius:8px;border:1px solid var(--line-2);background:var(--ink);cursor:pointer;color:var(--muted)}
-.upload{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px dashed rgba(255,255,255,.15);border-radius:18px;background:rgba(255,255,255,.02);transition:all .2s}
-.upload:hover{border-color:color-mix(in srgb,var(--accent) 60%,transparent);background:color-mix(in srgb,var(--accent) 4%,transparent)}
-.upload.drag{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
-.upload .thumb{width:60px;height:60px;border-radius:16px;background:rgba(8,4,14,.6);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;flex:none;color:var(--dim);font-size:11px}
-.upload .thumb img,.upload .thumb video{width:100%;height:100%;object-fit:cover}
-.upload .thumb svg{width:22px;height:22px;fill:currentColor}
-.upload .ub{display:flex;gap:6px;flex-wrap:wrap}
-.upload input[type=file]{display:none}
-.upload small{color:var(--dim);font-size:11px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
-.cards button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);transition:all .2s;cursor:pointer;font-size:11.5px;color:var(--muted)}
-.cards button .aa{font-size:22px;color:var(--text);line-height:1.1}
-.cards button:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.3)}
-.cards button[aria-pressed=true]{border-color:rgba(255,255,255,.6);background:rgba(255,255,255,.09);color:#fff;box-shadow:0 8px 24px -12px color-mix(in srgb,var(--accent) 80%,transparent),inset 0 1px 0 rgba(255,255,255,.15)}
-.cards button:disabled{opacity:.45;cursor:not-allowed}
-.cards button .lk{font-size:9.5px;color:var(--warn)}
-.list{display:flex;flex-direction:column;gap:8px}
-.row{display:grid;gap:8px;align-items:center;padding:8px;border-radius:16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.07);transition:border-color .2s}
-.row:hover{border-color:rgba(255,255,255,.14)}
-.row .acts{display:flex;gap:4px}
-.row .acts button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line-2);background:rgba(255,255,255,.05);cursor:pointer;font-size:13px}
-.row .acts button:disabled{opacity:.3}
-.row .pic{width:30px;height:30px;display:grid;place-items:center}
-.row .pic svg{width:17px;height:17px;fill:currentColor}
-.addgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
-.addgrid button{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.03);transition:all .2s;cursor:pointer;font-size:12.5px;color:var(--text)}
-.addgrid svg{width:15px;height:15px;fill:currentColor}
-.secrow{grid-template-columns:24px 140px 1fr 100px auto auto}
-.secrow .n{color:var(--dim);font-size:11px;text-align:center}
-.addgrid button:hover{border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.07);transform:translateY(-1px)}
-.note{font-size:12px;color:var(--muted);padding:10px 14px;border-radius:14px;background:rgba(61,245,255,.05);border:1px solid rgba(61,245,255,.2)}
-.note a{color:var(--accent)}
-.premium-note{font-size:11.5px;color:var(--warn)}
-.disc-card{display:flex;gap:12px;padding:12px;border-radius:6px;background:#2b2d31;font-family:"gg sans","Noto Sans",system-ui,sans-serif;border-left:4px solid var(--bar,#1e1f22);max-width:440px;font-family:system-ui,sans-serif}
-.disc-card b{color:#00a8fc;font-size:15px}
-.disc-card p{color:#dbdee1;font-size:13px;margin-top:4px}
-.disc-card img{width:72px;height:72px;border-radius:6px;object-fit:cover;margin-left:auto}
+  const TABS = [
+    ["overview", "Counter", "eye"], ["users", "Patients", "heart"], ["reports", "Reports", "shield"], ["badges", "Badges", "gem"],
+    ["invites", "Invites", "gift"], ["gifts", "Gift codes", "star"], ["names", "Held names", "crown"], ["audit", "Activity log", "repo"], ["settings", "Settings", "bolt"],
+  ];
+  function rail() {
+    $("#rail").innerHTML = `<span class="tag-mono">behind the counter</span>` + TABS.map(([id, label, ic]) =>
+      `<button data-t="${id}" aria-current="${id === tab}">${svgIcon(ic)}${label}${id === "reports" && stats.openReports ? `<span class="count">${stats.openReports}</span>` : ""}</button>`).join("");
+    $$("[data-t]").forEach((b) => (b.onclick = () => go(b.dataset.t)));
+  }
+  function go(t) {
+    tab = TABS.some((x) => x[0] === t) ? t : "overview"; history.replaceState(null, "", "#" + tab);
+    rail(); $("#title").textContent = TABS.find((x) => x[0] === tab)[1]; $("#headActs").innerHTML = "";
+    ({ overview, users, reports, badges: badgesTab, invites, gifts, names, audit: auditTab, settings })[tab]();
+  }
 
-/* overview */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.kpi{position:relative;padding:16px;border-radius:20px;background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--line)}
-.kpi small{color:var(--muted);font-size:11px}
-.kpi b{display:block;font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums;margin-top:2px}
-.kpi .chg{font-size:11px;font-family:var(--body);margin-left:6px;font-weight:400}
-.kpi .chg.up{color:var(--ok)}.kpi .chg.down{color:var(--bad)}
-.kpi.sel{border-color:rgba(255,255,255,.35);background:rgba(255,255,255,.07);box-shadow:0 10px 30px -14px color-mix(in srgb,var(--accent) 70%,transparent)}
-.kpi button{all:unset;cursor:pointer;display:block}
-.urlbox{display:flex;gap:8px;align-items:center;padding:6px 6px 6px 18px;border-radius:999px;background:rgba(8,4,14,.55);border:1px solid var(--line-2)}
-.urlbox a{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
-.twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-#qr{background:#fff;padding:8px;border-radius:10px;width:132px;height:132px;flex:none}
-#qr img,#qr canvas{width:116px!important;height:116px!important}
-.mcard{position:relative;aspect-ratio:1.6;border-radius:20px;padding:18px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:space-between;
-  background:radial-gradient(circle at 20% 0%,color-mix(in srgb,var(--accent) 55%,transparent),transparent 55%),radial-gradient(circle at 100% 100%,rgba(61,245,255,.4),transparent 55%),linear-gradient(135deg,#2a1540,#0d0716);border:1px solid var(--line-2);box-shadow:0 20px 40px -20px rgba(0,0,0,.8)}
-.mcard::before{content:"";position:absolute;inset:0 -60%;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.08) 50%,transparent 60%);animation:sheen 5s ease-in-out infinite alternate;pointer-events:none}
-.mcard > *{position:relative}
-@keyframes sheen{from{transform:translateX(-60%)}to{transform:translateX(60%)}}
-.mcard .mtop{display:flex;align-items:center;gap:6px;font-family:var(--display);font-weight:800;font-size:13px}
-.mcard .mtop i{width:18px;height:8px;border-radius:99px;background:linear-gradient(90deg,var(--accent) 50%,var(--cap-b) 50%);rotate:-30deg}
-.mcard .bot{display:flex;justify-content:space-between;align-items:end;font-family:var(--display);font-weight:800}
-.mcard .bot b{font-size:22px}.mcard .bot span{font-size:20px;color:color-mix(in srgb,#fff 80%,transparent)}
-.badgelist{display:flex;flex-direction:column;gap:8px}
-.bl{position:relative;display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
-.bl .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--ink-2);border:1px solid var(--line-2)}
-.bl svg{width:17px;height:17px;fill:currentColor}
-.bl div{flex:1;min-width:0}
-.bl small{display:block;color:var(--muted);font-size:11.5px}
-.bl.locked{opacity:.55}
-.bl.locked .ic{color:var(--dim)!important}
+  /* ---------- counter (overview) ---------- */
+  async function overview() {
+    stats = await api("/api/admin/stats"); rail();
+    const s = stats.series, max = Math.max(1, ...s.map((d) => Math.max(d.views, d.signups)));
+    const W = 700, H = 170, pad = 26, bw = (W - pad) / s.length, y = (v) => H - 18 - (v / max) * (H - 30);
+    view.innerHTML = `<div class="view">
+      ${stats.storage.persistent ? "" : `<div class="panel" style="border-color:var(--bad)!important;background:rgba(255,107,127,.08)"><h3 style="font-size:15px;color:var(--bad)">Data isn't being saved between deploys</h3>
+        <p style="font-size:13px;margin-top:6px">No Railway Volume is attached, so every redeploy wipes all accounts, pages and uploads. In Railway, right-click this service → <b>Attach Volume</b>, set the mount path to <code>/data</code>, then sign up again once.</p></div>`}
+      <div class="kpis">
+        <div class="kpi"><small>patients</small><b>${stats.users.toLocaleString()}</b></div>
+        <div class="kpi"><small>new today</small><b>${stats.today}</b></div>
+        <div class="kpi"><small>active today</small><b>${stats.activeToday}</b></div>
+        <div class="kpi"><small>premium</small><b>${stats.premium}</b></div>
+        <div class="kpi"><small>visits</small><b>${stats.views.toLocaleString()}</b></div>
+        <div class="kpi ${stats.openReports ? "alert" : ""}"><small>open reports</small><b>${stats.openReports}</b></div>
+      </div>
+      <div class="two">
+        <div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="font-size:15px">Last 14 days</h3>
+          <div class="legend"><span><i style="background:var(--accent)"></i>visits</span><span><i style="background:var(--mint)"></i>new patients</span></div></div>
+          <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Visits and sign-ups for the last 14 days">
+            ${[0, Math.ceil(max / 2), max].map((t) => `<line x1="${pad}" x2="${W}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="0" y="${y(t) + 3}">${t}</text>`).join("")}
+            ${s.map((d, i) => `<rect x="${pad + i * bw + 3}" y="${y(d.views)}" width="${bw - 6}" height="${H - 18 - y(d.views)}" rx="4" fill="var(--accent)" opacity=".8"><title>${d.day}: ${d.views} visits</title></rect>`).join("")}
+            <path d="${s.map((d, i) => `${i ? "L" : "M"}${pad + i * bw + bw / 2},${y(d.signups)}`).join(" ")}" fill="none" stroke="var(--mint)" stroke-width="2"/>
+            ${s.map((d, i) => `<circle cx="${pad + i * bw + bw / 2}" cy="${y(d.signups)}" r="3" fill="var(--mint)"><title>${d.day}: ${d.signups} new</title></circle>`).join("")}
+            ${[0, 7, 13].map((i, n) => `<text x="${n === 2 ? W : pad + i * bw}" y="${H - 2}" text-anchor="${n === 2 ? "end" : "start"}">${s[i].day.slice(5)}</text>`).join("")}
+          </svg></div>
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:8px">Busiest pages · 7 days</h3>
+          <table class="mini">${stats.topPages.map((r) => `<tr><td><a href="/${esc(r.username)}" target="_blank" rel="noopener">/${esc(r.username)}</a></td><td>${r.n}</td></tr>`).join("") || `<tr><td class="muted">No visits yet</td><td></td></tr>`}</table>
+          <h3 style="font-size:15px;margin:16px 0 8px">Where visitors come from</h3>
+          <table class="mini">${stats.topSources.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.n}</td></tr>`).join("") || `<tr><td class="muted">Nothing yet</td><td></td></tr>`}</table></div>
+      </div>
+      <div class="panel"><h3 style="font-size:15px;margin-bottom:10px">At a glance</h3><div class="tools">
+        <span class="pill ${stats.settings.signupsOpen ? "ok" : "bad"}">sign-ups ${stats.settings.signupsOpen ? "open" : "closed"}</span>
+        <span class="pill ${stats.settings.inviteOnly ? "warn" : ""}">${stats.settings.inviteOnly ? "invite only" : "anyone can join"}</span>
+        <span class="pill ${stats.settings.maintenance ? "bad" : "ok"}">${stats.settings.maintenance ? "closed for maintenance" : "site open"}</span>
+        <span class="pill">${stats.settings.featured.length} on the shelf</span>
+        ${stats.settings.announcement ? `<span class="pill acc">home banner on</span>` : ""}${stats.settings.dashAnnouncement ? `<span class="pill mint">dashboard notice on</span>` : ""}
+      </div></div></div>`;
+  }
 
-/* stats */
-.chart{width:100%;height:220px;display:block}
-.chart text{fill:var(--dim);font-size:10px;font-family:var(--body)}
-.tbl{width:100%;border-collapse:collapse;font-size:13px}
-.tbl td{padding:7px 0;border-bottom:1px solid var(--line)}
-.tbl td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
-.tbl .barcell{position:relative}
-.tbl .barcell i{position:absolute;left:0;bottom:2px;height:2px;background:var(--accent);opacity:.6;border-radius:2px}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.legend{display:flex;gap:16px;font-size:11px;color:var(--muted);margin-top:8px}
-.legend i{display:inline-block;width:14px;height:2px;margin-right:6px;vertical-align:middle;background:var(--accent)}
-.legend i.dash{background:repeating-linear-gradient(90deg,var(--muted) 0 4px,transparent 4px 7px)}
+  /* ---------- patients ---------- */
+  async function users() {
+    if (!badges.length) badges = await api("/api/admin/badges");
+    if (owner) $("#headActs").innerHTML = `<a class="btn small" href="/api/admin/export.csv">Export CSV</a>`;
+    view.innerHTML = `<div class="view">
+      <div class="tools"><input type="search" id="q" placeholder="Search by name" value="${esc(q)}">
+        <div class="chips">${[["all", "Everyone"], ["premium", "Premium"], ["staff", "Team"], ["banned", "Banned"]].map(([f, l]) => `<button class="chip" data-f="${f}" aria-pressed="${f === filter}">${l}</button>`).join("")}</div>
+        <span class="tag-mono" id="count" style="margin-left:auto"></span></div>
+      <div class="tblwrap"><table class="t"><thead><tr><th class="ck"><input type="checkbox" id="selAll" aria-label="Select everyone on this page"></th><th>No.</th><th>patient</th><th>role</th><th>joined</th><th>last seen</th><th>visits</th><th>status</th></tr></thead><tbody id="rows"><tr><td colspan="8"><div class="spinner" style="margin:20px auto"></div></td></tr></tbody></table></div>
+      <div class="tools" id="pager"></div>
+      <div class="bulk" id="bulk" hidden><b id="selN"></b>
+        <select id="bAct"><option value="premium">Give premium</option><option value="unpremium">Remove premium</option><option value="badge">Give badge</option><option value="unbadge">Remove badge</option><option value="ban">Ban</option><option value="unban">Unban</option><option value="reset">Reset page</option>${owner ? `<option value="delete">Delete accounts</option>` : ""}</select>
+        <input type="number" id="bDays" min="0" max="3650" placeholder="days (empty = forever)" style="width:180px">
+        <select id="bBadge" hidden>${badges.filter((b) => !b.auto).map((b) => `<option value="${b.id}">${esc(b.name)}</option>`).join("")}</select>
+        <input type="text" id="bReason" placeholder="reason (optional)" maxlength="200" hidden style="width:200px">
+        <button class="btn small primary" id="bGo">Apply</button><button class="btn small" id="bClear">Clear</button></div></div>`;
+    const syncBulkFields = () => { const a = $("#bAct").value; $("#bDays").hidden = a !== "premium"; $("#bBadge").hidden = !["badge", "unbadge"].includes(a); $("#bReason").hidden = a !== "ban"; };
+    $("#bAct").onchange = syncBulkFields; syncBulkFields();
+    $("#bClear").onclick = () => { sel.clear(); syncSel(); };
+    $("#bGo").onclick = async () => {
+      const action = $("#bAct").value, n = sel.size, label = $("#bAct").selectedOptions[0].textContent.toLowerCase();
+      if (["ban", "delete", "reset"].includes(action) && !(await modal({ title: `${label} for ${n} ${n === 1 ? "person" : "people"}?`, body: action === "delete" ? "Their pages, uploads and stats are gone for good." : action === "reset" ? "Their pages go back to defaults." : "They're signed out and their pages go offline.", confirm: "Yes, do it", danger: true }))) return;
+      try { const r = await api("/api/admin/users/bulk", { method: "POST", body: { ids: [...sel], action, days: $("#bDays").value, badge: $("#bBadge").value, reason: $("#bReason").value } });
+        toast(`Done for ${r.count} ${r.count === 1 ? "person" : "people"}${r.skipped ? ` · skipped ${r.skipped} (you or an owner)` : ""}.`); sel.clear(); loadUsers(); } catch (e) { toast(e.message, true); }
+    };
+    $("#selAll").onchange = (e) => { userRows.forEach((u) => (e.target.checked ? sel.add(u.id) : sel.delete(u.id))); syncSel(); };
+    let t; $("#q").oninput = (e) => { clearTimeout(t); t = setTimeout(() => { q = e.target.value; page = 0; loadUsers(); }, 250); };
+    $$("[data-f]").forEach((b) => (b.onclick = () => { filter = b.dataset.f; page = 0; users(); }));
+    loadUsers();
+  }
+  let userRows = []; const sel = new Set();
+  function syncSel() {
+    $$("#rows input[data-sel]").forEach((c) => (c.checked = sel.has(Number(c.dataset.sel))));
+    const all = $("#selAll"); if (all) { const on = userRows.filter((u) => sel.has(u.id)).length; all.checked = on && on === userRows.length; all.indeterminate = on > 0 && on < userRows.length; }
+    const b = $("#bulk"); if (b) { b.hidden = !sel.size; $("#selN").textContent = `${sel.size} selected`; }
+  }
+  async function loadUsers() {
+    const r = await api(`/api/admin/users?q=${encodeURIComponent(q)}&filter=${filter}&page=${page}`); userRows = r.users;
+    $("#count").textContent = `${r.total} ${r.total === 1 ? "patient" : "patients"}`;
+    $("#rows").innerHTML = r.users.length ? r.users.map((u) => `<tr class="${u.banned ? "banned" : ""}" data-id="${u.id}">
+      <td class="ck"><input type="checkbox" data-sel="${u.id}" aria-label="Select ${esc(u.username)}"></td><td class="num">${String(u.memberNo).padStart(4, "0")}</td>
+      <td><span class="who"><b>${esc(u.username)}</b>${u.discord ? `<small>discord: ${esc(u.discord)}</small>` : ""}${u.aliases.length ? `<small>also /${u.aliases.map(esc).join(", /")}</small>` : ""}</span></td>
+      <td>${u.role === "user" ? `<span class="muted">patient</span>` : `<span class="pill acc">${u.role}</span>`}</td>
+      <td class="num">${date(u.created)}</td><td class="num">${ago(u.lastSeen)}</td><td class="num">${u.views.toLocaleString()}</td>
+      <td>${u.banned ? `<span class="pill bad">banned</span>` : u.premium ? `<span class="pill acc">premium${u.premiumUntil ? " · until " + date(u.premiumUntil) : ""}</span>` : `<span class="pill">regular</span>`}${u.reports ? ` <span class="pill warn">${u.reports} report${u.reports > 1 ? "s" : ""}</span>` : ""}</td></tr>`).join("") : `<tr><td colspan="8" class="muted" style="padding:24px;text-align:center">Nobody matches that.</td></tr>`;
+    $$("#rows tr[data-id]").forEach((tr) => (tr.onclick = (e) => { if (e.target.closest(".ck")) return; openUser(userRows.find((x) => String(x.id) === tr.dataset.id)); }));
+    $$("#rows input[data-sel]").forEach((c) => (c.onchange = () => { const id = Number(c.dataset.sel); c.checked ? sel.add(id) : sel.delete(id); syncSel(); }));
+    syncSel();
+    const pages = Math.ceil(r.total / 50);
+    $("#pager").innerHTML = pages > 1 ? `<button class="btn small" id="prev" ${page ? "" : "disabled"}>← Newer</button><span class="tag-mono">page ${page + 1} of ${pages}</span><button class="btn small" id="next" ${page < pages - 1 ? "" : "disabled"}>Older →</button>` : "";
+    if (pages > 1) { $("#prev").onclick = () => { page--; loadUsers(); }; $("#next").onclick = () => { page++; loadUsers(); }; }
+  }
+  const closeDrawer = () => { $("#drawer").classList.remove("open"); $("#scrim").classList.remove("on"); };
+  $("#scrim").onclick = closeDrawer;
+  addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+  function openUser(u) {
+    const d = $("#drawer");
+    const manual = badges.filter((b) => !b.auto);
+    d.innerHTML = `<header><h3>${esc(u.username)}</h3><span class="tag-mono">No. ${String(u.memberNo).padStart(4, "0")}</span><button class="btn small" style="margin-left:auto" id="dx">Close</button></header>
+      <div class="body">
+        <div class="facts">
+          <div><small>joined</small><b>${date(u.created)}</b></div><div><small>last seen</small><b>${ago(u.lastSeen)}</b></div>
+          <div><small>visits</small><b>${u.views.toLocaleString()}</b></div><div><small>open reports</small><b>${u.reports}</b></div>
+          <div><small>discord</small><b>${esc(u.discord || "not linked")}</b></div><div><small>spare names</small><b>${u.aliases.length ? u.aliases.map(esc).join(", ") : "none"}</b></div>
+        </div>
+        ${owner ? `<div class="sec"><span class="tag-mono">views · real ${u.realViews.toLocaleString()}${u.viewBonus ? ` · adjusted ${u.viewBonus > 0 ? "+" : ""}${u.viewBonus.toLocaleString()}` : ""}</span>
+          <div class="acts"><input type="number" id="vNum" placeholder="number" min="0" style="width:130px;height:34px;padding:0 12px;border-radius:999px">
+            <button class="btn small primary" data-v="set">Set to</button><button class="btn small" data-v="add">Add</button><button class="btn small" data-v="sub">Remove</button>${u.viewBonus ? `<button class="btn small" data-v="real">Back to real</button>` : ""}</div></div>` : ""}
+        <div class="acts"><a class="btn small" href="/${esc(u.username)}" target="_blank" rel="noopener">Open page ↗</a><button class="btn small" data-a="rename">Rename</button><button class="btn small" data-a="reset">Reset page</button></div>
+        <div class="sec"><span class="tag-mono">premium</span>
+          <div class="acts">${u.premium ? `<button class="btn small" data-a="unprem">Remove premium</button><span class="muted" style="font-size:12px;align-self:center">${u.premiumUntil ? "ends " + date(u.premiumUntil) : "no end date"}</span>`
+            : `<button class="btn small primary" data-prem="0">Give for good</button><button class="btn small" data-prem="7">7 days</button><button class="btn small" data-prem="30">30 days</button><button class="btn small" data-prem="365">1 year</button>`}</div></div>
+        ${owner ? `<div class="sec"><span class="tag-mono">role</span><div class="chips">${["user", "staff", "owner"].map((r) => `<button class="chip" data-role="${r}" aria-pressed="${u.role === r}">${r === "user" ? "patient" : r}</button>`).join("")}</div></div>` : ""}
+        <div class="sec"><span class="tag-mono">badges</span><div class="bpick">${manual.map((b) => `<label style="color:${esc(b.color)}"><input type="checkbox" value="${b.id}" ${u.badges.includes(b.id) ? "checked" : ""}>${svgIcon(b.icon)}<span style="color:var(--text)">${esc(b.name)}</span></label>`).join("") || `<span class="muted">No hand-out badges yet.</span>`}</div>
+          <div><button class="btn small" data-a="badges">Save badges</button></div></div>
+        <div class="sec"><span class="tag-mono">private note · only the team sees this</span><textarea id="note" rows="3" maxlength="500" placeholder="e.g. paid for premium on Ko-fi, 12 March">${esc(u.note)}</textarea><div><button class="btn small" data-a="note">Save note</button></div></div>
+        <div class="sec panel danger-zone" style="padding:14px"><span class="tag-mono" style="color:var(--bad)">careful</span><div class="acts">
+          <button class="btn small danger" data-a="ban">${u.banned ? "Unban" : "Ban"}</button>${owner ? `<button class="btn small danger" data-a="delete">Delete account</button>` : ""}</div>
+          ${u.banned && u.banReason ? `<p class="muted" style="font-size:12px">Reason: ${esc(u.banReason)}</p>` : ""}</div>
+      </div>`;
+    d.classList.add("open"); $("#scrim").classList.add("on");
+    $("#dx").onclick = closeDrawer;
+    const patch = async (body, msg) => { try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body }); toast(msg); closeDrawer(); loadUsers(); } catch (e) { toast(e.message, true); } };
+    $$("[data-v]", d).forEach((b) => (b.onclick = () => {
+      const n = Number($("#vNum").value), v = b.dataset.v;
+      if (v !== "real" && ($("#vNum").value === "" || !Number.isFinite(n))) return toast("Type a number first.", true);
+      const body = v === "set" ? { setViews: n } : v === "add" ? { addViews: n } : v === "sub" ? { addViews: -n } : { setViews: u.realViews };
+      patch(body, "Views updated.");
+    }));
+    $$("[data-prem]", d).forEach((b) => (b.onclick = () => patch({ premium: true, premiumDays: Number(b.dataset.prem) || undefined }, `${u.username} has premium${Number(b.dataset.prem) ? ` for ${b.dataset.prem} days` : ""}.`)));
+    $$("[data-role]", d).forEach((b) => (b.onclick = async () => {
+      if (b.dataset.role === "owner" && !(await modal({ title: `Make ${u.username} an owner?`, body: "Owners can change everything, including your own account.", confirm: "Make owner", danger: true }))) return;
+      patch({ role: b.dataset.role }, `${u.username} is now ${b.dataset.role === "user" ? "a patient" : b.dataset.role}.`);
+    }));
+    $$("[data-a]", d).forEach((b) => (b.onclick = async () => {
+      const a = b.dataset.a;
+      if (a === "unprem") return patch({ premium: false }, "Premium removed.");
+      if (a === "badges") return patch({ badges: $$(".bpick input:checked", d).map((i) => Number(i.value)) }, "Badges saved.");
+      if (a === "note") return patch({ note: $("#note").value }, "Note saved.");
+      if (a === "rename") { const n = await modal({ title: `Rename ${u.username}`, confirm: "Rename", input: { value: u.username } }); if (n && n !== u.username) patch({ username: n }, `Renamed to ${n}.`); }
+      if (a === "reset") { if (await modal({ title: `Reset ${u.username}'s page?`, body: "Their text, links and styling go back to defaults. Use it for pages that break the rules.", confirm: "Reset", danger: true })) { try { await api(`/api/admin/users/${u.id}/reset`, { method: "POST" }); toast("Page reset."); } catch (e) { toast(e.message, true); } } }
+      if (a === "ban") {
+        if (u.banned) return patch({ banned: false }, `${u.username} is unbanned.`);
+        const reason = await modal({ title: `Ban ${u.username}?`, body: "Their page goes offline and they're signed out. They'll see the reason if they try to sign in.", confirm: "Ban", danger: true, input: { placeholder: "reason (optional)" } });
+        if (reason != null) patch({ banned: true, banReason: reason }, `${u.username} is banned.`);
+      }
+      if (a === "delete") {
+        const c = await modal({ title: `Delete ${u.username}?`, body: `Type <b>${esc(u.username)}</b> to confirm. Their page, uploads and stats are gone for good.`, confirm: "Delete forever", danger: true, input: { placeholder: u.username } });
+        if (c === u.username) { try { await api(`/api/admin/users/${u.id}`, { method: "DELETE" }); toast("Account deleted."); closeDrawer(); loadUsers(); } catch (e) { toast(e.message, true); } }
+        else if (c != null) toast("The name didn't match, so nothing was deleted.", true);
+      }
+    }));
+  }
 
-/* preview */
-.preview{border-left:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;background:rgba(6,3,10,.3);backdrop-filter:blur(10px)}
-.pbar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
-.pbar a{margin-left:auto}
-.pframe{flex:1;display:grid;place-items:center;overflow:hidden;padding:0}
-.pframe iframe{width:100%;height:100%;border:0;background:#000}
-.pframe.phone{padding:18px}
-.pframe.phone iframe{width:min(390px,100%);height:min(780px,100%);border-radius:34px;border:6px solid #1d1228;box-shadow:0 30px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08),0 0 80px -20px color-mix(in srgb,var(--accent) 60%,transparent)}
-.app.wide-preview{grid-template-columns:230px minmax(0,1fr) 46vw}
+  /* ---------- reports ---------- */
+  async function reports() {
+    const rows = await api(`/api/admin/reports?status=${repStatus}`);
+    view.innerHTML = `<div class="view"><div class="tools"><div class="chips">${[["open", "Waiting"], ["resolved", "Dealt with"], ["dismissed", "Dismissed"]].map(([s, l]) => `<button class="chip" data-rs="${s}" aria-pressed="${s === repStatus}">${l}</button>`).join("")}</div></div>
+      ${rows.length ? rows.map((r) => `<div class="rep" data-id="${r.id}"><span class="reason">${esc(r.reason)}</span>
+        <div><b><a href="/${esc(r.page)}" target="_blank" rel="noopener">/${esc(r.page)}</a></b>${r.banned ? ` <span class="pill bad">banned</span>` : ""}<span class="muted" style="font-size:12px"> · from ${esc(r.reporter)} · ${ago(r.ts)}</span>${r.details ? `<p>${esc(r.details)}</p>` : ""}</div>
+        <div class="acts">${r.status === "open" ? `<button class="btn small" data-do="dismissed">Dismiss</button><button class="btn small" data-do="resolved">Mark dealt with</button><button class="btn small danger" data-do="ban">Ban page</button>` : `<button class="btn small" data-do="open">Reopen</button>`}</div></div>`).join("")
+        : `<div class="empty"><span class="tablet" style="--w:44px"></span>${repStatus === "open" ? "No reports waiting. All quiet at the counter." : "Nothing here."}</div>`}</div>`;
+    $$("[data-rs]").forEach((b) => (b.onclick = () => { repStatus = b.dataset.rs; reports(); }));
+    $$(".rep").forEach((el) => $$("[data-do]", el).forEach((b) => (b.onclick = async () => {
+      const r = rows.find((x) => String(x.id) === el.dataset.id);
+      try {
+        if (b.dataset.do === "ban") {
+          const reason = await modal({ title: `Ban /${r.page}?`, body: "The page goes offline and the report is marked as dealt with.", confirm: "Ban", danger: true, input: { value: r.reason } });
+          if (reason == null) return;
+          await api(`/api/admin/users/${r.pageId}`, { method: "PATCH", body: { banned: true, banReason: reason } });
+          await api(`/api/admin/reports/${r.id}`, { method: "PATCH", body: { status: "resolved" } });
+        } else await api(`/api/admin/reports/${r.id}`, { method: "PATCH", body: { status: b.dataset.do } });
+        stats = await api("/api/admin/stats"); rail(); reports(); toast("Report updated.");
+      } catch (e) { toast(e.message, true); }
+    })));
+  }
 
-.savebar{position:fixed;left:50%;bottom:18px;translate:-50% 0;z-index:30;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 18px;border-radius:999px;background:rgba(30,16,44,.85);backdrop-filter:blur(16px);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 16px 40px rgba(0,0,0,.55);font-size:13px;transition:opacity .2s,translate .2s}
-.savebar[hidden]{display:flex!important;opacity:0;translate:-50% 20px;pointer-events:none}
-.palette{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.55);display:grid;place-items:start center;padding-top:12vh}
-.pbox{width:min(560px,92vw);background:var(--glass),var(--ink-2);border:1px solid var(--line-2);border-radius:22px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.6)}
-.pbox input{border:0!important;border-bottom:1px solid var(--line)!important;border-radius:0!important;padding:16px!important;font-size:14px;background:transparent!important}
-.pres{max-height:50vh;overflow-y:auto;padding:6px}
-.pres button{display:flex;justify-content:space-between;width:100%;padding:10px 12px;border-radius:9px;border:0;background:none;cursor:pointer;text-align:left;font-size:13px;color:var(--text)}
-.pres button small{color:var(--dim)}
-.pres button[aria-selected=true]{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 20%,transparent),rgba(61,245,255,.08));box-shadow:inset 2px 0 0 var(--accent)}
-.mobile-only{display:none}
-@media (max-width:1240px){.app{grid-template-columns:210px minmax(0,1fr)}.preview{display:none}.preview.show{display:flex;position:fixed;inset:0;z-index:60}.mobile-only{display:inline-flex}}
-@media (max-width:760px){body{overflow:auto;height:auto}.app{grid-template-columns:1fr;height:auto}.mainwrap{height:auto}
-  .side{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px;position:sticky;top:0;background:var(--ink);z-index:20}
-  .side .logo,.side .grp,.side .me{display:none}.side button{width:auto;white-space:nowrap}.main{overflow:visible}
-  .fields,.twocol,.grid4{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.secrow{grid-template-columns:20px 1fr 80px auto}.secrow input[type=text]{display:none}}
+  /* ---------- badges ---------- */
+  async function badgesTab() {
+    badges = await api("/api/admin/badges");
+    let icon = "star";
+    view.innerHTML = `<div class="view">
+      ${owner ? `<div class="panel"><h3 style="font-size:15px">Make a badge</h3><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+        <div class="tools"><input type="text" id="bName" placeholder="Name, e.g. Night owl" maxlength="30" style="max-width:220px"><input type="text" id="bDesc" placeholder="How people earn it" maxlength="120" style="max-width:340px"><input type="color" id="bColor" value="#ff5c8a"><button class="btn primary" id="bAdd">Create</button></div>
+        <div class="iconpick">${ICONS.map((i) => `<button type="button" data-icon="${i}" aria-pressed="${i === icon}" title="${i}">${svgIcon(i)}</button>`).join("")}</div></div></div>` : ""}
+      <div class="badge-grid">${badges.map((b) => `<div class="bcard"><span class="ic" style="color:${esc(b.color)}">${svgIcon(b.icon)}</span><div><b>${esc(b.name)}</b><small>${esc(b.description || "")}</small><small>${b.auto ? "automatic" : `${b.holders} ${b.holders === 1 ? "holder" : "holders"} · give from Patients`}</small></div>
+        ${owner && !b.system ? `<button class="btn small danger" data-del="${b.id}">Delete</button>` : ""}</div>`).join("")}</div></div>`;
+    $$("[data-icon]").forEach((b) => (b.onclick = () => { icon = b.dataset.icon; $$("[data-icon]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
+    if ($("#bAdd")) $("#bAdd").onclick = async () => { try { await api("/api/admin/badges", { method: "POST", body: { name: $("#bName").value, description: $("#bDesc").value, icon, color: $("#bColor").value } }); toast("Badge made."); badgesTab(); } catch (e) { toast(e.message, true); } };
+    $$("[data-del]").forEach((b) => (b.onclick = async () => { if (!(await modal({ title: "Delete this badge?", body: "Everyone holding it loses it.", confirm: "Delete", danger: true }))) return; try { await api(`/api/admin/badges/${b.dataset.del}`, { method: "DELETE" }); toast("Badge deleted."); badgesTab(); } catch (e) { toast(e.message, true); } }));
+  }
 
-/* page switch */
-.main > *{animation:viewin .45s cubic-bezier(.2,.8,.2,1) both}
-.main > .stack > *{animation:viewin .5s cubic-bezier(.2,.8,.2,1) both}
-.main > .stack > *:nth-child(2){animation-delay:.04s}.main > .stack > *:nth-child(3){animation-delay:.08s}.main > .stack > *:nth-child(4){animation-delay:.12s}.main > .stack > *:nth-child(n+5){animation-delay:.16s}
-@keyframes viewin{from{opacity:0;transform:translateY(10px)}}
-.main.nofx > *,.main.nofx > .stack > *{animation:none}
-.kpi b{font-family:var(--display);letter-spacing:-.03em}
+  /* ---------- invites ---------- */
+  async function invites() {
+    const rows = await api("/api/admin/invites");
+    view.innerHTML = `<div class="view">
+      <div class="panel"><h3 style="font-size:15px">Invite codes</h3><p class="muted" style="font-size:13px;margin:6px 0 12px">Only needed when sign-ups are set to invite only (in Settings). Right now: <b>${stats.settings.inviteOnly ? "invite only" : "anyone can join"}</b>.</p>
+        ${owner ? `<div class="tools"><label class="f" style="width:110px"><span>how many</span><input type="number" id="ic" value="5" min="1" max="50"></label><label class="f" style="width:110px"><span>uses each</span><input type="number" id="iu" value="1" min="1" max="1000"></label><label class="f" style="flex:1;max-width:260px"><span>note</span><input type="text" id="in" placeholder="e.g. for the Discord server" maxlength="60"></label><button class="btn primary" id="imake" style="align-self:end">Make codes</button></div>` : ""}</div>
+      ${rows.length ? `<div class="tblwrap"><table class="t" style="min-width:600px"><thead><tr><th>code</th><th>used</th><th>note</th><th>made</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr style="cursor:default">
+        <td class="code">${esc(r.code)}</td><td class="num">${r.uses} / ${r.max_uses}</td><td>${esc(r.note || "")}</td><td class="num">${date(r.ts)}${r.creator ? " · " + esc(r.creator) : ""}</td>
+        <td style="text-align:right"><button class="btn small" data-copy="${esc(r.code)}">Copy link</button>${owner ? ` <button class="btn small danger" data-rm="${esc(r.code)}">Delete</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty"><span class="capsule" style="--w:50px;--a:var(--mint)"></span>No invite codes yet.</div>`}</div>`;
+    if ($("#imake")) $("#imake").onclick = async () => { try { const r = await api("/api/admin/invites", { method: "POST", body: { count: $("#ic").value, maxUses: $("#iu").value, note: $("#in").value } }); toast(`${r.codes.length} code${r.codes.length > 1 ? "s" : ""} made.`); invites(); } catch (e) { toast(e.message, true); } };
+    $$("[data-copy]").forEach((b) => (b.onclick = () => navigator.clipboard.writeText(`${location.origin}/signup?invite=${b.dataset.copy}`).then(() => toast("Sign-up link copied.")).catch(() => toast(b.dataset.copy))));
+    $$("[data-rm]").forEach((b) => (b.onclick = async () => { await api(`/api/admin/invites/${b.dataset.rm}`, { method: "DELETE" }); toast("Code deleted."); invites(); }));
+  }
 
-/* ---- pharmacy details ---- */
-.panel h3::before{content:"";width:16px;height:7px;border-radius:9px;background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%);rotate:-25deg;flex:none;box-shadow:inset 0 -1px 0 rgba(0,0,0,.2)}
-.btn.primary,.chip[aria-pressed=true]{}
-.side button[aria-current=true]{background:color-mix(in srgb,var(--accent) 12%,transparent);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent)}
-.side button[aria-current=true]::before{background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%);box-shadow:none}
-.seg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
-.cards button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);box-shadow:inset 0 0 0 1px var(--accent),0 8px 24px -14px color-mix(in srgb,var(--accent) 90%,transparent)}
-.kpi.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent);box-shadow:none}
-.banner-note{display:flex;gap:10px;align-items:center;padding:10px 14px;margin-bottom:18px;border-radius:14px;background:rgba(125,240,200,.07);border:1px solid rgba(125,240,200,.3);color:var(--mint);font-size:13px;max-width:760px}
-.banner-note svg{width:15px;height:15px;fill:currentColor;flex:none}
-.rxcard{rotate:-1deg;max-width:360px}
-.taps{font-family:var(--mono);font-size:11px;color:var(--muted);padding:3px 8px;border-radius:99px;border:1px solid var(--line);white-space:nowrap}
-.rowfoot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:2px 4px 0}
-.formulas{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;max-width:980px}
-.formula{display:flex;flex-direction:column;gap:6px;text-align:left;padding:10px 10px 14px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer;transition:transform .25s cubic-bezier(.3,1.4,.5,1),border-color .2s}
-.formula:hover{transform:translateY(-3px);border-color:var(--line-2)}
-.formula.on{border-color:var(--c);box-shadow:0 0 0 1px var(--c),0 16px 40px -20px var(--c)}
-.formula .fprev{height:110px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;
-  background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--c) 40%,transparent),transparent 60%),var(--bg);border:1px solid rgba(255,255,255,.06)}
-.formula .fprev .capsule{rotate:-25deg}
-.formula .fname{font-family:var(--display);font-weight:700;font-size:18px;color:#fff;text-shadow:0 0 18px var(--c)}
-.formula b{font-size:14px;padding:0 4px}
-.formula small{font-size:12px;color:var(--muted);padding:0 4px;line-height:1.45}
-.savebar .syr{width:46px;height:12px;flex:none;margin-right:2px}
-.savebar .syr .liq{animation:push 1.6s ease-in-out infinite alternate;transform-origin:left}
-@keyframes push{from{transform:scaleX(1)}to{transform:scaleX(.35)}}
-/* packaging-grade containers (match .panel in site.css) */
-.kpi,.formula,.mcard{border:1px solid transparent!important;
-  background:linear-gradient(180deg,rgba(22,27,31,.72),rgba(12,15,18,.72)) padding-box,linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)) border-box!important}
-.kpi b{color:#fff}
-.kpi.sel{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 12%,rgba(22,27,31,.8)),rgba(12,15,18,.8)) padding-box,linear-gradient(180deg,var(--accent),rgba(255,255,255,.05)) border-box!important}
-.row{background:rgba(255,255,255,.025);border-color:rgba(255,255,255,.08)}
-.side{background:linear-gradient(180deg,rgba(14,18,21,.6),rgba(8,10,12,.6))}
-.formula.on{background:linear-gradient(180deg,rgba(22,27,31,.8),rgba(12,15,18,.8)) padding-box,linear-gradient(180deg,var(--c),rgba(255,255,255,.05)) border-box!important}
-.side button[aria-current=true]{background:color-mix(in srgb,var(--accent) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+  /* ---------- gift codes ---------- */
+  async function gifts() {
+    const rows = await api("/api/admin/gifts");
+    view.innerHTML = `<div class="view">
+      <div class="panel"><h3 style="font-size:15px">Gift codes</h3><p class="muted" style="font-size:13px;margin:6px 0 12px">Each code turns on Premium for a set number of days. People redeem them under Account in their dashboard. Days stack on top of any Premium they already have.</p>
+        ${owner ? `<div class="tools"><label class="f" style="width:100px"><span>how many</span><input type="number" id="gc" value="1" min="1" max="50"></label><label class="f" style="width:100px"><span>days</span><input type="number" id="gd" value="30" min="1" max="3650"></label><label class="f" style="width:100px"><span>uses each</span><input type="number" id="gu" value="1" min="1" max="1000"></label><label class="f" style="width:130px"><span>expires in (days)</span><input type="number" id="ge" placeholder="never" min="0" max="365"></label><label class="f" style="flex:1;max-width:240px"><span>note</span><input type="text" id="gn" placeholder="e.g. Discord giveaway" maxlength="60"></label><button class="btn primary" id="gmake" style="align-self:end">Make codes</button></div><div id="gnew"></div>` : ""}</div>
+      ${rows.length ? `<div class="tblwrap"><table class="t" style="min-width:720px"><thead><tr><th>code</th><th>gives</th><th>used</th><th>note</th><th>expires</th><th></th></tr></thead><tbody>${rows.map((r) => { const dead = r.uses >= r.max_uses || (r.expires_at && r.expires_at < Date.now()); return `<tr style="cursor:default" class="${dead ? "banned" : ""}">
+        <td class="code">${esc(r.code)}</td><td class="num">${r.days} days</td><td class="num">${r.uses} / ${r.max_uses}${r.redeemedBy.length ? `<small style="display:block">${r.redeemedBy.map(esc).join(", ")}</small>` : ""}</td><td>${esc(r.note || "")}</td><td class="num">${r.expires_at ? date(r.expires_at) : "never"}</td>
+        <td style="text-align:right"><button class="btn small" data-copy="${esc(r.code)}">Copy</button>${owner ? ` <button class="btn small danger" data-rm="${esc(r.code)}">Delete</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>`
+      : `<div class="empty"><span class="capsule" style="--w:50px;--a:var(--mint)"></span>No gift codes yet.</div>`}</div>`;
+    if ($("#gmake")) $("#gmake").onclick = async () => {
+      try { const r = await api("/api/admin/gifts", { method: "POST", body: { count: $("#gc").value, days: $("#gd").value, maxUses: $("#gu").value, expiresDays: $("#ge").value, note: $("#gn").value } });
+        await gifts(); $("#gnew").innerHTML = `<div class="newcodes"><b>New codes</b><textarea readonly rows="${Math.min(8, r.codes.length)}">${r.codes.join("\n")}</textarea><button class="btn small" id="gcopy">Copy all</button></div>`;
+        $("#gcopy").onclick = () => navigator.clipboard.writeText(r.codes.join("\n")).then(() => toast("Copied.")); } catch (e) { toast(e.message, true); }
+    };
+    $$("[data-copy]").forEach((b) => (b.onclick = () => navigator.clipboard.writeText(b.dataset.copy).then(() => toast("Code copied.")).catch(() => toast(b.dataset.copy))));
+    $$("[data-rm]").forEach((b) => (b.onclick = async () => { await api(`/api/admin/gifts/${b.dataset.rm}`, { method: "DELETE" }); toast("Code deleted."); gifts(); }));
+  }
 
-.side{background:linear-gradient(180deg,rgba(12,15,18,.92),rgba(8,10,12,.92))!important}
-.toolbar{background:rgba(9,11,13,.85)!important}
-.preview{background:rgba(6,8,10,.9)!important}
-.kpi,.formula{background:linear-gradient(180deg,rgba(20,25,29,.92),rgba(11,14,17,.92)) padding-box,linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04)) border-box!important}
+  /* ---------- held names ---------- */
+  async function names() {
+    const rows = await api("/api/admin/names");
+    view.innerHTML = `<div class="view">
+      <div class="panel"><h3 style="font-size:15px">Hold names</h3><p class="muted" style="font-size:13px;margin:6px 0 12px">Held names can't be claimed at sign-up or by renaming. Give one to someone, or release it so anyone can take it.</p>
+        <div class="tools"><label class="f" style="flex:1;max-width:340px"><span>names (spaces or commas)</span><input type="text" id="hn" placeholder="og, x, rx, pill"></label><label class="f" style="flex:1;max-width:240px"><span>note</span><input type="text" id="hnote" placeholder="e.g. short names, auction" maxlength="80"></label><button class="btn primary" id="hadd" style="align-self:end">Hold</button>
+        <button class="btn" id="hshort" style="align-self:end" title="Every 1 and 2 letter name">Hold all 1–2 letter names</button></div></div>
+      ${rows.length ? `<div class="tblwrap"><table class="t" style="min-width:640px"><thead><tr><th>name</th><th>note</th><th>held</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr style="cursor:default">
+        <td class="code">/${esc(r.name)}${r.takenBy ? ` <span class="pill warn">already used by ${esc(r.takenBy)}</span>` : ""}</td><td>${esc(r.note || "")}</td><td class="num">${date(r.ts)}${r.creator ? " · " + esc(r.creator) : ""}</td>
+        <td style="text-align:right;white-space:nowrap"><button class="btn small" data-give="${esc(r.name)}">Give to…</button> <button class="btn small" data-rel="${esc(r.name)}">Release</button></td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty"><span class="tablet"></span>No names held.</div>`}</div>`;
+    const hold = async (list, note) => { try { const r = await api("/api/admin/names", { method: "POST", body: { names: list, note } }); toast(`${r.added} name${r.added === 1 ? "" : "s"} held.`); names(); } catch (e) { toast(e.message, true); } };
+    $("#hadd").onclick = () => hold($("#hn").value, $("#hnote").value);
+    $("#hshort").onclick = () => { const a = "abcdefghijklmnopqrstuvwxyz0123456789".split(""); const l = [...a]; for (const x of a) for (const y of a) l.push(x + y); (async () => { for (let i = 0; i < l.length; i += 100) await api("/api/admin/names", { method: "POST", body: { names: l.slice(i, i + 100).join(" "), note: "short name" } }).catch(() => {}); toast("Short names held."); names(); })(); };
+    $$("[data-rel]").forEach((b) => (b.onclick = async () => { await api(`/api/admin/names/${b.dataset.rel}`, { method: "DELETE" }); toast(`/${b.dataset.rel} released.`); names(); }));
+    $$("[data-give]").forEach((b) => (b.onclick = async () => {
+      const who = await modal({ title: `Give /${b.dataset.give} to someone`, body: "Type their current username. Their page moves to the new name.", input: { placeholder: "username" }, confirm: "Give name" });
+      if (!who) return;
+      try { await api(`/api/admin/names/${b.dataset.give}/give`, { method: "POST", body: { username: who } }); toast(`${who} is now /${b.dataset.give}.`); names(); } catch (e) { toast(e.message, true); }
+    }));
+  }
 
-/* option cards: selected = accent outline + faint tint, no size change */
-.cards button{transition:border-color .2s,background .2s,color .2s!important}
-.cards button:hover{transform:none!important}
-.cards button[aria-pressed=true]{transform:none!important}
-.seg button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 18%,transparent)!important;color:#fff!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 60%,transparent)!important}
+  /* ---------- activity log ---------- */
+  async function auditTab() {
+    const rows = await api("/api/admin/audit");
+    view.innerHTML = `<div class="view"><p class="muted" style="font-size:13px">Every change the team makes, newest first.</p>
+      ${rows.length ? `<div class="panel log" style="padding:6px 0">${rows.map((r) => `<div class="e"><time>${new Date(r.ts).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
+        <span><b>${esc(r.actor)}</b> ${esc(r.action)}${r.target ? ` <a href="/${esc(r.target)}" target="_blank" rel="noopener">${esc(r.target)}</a>` : ""}</span><span class="d">${esc(r.details || "")}</span></div>`).join("")}</div>`
+      : `<div class="empty"><span class="tablet"></span>Nothing logged yet.</div>`}</div>`;
+  }
 
-/* ---- richer dashboard ---- */
-.vhead{display:flex;gap:16px;align-items:flex-start;margin-bottom:22px;max-width:760px}
-.vhead h1{margin-bottom:4px}.vhead .lead{margin-bottom:0}
-.vhead .itile{margin-top:4px}
-.panel h3::before{width:22px;height:22px;border-radius:7px;rotate:0deg;
-  background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%) center/12px 6px no-repeat,linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,transparent),color-mix(in srgb,var(--accent) 6%,transparent));
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent)}
-.welcome{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;padding:22px;border-radius:24px;border:1px solid transparent;
-  background:radial-gradient(70% 120% at 0% 0%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 60%),linear-gradient(180deg,rgba(20,25,29,.94),rgba(11,14,17,.94)) padding-box,
-    linear-gradient(180deg,color-mix(in srgb,var(--accent) 40%,rgba(255,255,255,.18)),rgba(255,255,255,.04)) border-box}
-.welcome::after{content:"";position:absolute;right:-30px;top:-30px;width:180px;height:76px;border-radius:99px;rotate:-25deg;opacity:.08;background:linear-gradient(90deg,var(--accent) 50%,var(--cream) 50%);pointer-events:none}
-.wav{width:72px;height:72px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:24px;text-transform:uppercase;
-  background:#0b0e10;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 70%,transparent),0 10px 30px -10px var(--accent)}
-.wav img{width:100%;height:100%;object-fit:cover}
-.wtxt h1{font-size:30px;margin:2px 0 8px}
-.wbadges{display:flex;gap:6px}
-.wspark{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:170px}
-.wspark b{font-family:var(--display);font-size:28px;letter-spacing:-.03em}
-.wspark svg{width:160px;height:44px}
-.upsell{margin-top:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:18px;border:1px solid transparent;
-  background:radial-gradient(100% 100% at 0% 0%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%),linear-gradient(180deg,rgba(20,25,29,.9),rgba(11,14,17,.9)) padding-box,
-    linear-gradient(180deg,color-mix(in srgb,var(--accent) 40%,transparent),rgba(255,255,255,.04)) border-box}
-.upsell .capsule{rotate:-25deg;margin-bottom:4px}
-.upsell b{font-size:13px}.upsell small{font-size:11.5px;color:var(--muted);line-height:1.4}
-.upsell + .me{margin-top:0}
-@media (max-width:760px){.welcome{grid-template-columns:auto 1fr}.wspark{grid-column:1/-1;align-items:flex-start}.upsell{display:none}}
+  /* ---------- settings ---------- */
+  async function settings() {
+    stats = await api("/api/admin/stats");
+    const st = stats.settings, dis = owner ? "" : "disabled";
+    view.innerHTML = `<div class="view">
+      ${owner ? "" : `<p class="pill warn">Only owners can change these.</p>`}
+      <div class="setgrid">
+        <div class="panel" style="grid-column:1/-1"><h3 style="font-size:15px;margin-bottom:4px">Site colour</h3><p class="muted" style="font-size:12.5px;margin-bottom:12px">Colours buttons, highlights and glows across the home page, dashboards and this panel. People's own pages keep their own colours.</p>
+          <div class="tools">${[["#5ef2b0", "Mint"], ["#b9a7ff", "Lilac"], ["#7cc8ff", "Sky"], ["#ffc35c", "Amber"], ["#ff8fb1", "Rose"], ["#f6f2ea", "Chalk"], ["#c6ff5e", "Lime"], ["#ff8a5c", "Peach"]].map(([c, n]) =>
+            `<button class="chip" data-acc="${c}" aria-pressed="${(st.siteAccent || "#5ef2b0") === c}" ${dis}><i style="width:12px;height:12px;border-radius:50%;background:${c};display:inline-block"></i>${n}</button>`).join("")}
+            <input type="color" id="sAccent" value="${st.siteAccent || "#5ef2b0"}" ${dis} title="Any colour"></div></div>
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:10px">Joining</h3>
+          <label class="toggle"><span>Accept new patients</span><input type="checkbox" id="sOpen" ${st.signupsOpen ? "checked" : ""} ${dis}></label>
+          <label class="toggle"><span>Invite only<small class="muted" style="display:block;font-size:11.5px">new sign-ups need a code from the Invites tab</small></span><input type="checkbox" id="sInv" ${st.inviteOnly ? "checked" : ""} ${dis}></label></div>
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:10px">Maintenance</h3>
+          <label class="toggle"><span>Close the site<small class="muted" style="display:block;font-size:11.5px">visitors see a "back soon" page. The team can still sign in.</small></span><input type="checkbox" id="sMaint" ${st.maintenance ? "checked" : ""} ${dis}></label>
+          <label class="f" style="margin-top:8px"><span>Message on the "back soon" page</span><input type="text" id="sMsg" maxlength="200" value="${esc(st.maintenanceMsg)}" placeholder="We're restocking the shelves. Back soon." ${dis}></label></div>
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:10px">Notices</h3>
+          <label class="f"><span>Banner on the home page</span><input type="text" id="sAnn" maxlength="200" value="${esc(st.announcement)}" placeholder="leave empty to hide" ${dis}></label>
+          <label class="f" style="margin-top:10px"><span>Notice in everyone's dashboard</span><input type="text" id="sDash" maxlength="200" value="${esc(st.dashAnnouncement)}" placeholder="leave empty to hide" ${dis}></label></div>
+        <div class="panel"><h3 style="font-size:15px;margin-bottom:10px">On the shelf</h3>
+          <label class="f"><span>Pages featured on the home page <small>usernames, comma separated, up to 8</small></span><input type="text" id="sFeat" value="${esc(st.featured.join(", "))}" placeholder="nyx, ghost" ${dis}></label></div>
+        <div class="panel" style="grid-column:1/-1"><h3 style="font-size:15px;margin-bottom:10px">Blocked words</h3>
+          <label class="f"><span>Names containing any of these can't be claimed <small>comma separated</small></span><textarea id="sBlock" rows="3" ${dis} placeholder="admin, support, official">${esc(st.blockedWords.join(", "))}</textarea></label></div>
+      </div>
+      ${owner ? `<div><button class="btn primary" id="sSave">Save settings</button></div>` : ""}
+      <p class="muted" style="font-size:12px">To rename the site, set <code>SITE_NAME</code> in Railway → Variables and redeploy.</p></div>`;
+    const preview = (c) => { document.documentElement.style.setProperty("--accent", c); };
+    $$("[data-acc]").forEach((b) => (b.onclick = () => { $("#sAccent").value = b.dataset.acc; $$("[data-acc]").forEach((x) => x.setAttribute("aria-pressed", x === b)); preview(b.dataset.acc); }));
+    if ($("#sAccent")) $("#sAccent").oninput = (e) => { $$("[data-acc]").forEach((x) => x.setAttribute("aria-pressed", x.dataset.acc === e.target.value)); preview(e.target.value); };
+    if ($("#sSave")) $("#sSave").onclick = async () => {
+      try {
+        await api("/api/admin/settings", { method: "PUT", body: {
+          siteAccent: $("#sAccent").value, signupsOpen: $("#sOpen").checked, inviteOnly: $("#sInv").checked, maintenance: $("#sMaint").checked, maintenanceMsg: $("#sMsg").value,
+          announcement: $("#sAnn").value, dashAnnouncement: $("#sDash").value,
+          featured: $("#sFeat").value.split(",").map((x) => x.trim()).filter(Boolean),
+          blockedWords: $("#sBlock").value.split(",").map((x) => x.trim()).filter(Boolean),
+        } });
+        toast("Settings saved."); settings();
+      } catch (e) { toast(e.message, true); }
+    };
+  }
 
-/* ---------- option previews ---------- */
-.pvcards{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
-.pvcards button{padding:6px 6px 10px;gap:9px;align-items:stretch;text-align:left;border-radius:16px}
-.pvcards button>span:not(.pv):not(.lk){padding:0 6px;font-weight:600;color:var(--text);display:flex;justify-content:space-between;align-items:center}
-.pvcards button[aria-pressed=true]>span:not(.pv):not(.lk)::after{content:"";width:15px;height:15px;border-radius:50%;flex:none;
-  background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/10px no-repeat}
-.pvcards .lk{position:absolute;top:10px;right:10px}
-.pvcards button{position:relative}
-.pv{--pa2:var(--pa,var(--accent));position:relative;display:grid;place-items:center;height:84px;border-radius:11px;overflow:hidden;background:#0c0d10;border:1px solid rgba(255,255,255,.05)}
-.pv-dots{background:radial-gradient(rgba(255,255,255,.09) 1px,transparent 1.2px) 0 0/11px 11px,#0c0d10}
-.pv-scene{background:radial-gradient(120% 90% at 20% 0%,color-mix(in srgb,var(--pa2) 34%,transparent),transparent 60%),radial-gradient(90% 80% at 100% 100%,color-mix(in srgb,var(--pa2) 18%,#3a2a5a),transparent 70%),#0b0b10}
-.pv-av{position:relative;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:#1b1d22 center/cover no-repeat;font-style:normal;font-size:13px;font-weight:800;color:#cfd3da;text-transform:uppercase;transition:scale .35s cubic-bezier(.3,1.4,.5,1),rotate .6s cubic-bezier(.3,1.2,.4,1)}
-.pv-av-rounded{border-radius:22%}.pv-av-square{border-radius:4px}.pv-av-blob{border-radius:42% 58% 63% 37%/41% 44% 56% 59%}.pv-av-capsule{border-radius:999px;width:32px}
-/* frames */
-.pv-dec::before{content:"";position:absolute;inset:-5px;border-radius:inherit;pointer-events:none}
-.pv-dec-ring::before{border:2px solid transparent;border-top-color:var(--pa2);border-right-color:color-mix(in srgb,var(--pa2) 50%,transparent);animation:pvspin 2.4s linear infinite;filter:drop-shadow(0 0 4px var(--pa2))}
-.pv-dec-rainbow::before{padding:2px;background:conic-gradient(#ff2e4d,#ff8a3d,#ffe14d,#3ddc97,#4dd2ff,#b48cff,#ff2e4d);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:pvspin 3s linear infinite}
-.pv-dec-pulse::before{animation:pvpulse 1.8s infinite}
-.pv-dec-dashed::before{border:2px dashed var(--pa2);animation:pvspin 10s linear infinite}
-.pv-dec-orbit::before{animation:pvspin 2.4s linear infinite}
-.pv-dec-orbit::after{content:"";position:absolute;inset:-5px;border-radius:inherit;animation:pvspin 2.4s linear infinite;background:radial-gradient(circle at 50% 3px,var(--pa2) 3px,transparent 3.5px)}
-@keyframes pvspin{to{rotate:1turn}}
-@keyframes pvpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--pa2) 70%,transparent)}70%,100%{box-shadow:0 0 0 10px transparent}}
-/* picture hover */
-button:hover .pv-ah-grow{scale:1.12}
-button:hover .pv-ah-spin{rotate:360deg}
-button:hover .pv-ah-tilt{rotate:-10deg;scale:1.05}
-button:hover .pv-ah-bounce{animation:pvbounce .6s}
-@keyframes pvbounce{30%{translate:0 -10px}55%{translate:0 2px}75%{translate:0 -4px}}
-/* mini card */
-.pv-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;width:64%;padding:9px 0 8px;border-radius:9px;background:rgba(14,12,18,.55);border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 22px -12px rgba(0,0,0,.8)}
-.pv-card .pv-av{width:20px;height:20px;font-size:0}
-.pv-card b,.pv-card em,.pv-card u{display:block;height:4px;border-radius:3px;background:rgba(255,255,255,.75)}
-.pv-card b{width:46%}.pv-card em{width:62%;background:rgba(255,255,255,.28)}.pv-card u{width:72%;height:7px;margin-top:2px;background:rgba(255,255,255,.12);border-radius:3px}
-.pv-cs-glass{background:rgba(255,255,255,.07);backdrop-filter:blur(6px)}
-.pv-cs-solid{background:#121318;border-color:rgba(255,255,255,.06)}
-.pv-cs-outline{background:transparent;border-color:rgba(255,255,255,.4);box-shadow:none}
-.pv-cs-label{background:linear-gradient(var(--pa2),var(--pa2)) top/100% 3px no-repeat,rgba(14,12,18,.6);border-style:dashed;border-color:color-mix(in srgb,var(--pa2) 55%,transparent)}
-.pv-cs-tinted{background:linear-gradient(160deg,color-mix(in srgb,var(--pa2) 34%,transparent),transparent 65%),rgba(14,12,18,.55);border-color:color-mix(in srgb,var(--pa2) 40%,transparent)}
-.pv-cs-none{background:transparent;border-color:transparent;box-shadow:none}
-/* mini buttons */
-.pv-scene:has(.pv-btn){display:flex;flex-direction:column;justify-content:center;gap:6px}
-.pv-btn{display:flex;align-items:center;gap:6px;width:70%;height:20px;padding:0 8px;border-radius:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);transition:transform .2s,background .2s,box-shadow .2s}
-.pv-btn i{width:7px;height:7px;border-radius:2px;background:currentColor;color:rgba(255,255,255,.8)}
-.pv-btn b{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.65);max-width:55%;margin:0 auto}
-.pv-bsh-pill{border-radius:999px}.pv-bsh-square{border-radius:2px}
-.pv-bs-filled{background:var(--pa2);border-color:var(--pa2)}.pv-bs-filled i,.pv-bs-filled b{background:rgba(0,0,0,.7)}
-.pv-bs-outline{background:transparent;border-color:rgba(255,255,255,.4)}
-.pv-bs-soft{background:color-mix(in srgb,var(--pa2) 18%,transparent);border-color:color-mix(in srgb,var(--pa2) 38%,transparent)}
-button:hover .pv-bh-glow{box-shadow:0 0 14px color-mix(in srgb,var(--pa2) 60%,transparent)}
-button:hover .pv-bh-lift{transform:translateY(-4px)}
-button:hover .pv-bh-fill{background:var(--pa2);border-color:var(--pa2)}
-button:hover .pv-bh-slide{transform:translateX(6px)}
-/* mini icons */
-.pv-icons{display:flex;gap:6px}
-.pv-icons i{width:18px;height:18px;border-radius:5px;background:rgba(255,255,255,.08) center/9px no-repeat;border:1px solid rgba(255,255,255,.14);position:relative}
-.pv-icons i::after{content:"";position:absolute;inset:5px;border-radius:2px;background:rgba(255,255,255,.8)}
-.pv-is-round i{border-radius:50%}.pv-is-round i::after{border-radius:50%}
-.pv-is-plain i{background:none;border-color:transparent}
-/* mini arrangement */
-.pv-arr{display:flex;flex-direction:column;align-items:center;gap:5px}
-.pv-arr .pv-av{width:24px;height:24px;font-size:0}
-.pv-arr>span{display:flex;flex-direction:column;align-items:center;gap:4px}
-.pv-arr b,.pv-arr em{display:block;height:4px;border-radius:3px;width:40px;background:rgba(255,255,255,.75)}.pv-arr em{width:28px;background:rgba(255,255,255,.3)}
-.pv-arr-classic{flex-direction:row;gap:8px}.pv-arr-classic>span{align-items:flex-start}
-.pv-arr-minimal{flex-direction:row;gap:6px}.pv-arr-minimal .pv-av{width:16px;height:16px}.pv-arr-minimal>span{align-items:flex-start}.pv-arr-minimal b{width:30px}
-@media (prefers-reduced-motion:reduce){.pv *,.pv *::before,.pv *::after{animation:none!important}}
-.pv-arr-rx{flex-direction:row;gap:7px;padding:9px 10px 12px;border-radius:5px;background:#f3eee4;box-shadow:0 8px 18px -8px rgba(0,0,0,.8);border-top:3px solid var(--pa2)}
-.pv-arr-rx .pv-av{width:20px;height:20px;border-radius:4px!important;background-color:#d9d2c4}
-.pv-arr-rx>span{align-items:flex-start}
-.pv-arr-rx b{background:#1f1b17;width:34px}.pv-arr-rx em{background:#9a8f84;width:26px}
-
-/* ---------- who viewed me ---------- */
-.vlist,.vlock{display:flex;flex-direction:column;gap:4px;position:relative}
-.vrow{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:12px;color:inherit;text-decoration:none;transition:background .2s}
-a.vrow:hover{background:rgba(255,255,255,.04)}
-.vrow>span:nth-child(2){display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
-.vrow b{font-size:13px}.vrow small{font-size:11.5px;color:var(--muted)}.vrow em{font-style:normal;font-size:11.5px;color:var(--muted);white-space:nowrap}
-.vav{width:34px;height:34px;border-radius:50%;flex:none;background:#1b1d22 center/cover;display:grid;place-items:center;font-size:11px;font-weight:800;text-transform:uppercase;border:1px solid var(--line)}
-.vlock .vrow{filter:blur(5px);opacity:.6;pointer-events:none}
-.vlock .vrow b{display:block;height:9px;border-radius:4px;background:rgba(255,255,255,.3)}.vlock .vrow small{display:block;height:7px;width:50px;border-radius:4px;background:rgba(255,255,255,.14)}
-.vlockmsg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center}
-.vlockmsg b{font-size:14px}.vlockmsg span{font-size:12px;color:var(--accent)}
+  go(tab);
+})();

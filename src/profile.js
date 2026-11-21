@@ -11,7 +11,7 @@ const FONTS = [
   "Press Start 2P", "VT323", "Caveat", "Bricolage Grotesque", "Instrument Serif", "Bebas Neue", "Archivo Black",
   "Orbitron", "Righteous", "Silkscreen", "Pacifico",
 ];
-const NAME_EFFECTS = ["none", "shine", "glow", "neon", "colorshift", "glitch", "wave", "typewriter", "scramble", "flicker", "float", "blurin", "split", "focus", "sparkle", "stroke"];
+const NAME_EFFECTS = ["none", "shine", "glow", "neon", "colorshift", "glitch", "wave", "typewriter", "scramble", "flicker", "float", "blurin", "split", "focus", "sparkle", "stroke", "shake", "rainbow", "loading", "flip", "bounce", "jelly", "pulse", "chrome", "fire", "ice", "toxic", "outline-glow"];
 const OVERLAYS = ["none", "particles", "stars", "comets", "snow", "pixelsnow", "rain", "storm", "blossom", "fireflies", "matrix", "aurora", "fog", "pills3d", "bubbles", "liquid", "ink", "warp", "pixelrain", "constellation"];
 const PREMIUM_OVERLAYS = ["aurora", "fog", "storm"];
 const ENTER_SCREENS = ["fade", "curtain", "aperture", "slice", "shutter", "glitch", "boot", "zoom", "bottle"];
@@ -22,10 +22,13 @@ const CLICK_SOUNDS = ["none", "click", "bubble", "chime", "custom"];
 const BIO_EFFECTS = ["none", "typewriter", "fade", "blurin", "scramble", "words", "rotate"];
 const VIEW_STYLES = ["off", "inline", "pill", "corner", "counter"];
 const PROJECT_ICONS = ["code", "star", "bolt", "heart", "music", "brush", "game", "gem", "flame", "moon", "trophy", "gift", "repo", "website"];
+const WIDGETS = ["timezone", "weather", "joined", "birthday", "countdown", "discord", "spotify", "soundcloud", "youtube", "twitch", "github", "steam", "roblox", "chess", "lastfm", "letterboxd", "anilist", "duolingo", "gamerank", "mood", "quote", "views"];
+const NAME_EXTRAS = ["blossoms", "flames", "snow", "hearts", "bubbles", "stars", "sp-white", "sp-rainbow", "sp-green", "sp-black", "sp-blue", "sp-red", "sp-gold", "sp-pink"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
 const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
-const SECTION_IDS = ["bio", "socials", "buttons", "presence", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
+const SECTION_IDS = ["bio", "socials", "buttons", "presence", "widgets", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
 const SECTION_NAMES = {
+  widgets: "widgets",
   bio: "bio", socials: "social icons", buttons: "link buttons", presence: "now playing & games", projects: "projects",
   embeds: "embeds", text: "text block", countdown: "countdown", server: "discord server", clock: "clock card", github: "github card", pages: "extra page buttons",
 };
@@ -69,8 +72,8 @@ const SCHEMA = {
   cursor: { effect: E(CURSORS, "sparkle"), image: IMG(), click: E(CLICK_EFFECTS, "none"), sound: E(CLICK_SOUNDS, "none"), soundFile: UP("sound") },
   bioEffect: E(BIO_EFFECTS, "none"),
   motion: { spotlight: B(false), glint: B(false), tilt: B(true) },
-  playlist: { t: "list", max: LIMITS.playlist, item: { src: UP("music"), title: S(60) }, need: "src" },
-  music: { volume: N(0, 100, 50), showPlayer: B(true), shuffle: B(false), visualizer: B(true), pulse: B(false), pulseStrength: N(1, 10, 5) },
+  playlist: { t: "list", max: LIMITS.playlist, item: { src: UP("music"), title: S(60), cover: IMG() }, need: "src" },
+  music: { layout: E(["bar", "default", "compact", "banner", "vinyl", "covervinyl"], "bar"), volume: N(0, 100, 50), showPlayer: B(true), showVolume: B(true), shuffle: B(false), visualizer: B(true), pulse: B(false), pulseStrength: N(1, 10, 5) },
   card: {
     style: E(["glass", "solid", "outline", "label", "tinted", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
     borderColor: C(), borderWidth: N(0, 4, 1), shadow: E(["none", "soft", "deep"], "soft"), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
@@ -83,7 +86,7 @@ const SCHEMA = {
   name: {
     autoSize: B(true), size: N(20, 80, 40), weight: N(300, 900, 800), spacing: N(-8, 12, -2), uppercase: B(false),
     gradient: B(false), from: C("#ffffff"), to: C("#5ef2b0"), effect: E(NAME_EFFECTS, "glow"), showUid: B(true),
-    cycle: { t: "list", max: 5, item: S(40) }, cycleSpeed: N(2, 10, 3), cycleStyle: E(["scramble", "fade", "type"], "scramble"),
+    cycle: { t: "list", max: 5, item: S(40) }, cycleSpeed: N(2, 10, 3), cycleStyle: E(["scramble", "fade", "type", "morph"], "scramble"), extras: { t: "list", max: 2, item: E(NAME_EXTRAS, "sp-white") },
   },
   buttons: { style: E(["glass", "filled", "outline", "soft"], "glass"), shape: E(["rounded", "pill", "square"], "rounded"), hover: E(["glow", "lift", "fill", "slide", "none"], "glow"), align: E(["center", "left"], "center"), arrow: B(true) },
   icons: { size: N(34, 64, 46), style: E(["boxed", "round", "plain"], "boxed"), gap: N(4, 20, 10) },
@@ -97,16 +100,18 @@ const SCHEMA = {
   linkButtons: { t: "list", max: LIMITS.buttons, item: { id: { t: "id" }, label: S(40), url: { t: "url" }, icon: { t: "enum", list: ["", ...PLATFORMS], d: "" }, highlight: B(false) }, need: "url" },
   projects: { t: "list", max: LIMITS.projects, item: { id: { t: "id" }, name: S(40), tag: S(20), desc: S(140), url: { t: "url" }, icon: E(PROJECT_ICONS, "code") }, need: "name" },
   pages: { t: "list", max: LIMITS.pages, item: { id: { t: "id" }, slug: { t: "re", re: /^[a-z0-9-]{1,24}$/, d: "", pre: (v) => String(v || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") }, title: S(40), body: S(3000), links: { t: "list", max: 10, item: { label: S(40), url: { t: "url" } }, need: "url" } }, need: "slug" },
+  widgets: { t: "list", max: 12, item: { id: { t: "id" }, type: E(WIDGETS, "quote"), value: S(200), label: S(40), wide: B(false) }, need: "type" },
+  widgetStyle: E(["brand", "card", "minimal"], "brand"),
   textBlock: S(1500),
   embeds: { t: "list", max: LIMITS.embeds, item: { t: "embed", d: "" } },
   countdown: { label: S(40), date: { t: "re", re: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, d: "" }, done: S(40) },
   server: { t: "re", re: /^[A-Za-z0-9-]{2,32}$/, d: "", pre: (v) => String(v || "").replace(/^(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\//i, "") },
   discord: { id: { t: "re", re: /^\d{15,21}$/, d: "" } },
-  live: { status: B(true), spotify: B(true), lyrics: B(true), games: B(true), customStatus: B(true), listeningLabel: S(30, "listening on spotify"), playingLabel: S(30, "playing") },
+  live: { style: E(["widget", "simple"], "widget"), combine: B(false), albumColor: B(true), discordCard: B(true), discordBadges: B(true), status: B(true), spotify: B(true), lyrics: B(true), games: B(true), customStatus: B(true), listeningLabel: S(30, "listening on spotify"), playingLabel: S(30, "playing") },
   visibility: { hidden: B(false), countOwn: B(false), anonymousVisits: B(false) },
-  badgeRow: { color: C(), style: E(["tile", "plain", "glow"], "tile") },
+  badgeRow: { color: C(), style: E(["tile", "plain", "glow"], "tile"), items: { t: "list", max: 40, item: { slug: { t: "re", re: /^[a-z0-9-]{1,48}$/, d: "" }, color: C(), hidden: B(false) }, need: "slug" } },
   social: { likes: B(false), comments: B(false) },
-  share: { colorBar: C(), noindex: B(false), tabTitle: S(60), animateTitle: B(false), awayTitle: S(60), tabIcon: E(["picture", "site"], "picture"), shareButton: B(false) },
+  share: { colorBar: C(), noindex: B(false), tabTitle: S(60), animateTitle: B(false), awayTitle: S(60), tabIcon: E(["picture", "site", "custom"], "picture"), favicon: IMG(), ogImage: IMG(), ogLarge: B(false), shareButton: B(false) },
   meta: { title: S(60), description: S(160) },
   customCss: P({ t: "css", d: "" }),
 };
@@ -245,6 +250,6 @@ const DEFAULTS = () => defaults();
 
 module.exports = {
   DEFAULTS, clean, load, LIMITS,
-  OPTIONS: { PLATFORMS, FONTS, NAME_EFFECTS, OVERLAYS, PREMIUM_OVERLAYS, ENTER_SCREENS, CURSORS, DECORATIONS, ANIMATED_BGS, SECTION_IDS, SECTION_NAMES, LIMITS,
+  OPTIONS: { PLATFORMS, FONTS, NAME_EFFECTS, NAME_EXTRAS, WIDGETS, OVERLAYS, PREMIUM_OVERLAYS, ENTER_SCREENS, CURSORS, DECORATIONS, ANIMATED_BGS, SECTION_IDS, SECTION_NAMES, LIMITS,
     TEXTURES, CLICK_EFFECTS, CLICK_SOUNDS, BIO_EFFECTS, VIEW_STYLES, PROJECT_ICONS },
 };

@@ -89,7 +89,9 @@
     setupBio(p);
     setupTaglines(p);
     setupNameCycle(p);
+    setupNameExtras(p);
     setupWeather(p);
+    setupWidgets(p);
     setupClock(p);
     setupMotion(p);
     setupCursor(p.cursor);
@@ -111,8 +113,8 @@
   const spot = (p) => p.motion.spotlight ? `<div class="spot"></div>` : "";
   function hasContent(id, p) {
     return ({ bio: p.bio || p.taglines.length || (p.discord.id && p.live.customStatus), socials: p.socials.length, buttons: p.linkButtons.length,
-      presence: p.discord.id && (p.live.spotify || p.live.games), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
-      countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
+      presence: p.discord.id && (p.live.spotify || p.live.games || (p.live.discordCard && p.live.style === "widget")), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
+      widgets: p.widgets.length, countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
   }
   function backgroundHtml(p) {
     const bg = p.background;
@@ -152,9 +154,96 @@
           ${p.aboveName ? `<div class="above">${esc(p.aboveName)}</div>` : ""}
           <div class="namewrap">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1></div>
           ${items.length ? `<div class="line ${u.style === "pills" || p.viewCounter === "pill" ? "pills" : ""}">${items.join("")}</div>` : ""}
-          ${d.badges.length ? `<div class="badges">${d.badges.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
+          ${sortBadges(d.badges, p).length ? `<div class="badges">${sortBadges(d.badges, p).map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(b.mine || p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
         </div>
       </div>`;
+  }
+  /* ---------- widgets ---------- */
+  const wEmbed = (w) => {
+    const v = w.value.trim(); let m;
+    if (w.type === "spotify" && (m = v.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|episode|artist|show)\/([A-Za-z0-9]{10,30})/))) return { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0`, h: m[1] === "track" || m[1] === "episode" ? 80 : 152 };
+    if (w.type === "youtube" && (m = v.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{11})/))) return { src: `https://www.youtube-nocookie.com/embed/${m[1]}`, ratio: true };
+    if (w.type === "soundcloud" && /^(https?:\/\/)?(www\.|m\.)?soundcloud\.com\//i.test(v)) return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(v.startsWith("http") ? v : "https://" + v)}&color=%23${(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff5500").slice(1)}&hide_related=true&show_comments=false&visual=false`, h: 120 };
+    if (w.type === "twitch" && (m = v.replace(/^.*twitch\.tv\//i, "").match(/^[A-Za-z0-9_]{3,25}/))) return { src: `https://player.twitch.tv/?channel=${m[0]}&parent=${location.hostname}&muted=true&autoplay=false`, ratio: true };
+    return null;
+  };
+  function widgetHtml(w, p, d) {
+    const M = (window.WIDGET_META || {})[w.type]; if (!M) return "";
+    const wide = w.wide || M.wide, title = w.label && !M.label ? w.label : M.name;
+    const head = `<div class="wh"><span class="wi">${svgIcon(M.icon)}</span><small>${esc(title)}</small></div>`;
+    const tile = (body, extra = "") => `<div class="wg wg-${w.type} ${wide ? "wide" : ""}" style="--wc:${M.color}" data-wt="${w.type}" data-wv="${esc(w.value)}" ${extra}>${head}<div class="wb">${body}</div></div>`;
+    const emb = ["spotify", "youtube", "soundcloud", "twitch"].includes(w.type) ? wEmbed(w) : null;
+    if (emb) return `<div class="wg wg-${w.type} wide embed" style="--wc:${M.color}">${head}<iframe src="${esc(emb.src)}" loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" ${emb.ratio ? 'class="r169"' : `style="height:${emb.h}px"`} title="${esc(M.name)}"></iframe></div>`;
+    switch (w.type) {
+      case "joined": { const days = Math.max(1, Math.floor((Date.now() - d.joined) / 864e5)); return tile(`<b>${days.toLocaleString()} day${days === 1 ? "" : "s"}</b><span>on ${esc(window.__SITE)} since ${new Date(d.joined).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>`); }
+      case "views": return tile(`<b>${Number(d.views).toLocaleString()}</b><span>visits to this page</span>`);
+      case "mood": return tile(`<b>${esc(w.value || "…")}</b><span>right now</span>`);
+      case "quote": return tile(`<b class="q">“${esc(w.value)}”</b>${w.label ? `<span>— ${esc(w.label)}</span>` : ""}`);
+      case "gamerank": return tile(`<b>${esc(w.value || "unranked")}</b><span>${esc(w.label || "rank")}</span>`);
+      case "timezone": return tile(`<b class="wclock">--:--</b><span>${esc((w.value || "").split("/").pop().replace(/_/g, " ") || "local time")}</span>`);
+      case "birthday": case "countdown": return tile(`<b class="wcd">…</b><span>${esc(w.type === "birthday" ? "until my birthday" : w.label || "until it's here")}</span>`);
+      case "discord": return tile(`<b>loading…</b><span></span>`);
+      default: return tile(`<b>${esc(w.value)}</b><span class="wsub">loading…</span>`);
+    }
+  }
+  function setupWidgets(p) {
+    const tiles = root.querySelectorAll(".wg[data-wt]"); if (!tiles.length) return;
+    const fill = (el, b, sub, img, href) => {
+      const wb = el.querySelector(".wb"); wb.innerHTML = `${img ? `<img class="wimg" src="${esc(img)}" alt="" onerror="this.remove()">` : ""}<div class="wtx"><b>${b}</b>${sub ? `<span>${sub}</span>` : ""}</div>`;
+      if (href && !el.querySelector("a.wlink")) { const a = document.createElement("a"); a.className = "wlink"; a.href = href; a.target = "_blank"; a.rel = "noopener noreferrer"; a.setAttribute("aria-label", "open"); el.appendChild(a); }
+    };
+    const fail = (el, msg) => fill(el, esc(el.dataset.wv || "—"), esc(msg || "couldn't load"));
+    const num = (n) => Number(n || 0).toLocaleString();
+    const proxy = (type, q) => fetch(`/api/widget/${type}?q=${encodeURIComponent(q)}`).then((r) => r.json());
+    tiles.forEach((el) => {
+      const t = el.dataset.wt, v = (el.dataset.wv || "").trim();
+      try {
+        if (t === "timezone") { every(() => { try { el.querySelector(".wclock").textContent = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: v || undefined }); } catch { el.querySelector(".wclock").textContent = "bad timezone"; } }, 15000); return; }
+        if (t === "birthday" || t === "countdown") {
+          const tick = () => {
+            let target = new Date(v); if (isNaN(target)) { el.querySelector(".wcd").textContent = "set a date"; return; }
+            if (t === "birthday") { const n = new Date(); target = new Date(n.getFullYear(), target.getMonth(), target.getDate()); if (target < new Date(n.getFullYear(), n.getMonth(), n.getDate())) target.setFullYear(n.getFullYear() + 1); const days = Math.round((target - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 864e5); el.querySelector(".wcd").textContent = days === 0 ? "today!" : `${days} day${days === 1 ? "" : "s"}`; return; }
+            const ms = target - Date.now(); if (ms <= 0) { el.querySelector(".wcd").textContent = "it's here"; return; }
+            const dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24, mm = Math.floor(ms / 6e4) % 60, ss = Math.floor(ms / 1000) % 60;
+            el.querySelector(".wcd").textContent = dd ? `${dd}d ${hh}h ${mm}m` : `${hh}h ${mm}m ${ss}s`;
+          };
+          every(tick, 1000); return;
+        }
+        if (!v && !["joined", "views"].includes(t)) return;
+        if (t === "weather") {
+          fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(v.split(",")[0])}`).then((r) => r.json()).then((g) => {
+            const loc = g.results && g.results[0]; if (!loc) return fail(el, "place not found");
+            return fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,weather_code,wind_speed_10m`).then((r) => r.json()).then((r) => {
+              const c = r.current, k = wxKind(c.weather_code), word = { sun: "clear", cloud: "cloudy", fog: "foggy", rain: "rain", snow: "snow", storm: "storm" }[k];
+              el.querySelector(".wb").innerHTML = `<span class="wxi">${WX_SVG[k]}</span><div class="wtx"><b>${Math.round(c.temperature_2m)}°C · ${word}</b><span>${esc(loc.name)}${loc.country_code ? ", " + esc(loc.country_code) : ""}</span></div>`;
+            });
+          }).catch(() => fail(el)); return;
+        }
+        if (t === "discord") {
+          const code = v.replace(/^(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\//i, "").replace(/[^A-Za-z0-9-]/g, "");
+          fetch(`/api/invite/${encodeURIComponent(code)}`).then((r) => r.json()).then((j) => j.error ? fail(el, "invite expired") : fill(el, esc(j.name), `<i class="wdot" style="background:#3ba55d"></i>${num(j.online)} online · ${num(j.members)} members`, j.icon, `https://discord.gg/${code}`)).catch(() => fail(el)); return;
+        }
+        if (t === "github") { fetch(`https://api.github.com/users/${encodeURIComponent(v)}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((u) => fill(el, esc(u.name || u.login), `${num(u.public_repos)} repos · ${num(u.followers)} followers`, u.avatar_url, u.html_url)).catch(() => fail(el, "user not found")); return; }
+        if (t === "chess") {
+          Promise.all([fetch(`https://api.chess.com/pub/player/${encodeURIComponent(v.toLowerCase())}`).then((r) => (r.ok ? r.json() : Promise.reject())), fetch(`https://api.chess.com/pub/player/${encodeURIComponent(v.toLowerCase())}/stats`).then((r) => r.json()).catch(() => ({}))])
+            .then(([u, st]) => { const r = (k) => st[k] && st[k].last ? st[k].last.rating : null; const parts = [["rapid", r("chess_rapid")], ["blitz", r("chess_blitz")], ["bullet", r("chess_bullet")]].filter((x) => x[1]); fill(el, esc(u.username || v), parts.map(([k, n]) => `${k} <em>${n}</em>`).join(" · ") || "no rated games", u.avatar, u.url); }).catch(() => fail(el, "player not found")); return;
+        }
+        if (t === "anilist") {
+          fetch("https://graphql.anilist.co", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: "query($n:String){User(name:$n){name siteUrl avatar{medium} statistics{anime{count episodesWatched} manga{count}}}}", variables: { n: v } }) })
+            .then((r) => r.json()).then((j) => { const u = j.data && j.data.User; if (!u) return fail(el, "user not found"); fill(el, esc(u.name), `${num(u.statistics.anime.count)} anime · ${num(u.statistics.anime.episodesWatched)} episodes`, u.avatar && u.avatar.medium, u.siteUrl); }).catch(() => fail(el)); return;
+        }
+        if (t === "steam") { proxy("steam", v).then((j) => j.error ? fail(el, "profile not found") : fill(el, esc(j.name), `<i class="wdot" style="background:${j.game ? "#90ba3c" : j.state === "online" ? "#57cbde" : "#898989"}"></i>${esc(j.game ? "playing " + j.game : j.state || "offline")}`, j.avatar, j.url)).catch(() => fail(el)); return; }
+        if (t === "roblox") { proxy("roblox", v).then((j) => j.error ? fail(el, "user not found") : fill(el, esc(j.name), `@${esc(j.user)} · ${esc(j.state)}${j.friends != null ? ` · ${num(j.friends)} friends` : ""}`, j.avatar, j.url)).catch(() => fail(el)); return; }
+        if (t === "duolingo") { proxy("duolingo", v).then((j) => j.error ? fail(el, "user not found") : fill(el, `${num(j.streak)} day streak`, `${num(j.xp)} xp${j.courses.length ? " · " + esc(j.courses.join(", ")) : ""}`, "", j.url)).catch(() => fail(el)); return; }
+        if (t === "letterboxd") { proxy("letterboxd", v).then((j) => j.error ? fail(el, "no films logged") : fill(el, esc(j.film) + (j.year ? ` <em>${esc(j.year)}</em>` : ""), j.rating ? "★".repeat(Math.floor(j.rating)) + (j.rating % 1 ? "½" : "") + " · last watched" : "last watched", j.poster, j.url)).catch(() => fail(el)); return; }
+        if (t === "lastfm") { proxy("lastfm", v).then((j) => j.error ? fail(el, "user not found") : j.nokey ? fill(el, esc(v), "scrobbles on last.fm", "", j.url) : fill(el, esc(j.song), `${esc(j.artist)} · ${j.now ? "now playing" : "last played"}`, j.art, j.url)).catch(() => fail(el)); return; }
+      } catch { fail(el); }
+    });
+  }
+  function sortBadges(list, p) {
+    const items = p.badgeRow.items, pos = (b) => { const i = items.findIndex((x) => x.slug === b.slug); return i < 0 ? 999 : i; };
+    return list.map((b) => { const it = items.find((x) => x.slug === b.slug); return { ...b, mine: it && it.color, hide: it && it.hidden }; })
+      .filter((b) => !b.hide).sort((a, b) => pos(a) - pos(b));
   }
   function firstScreen(p, d, secs) {
     const rxfoot = p.layout.arrangement === "rx" ? `<div class="rxfoot"><div class="rxrows"><span>filled</span><b>${new Date(d.joined).toLocaleDateString("en-GB")}</b><span>refills</span><b>unlimited</b></div><p>Take one daily. Share freely. Keep out of reach of boredom.</p><div class="barcode" aria-hidden="true"></div></div>` : "";
@@ -169,6 +258,7 @@
       case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${redactHtml(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
       case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""}">${l.icon ? icon(l.icon) : ""}<span>${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
+      case "widgets": return `<div>${h}<div class="widgets ws-${p.widgetStyle}">${p.widgets.map((w) => widgetHtml(w, p, d)).join("")}</div></div>`;
       case "presence": return `<div data-sec="presence" hidden>${h}<div class="pstack"></div></div>`;
       case "projects": return `<div>${h}<div class="projects">${p.projects.map((x) => `<${x.url ? `a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer"` : "div"} class="box project">
           <div class="top"><span class="ic">${icon(x.icon)}</span><b>${esc(x.name)}</b>${x.tag ? `<span class="tag">${esc(x.tag)}</span>` : ""}</div>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</${x.url ? "a" : "div"}>`).join("")}</div></div>`;
@@ -197,12 +287,30 @@
       ${pg.links.length ? `<nav class="buttons">${pg.links.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(l.label || l.url)}</span></a>`).join("")}</nav>` : ""}
       <p class="foot"><a href="/">${esc(window.__SITE)}</a></p></div></div></section>`;
   }
+  const splitTitle = (t) => { const m = String(t || "").split(/\s[–—-]\s/); return m.length > 1 ? { artist: m[0], song: m.slice(1).join(" - ") } : { artist: "", song: t || "now playing" }; };
   function playerHtml(p) {
     if (!p.playlist.length || !p.music.showPlayer) return "";
-    return `<div class="player"><button class="pp" type="button" aria-label="Play music">${svgIcon("play")}</button>
-      ${p.playlist.length > 1 ? `<button class="nx" type="button" aria-label="Next song">${svgIcon("up").replace("<svg", '<svg style="rotate:90deg"')}</button>` : ""}
-      ${p.music.visualizer ? `<span class="viz" aria-hidden="true">${"<i></i>".repeat(5)}</span>` : ""}<span class="track">${esc(p.playlist[0].title || "now playing")}</span><div class="prog"><i></i></div>
-      <input type="range" min="0" max="100" value="${p.music.volume}" aria-label="Volume"></div>`;
+    const first = p.playlist[0], t = splitTitle(first.title), lay = p.music.layout, many = p.playlist.length > 1;
+    const ic = (n, rot) => svgIcon(n).replace("<svg", `<svg${rot ? ` style="rotate:${rot}"` : ""}`);
+    const prev = many ? `<button class="pr" type="button" aria-label="Previous song">${ic("up", "-90deg")}</button>` : "";
+    const next = many ? `<button class="nx" type="button" aria-label="Next song">${ic("up", "90deg")}</button>` : "";
+    const play = `<button class="pp" type="button" aria-label="Play music">${svgIcon("play")}</button>`;
+    const viz = p.music.visualizer ? `<span class="viz" aria-hidden="true">${"<i></i>".repeat(5)}</span>` : "";
+    const vol = p.music.showVolume ? `<input type="range" min="0" max="100" value="${p.music.volume}" aria-label="Volume">` : "";
+    if (lay === "bar") return `<div class="player">${play}${next}${viz}<span class="track">${esc(first.title || "now playing")}</span><div class="prog"><i></i></div>${vol}</div>`;
+    const art = `<div class="mart">${first.cover ? `<img src="${esc(first.cover)}" alt="">` : svgIcon("music")}</div>`;
+    const info = `<div class="minfo"><b class="track">${esc(t.song)}</b><span class="artist">${esc(t.artist)}</span></div>`;
+    const prog = `<div class="mprog"><div class="prog"><i></i></div><div class="mtimes"><span class="tc">0:00</span><span class="tl">0:00</span></div></div>`;
+    const ctrls = `<div class="mctrl">${prev}${play}${next}</div>`;
+    const disc = `<div class="disc"><div class="dlabel">${first.cover ? `<img src="${esc(first.cover)}" alt="">` : ""}</div></div>`;
+    const inner = {
+      default: `${art}${info}${prog}<div class="mrow">${viz}${ctrls}${vol}</div>`,
+      compact: `${art}<div class="mmid">${info}${prog}</div>${ctrls}`,
+      banner: `<div class="mtop">${art}<div class="mmid">${info}${ctrls}</div>${viz}</div><div class="mstrip">${prog}${vol}</div>`,
+      vinyl: `${disc}<div class="mmid">${info}${prog}</div>${ctrls}`,
+      covervinyl: `<div class="cvwrap">${disc}${art}</div><div class="mmid">${info}${prog}<div class="mrow">${ctrls}${viz}</div></div>`,
+    }[lay];
+    return `<div class="player mp ml-${lay}">${inner}</div>`;
   }
   const votesHtml = (p) => p.social.likes ? `<div class="votes"><button data-v="1" aria-pressed="false">${svgIcon("up")}<span>0</span></button><button data-v="-1" aria-pressed="false">${svgIcon("down")}<span>0</span></button></div>` : "";
   function cornerUi(p, d) {
@@ -269,6 +377,26 @@
     if (e === "blurin") split((i) => `animation-delay:${0.2 + i * 0.06}s`);
     if (e === "focus") split((i) => `animation-delay:${i * 0.15}s`);
     if (e === "split") split((i, n) => `animation-delay:${0.1 + Math.abs(i - n / 2) * 0.04}s;--sx:${i < n / 2 ? -40 : 40}px`);
+    if (e === "loading") split((i) => `animation-delay:${i * 0.12}s`);
+    if (e === "flip") split((i) => `animation-delay:${i * 0.1}s`);
+    if (e === "bounce") split((i) => `animation-delay:${i * 0.08}s`);
+  }
+  /* little things that float around the name; up to two, on top of the main effect */
+  function setupNameExtras(p) {
+    const el = root.querySelector(".namewrap"); if (!el || reduce || !p.name.extras.length) return;
+    const host = document.createElement("span"); host.className = "nxhost"; el.appendChild(host);
+    const SP = { "sp-white": "#fff", "sp-rainbow": "rainbow", "sp-green": "#3ddc84", "sp-black": "#0a0a0a", "sp-blue": "#7fd3ff", "sp-red": "#ff4d5e", "sp-gold": "#ffcf4d", "sp-pink": "#ff8fd1" };
+    const RATE = { blossoms: 420, flames: 110, snow: 300, hearts: 520, bubbles: 380, stars: 340 };
+    for (const x of [...new Set(p.name.extras)]) every(() => {
+      if (document.hidden) return;
+      const s = document.createElement("i"), sp = SP[x];
+      s.className = sp ? "nx nx-sp" : `nx nx-${x}`;
+      s.style.left = (x === "flames" ? 6 + Math.random() * 88 : Math.random() * 100) + "%";
+      s.style.top = (x === "flames" ? 55 + Math.random() * 30 : x === "blossoms" || x === "snow" ? -10 + Math.random() * 20 : Math.random() * 100) + "%";
+      s.style.setProperty("--dx", (Math.random() - 0.5) * 40 + "px"); s.style.setProperty("--r", Math.random() * 360 + "deg"); s.style.setProperty("--s", (0.6 + Math.random() * 0.8).toFixed(2));
+      if (sp) s.style.setProperty("--c", sp === "rainbow" ? `hsl(${Math.random() * 360} 90% 65%)` : sp);
+      host.appendChild(s); setTimeout(() => s.remove(), 2600);
+    }, RATE[x] || 240);
   }
   /* name switches between a few names */
   function setupNameCycle(p) {
@@ -277,7 +405,10 @@
     let i = 0, t;
     const show = (txt) => {
       el.dataset.text = txt;
-      if (reduce || p.name.cycleStyle === "fade") {
+      if (!reduce && p.name.cycleStyle === "morph") {
+        el.classList.add("nmorph");
+        t = setTimeout(() => { el.textContent = txt; splitName(el, p.name.effect); el.classList.remove("nmorph"); }, 420);
+      } else if (reduce || p.name.cycleStyle === "fade") {
         el.classList.add("nswap");
         t = setTimeout(() => { el.textContent = txt; splitName(el, p.name.effect); el.classList.remove("nswap"); }, 280);
       } else if (p.name.cycleStyle === "type") {
@@ -539,21 +670,47 @@
 
         const sec = root.querySelector('[data-sec="presence"]'), stack = sec && sec.querySelector(".pstack");
         if (!stack) return;
-        const blocks = [];
+        const blocks = [], W = p.live.style === "widget";
+        const label = (txt, extra) => `<div class="plabel"><span>${esc(txt)}</span>${extra || ""}</div>`;
+        if (W && p.live.discordCard) {
+          const du = L.discord_user || {}, st = L.discord_status || "offline";
+          const av = du.avatar ? `https://cdn.discordapp.com/avatars/${du.id}/${du.avatar}.${du.avatar.startsWith("a_") ? "gif" : "webp"}?size=128` : "";
+          const em = custom && custom.emoji ? (custom.emoji.id ? `<img class="emj" alt="" src="https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? "gif" : "webp"}?size=32">` : `<span class="emj">${esc(custom.emoji.name)}</span>`) : "";
+          const devs = [["desktop", L.active_on_discord_desktop], ["mobile", L.active_on_discord_mobile], ["web", L.active_on_discord_web]].filter((x) => x[1]).map((x) => x[0]);
+          const DEV = { desktop: "M3 4h18v12H3zM8 20h8M12 16v4", mobile: "M7 2h10v20H7zM11 18h2", web: "M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0-18zM3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" };
+          blocks.push(`<div class="pcard dc st-${st}">${label("discord", `<em class="pst"><i class="sdot" style="background:${COLORS[st]}"></i>${WORDS[st]}</em>`)}
+            <div class="part av">${av ? `<img src="${esc(av)}" alt="">` : svgIcon("discord")}<i class="adot" style="background:${COLORS[st]}"></i></div>
+            <div class="pbody"><div class="dname"><b class="mq"><span>${esc(du.global_name || du.display_name || du.username || d.username)}</span></b>${p.live.discordBadges ? guildTag(du) : ""}</div>
+              <span class="sub">@${esc(du.username || "")}</span>${p.live.discordBadges ? discordBadges(du) : ""}
+              ${custom && (custom.state || em) && p.live.customStatus ? `<span class="cstat">${em}${esc(custom.state || "")}</span>` : ""}
+              ${devs.length ? `<span class="devs">${devs.map((x) => `<svg viewBox="0 0 24 24" aria-label="on ${x}"><path d="${DEV[x]}"/></svg>`).join("")}<span>on ${devs.join(" & ")}</span></span>` : ""}</div></div>`);
+        }
         if (p.live.spotify && L.listening_to_spotify && L.spotify) {
           const sp = L.spotify;
-          blocks.push(`<div class="box presence-wrap"><div class="presence"><div class="art">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</div>
+          if (W) blocks.push(`<div class="box presence-wrap pcard-wrap"><div class="pcard sp">${label(p.live.listeningLabel, `<i class="eq"><b></b><b></b><b></b><b></b></i>`)}
+            <a class="part" href="https://open.spotify.com/track/${esc(sp.track_id || "")}" target="_blank" rel="noopener noreferrer" title="Open in Spotify">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</a>
+            <div class="pbody"><b class="mq"><span>${esc(sp.song)}</span></b><span class="sub mq"><span>${esc(sp.artist.replace(/;/g, ","))}</span></span>
+            <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
+            ${p.live.lyrics ? `<div class="lyrics" hidden><div></div></div>` : ""}</div>`);
+          else blocks.push(`<div class="box presence-wrap"><div class="presence"><div class="art">${sp.album_art_url ? `<img src="${esc(sp.album_art_url)}" alt="">` : svgIcon("spotify")}</div>
             <div class="txt"><small class="lbl">${esc(p.live.listeningLabel)}</small><b>${esc(sp.song)}</b><span class="sub">${esc(sp.artist)}</span>
             <div class="bar"><i class="spbar"></i></div><div class="times"><span class="tcur">0:00</span><span>${fmt(sp.timestamps.end - sp.timestamps.start)}</span></div></div></div>
             ${p.live.lyrics ? `<div class="lyrics" hidden><div></div></div>` : ""}</div>`);
           if (p.background.type === "auto" && sp.album_art_url) { const img = root.querySelector(".bg .auto"); if (img) { img.src = sp.album_art_url; img.hidden = false; } }
         } else if (p.background.type === "auto") { const img = root.querySelector(".bg .auto"); if (img && p.avatar.src && img.getAttribute("src") !== p.avatar.src) img.src = p.avatar.src; }
-        if (p.live.games) for (const a of (L.activities || []).filter((x) => x.type === 0 || x.type === 1).slice(0, 2)) {
+        if (p.live.games) for (const a of (L.activities || []).filter((x) => x.type === 0 || x.type === 1 || x.type === 3).slice(0, 2)) {
           const img = a.assets && a.assets.large_image;
           const src = img ? (img.startsWith("mp:") ? `https://media.discordapp.net/${img.slice(3)}` : a.application_id ? `https://cdn.discordapp.com/app-assets/${a.application_id}/${img}.png` : "") : "";
-          blocks.push(`<div class="box presence"><div class="art">${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(p.live.playingLabel)}</small><b>${esc(a.name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);
+          const start = a.timestamps && a.timestamps.start, verb = a.type === 1 ? "streaming" : a.type === 3 ? "watching" : p.live.playingLabel;
+          if (W) blocks.push(`<div class="pcard gm">${label(verb, `<i class="gic">${svgIcon("game")}</i>`)}
+            <div class="part">${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{innerHTML:svgIcon('game')}))">` : svgIcon("game")}</div>
+            <div class="pbody"><b class="mq"><span>${esc(a.name)}</span></b>${a.details ? `<span class="sub mq"><span>${esc(a.details)}</span></span>` : ""}${a.state ? `<span class="sub">${esc(a.state)}</span>` : ""}
+            ${start ? `<span class="elapsed" data-start="${start}">0:00 elapsed</span>` : ""}</div></div>`);
+          else blocks.push(`<div class="box presence"><div class="art">${src ? `<img src="${esc(src)}" alt="">` : svgIcon("game")}</div><div class="txt"><small class="lbl">${esc(verb)}</small><b>${esc(a.name)}</b><span class="sub">${esc([a.details, a.state].filter(Boolean).join(" · "))}</span></div></div>`);
         }
-        stack.innerHTML = blocks.join(""); sec.hidden = !blocks.length;
+        stack.innerHTML = W && p.live.combine && blocks.length > 1 ? `<div class="pcombo">${blocks.join("")}</div>` : blocks.join(""); sec.hidden = !blocks.length;
+        if (W && p.live.albumColor && L.listening_to_spotify && L.spotify && L.spotify.album_art_url) albumColour(L.spotify.album_art_url).then((c) => { const el = stack.querySelector(".pcard.sp"); if (c && el) { el.style.setProperty("--pc", c); el.classList.add("tinted"); } });
+        requestAnimationFrame(() => stack.querySelectorAll(".mq").forEach((m) => { const over = m.firstElementChild.scrollWidth - m.clientWidth; if (over > 4) { m.classList.add("go"); m.style.setProperty("--mqx", -over - 12 + "px"); m.style.setProperty("--mqd", Math.max(6, over / 18) + "s"); } }));
         if (p.live.lyrics && L.listening_to_spotify && L.spotify) {
           const key = L.spotify.track_id;
           if (lyricsFor !== key) { lyricsFor = key; lyricLines = []; loadLyrics(L.spotify).then((ls) => { if (lyricsFor === key) lyricLines = ls; }); }
@@ -563,6 +720,7 @@
     every(poll, 10000);
     // progress + lyrics tick
     every(() => {
+      root.querySelectorAll(".elapsed[data-start]").forEach((e) => { const ms = Date.now() - Number(e.dataset.start), h = Math.floor(ms / 3600000); e.textContent = (h ? h + ":" + String(Math.floor(ms / 60000) % 60).padStart(2, "0") + ":" + String(Math.floor(ms / 1000) % 60).padStart(2, "0") : fmt(ms)) + " elapsed"; });
       if (!lanyard || !lanyard.listening_to_spotify || !lanyard.spotify) return;
       const ts = lanyard.spotify.timestamps, pos = Date.now() - ts.start, len = ts.end - ts.start;
       const bar = root.querySelector(".spbar"), cur = root.querySelector(".tcur");
@@ -577,6 +735,45 @@
         inner.style.transform = `translateY(${20 - i * 20}px)`;
       }
     }, 250);
+  }
+  /* Discord's public badges (from public_flags) and the server tag next to the name */
+  const DBADGES = [[0, "Discord Staff", "5e74e9b61934fc1f67c65515d1f7e60d"], [1, "Partnered Server Owner", "3f9748e53446a137a052f3454e2de41e"], [18, "Moderator Programs Alumni", "fee1624003e2fee35cb398e125dc479b"],
+    [2, "HypeSquad Events", "bf01d1073931f921909045f3a39fd264"], [6, "HypeSquad Bravery", "8a88d63823d8a71cd5e390baa45efa02"], [7, "HypeSquad Brilliance", "011940fd013da3f7fb926e4a1cd2e618"], [8, "HypeSquad Balance", "3aa41de486fa12454c3761e8e223442e"],
+    [3, "Bug Hunter", "2717692c7dca7289b35297368a940dd0"], [14, "Golden Bug Hunter", "848f79194d4be5ff5f81505cbd0ce1e6"], [17, "Early Verified Bot Developer", "6df5892e0f35b051f8b61eace34f4967"],
+    [9, "Early Supporter", "7060786766c9c840eb3019e725d2b358"], [22, "Active Developer", "6bdc42827a38498929a4920da12695d9"]];
+  function discordBadges(du) {
+    const f = Number(du.public_flags || 0), list = DBADGES.filter(([bit]) => f & (1 << bit));
+    if (!list.length) return "";
+    return `<span class="dbadges">${list.map(([, name, hash]) => `<img src="https://cdn.discordapp.com/badge-icons/${hash}.png" alt="${esc(name)}" title="${esc(name)}" onerror="this.remove()">`).join("")}</span>`;
+  }
+  function guildTag(du) {
+    const g = du.primary_guild || du.clan; if (!g || !g.tag || g.identity_enabled === false) return "";
+    const icon = g.badge && g.identity_guild_id ? `<img src="https://cdn.discordapp.com/clan-badges/${g.identity_guild_id}/${g.badge}.png?size=16" alt="" onerror="this.remove()">` : "";
+    return `<span class="gtag" title="Server tag">${icon}${esc(g.tag)}</span>`;
+  }
+  /* the most colourful shade in an album cover */
+  const albumCache = {};
+  function albumColour(url) {
+    if (albumCache[url]) return albumCache[url];
+    return (albumCache[url] = new Promise((res) => {
+      const img = new Image(); img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas"); c.width = c.height = 24; const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, 24, 24);
+          const px = g.getImageData(0, 0, 24, 24).data; const bins = {};
+          for (let i = 0; i < px.length; i += 4) {
+            const r = px[i], gg = px[i + 1], b = px[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0, lum = (mx + mn) / 2;
+            if (lum < 40 || lum > 235) continue;
+            const k = `${r >> 5},${gg >> 5},${b >> 5}`, w = 0.2 + sat * sat * 3; const o = bins[k] || (bins[k] = { w: 0, r: 0, g: 0, b: 0 }); o.w += w; o.r += r * w; o.g += gg * w; o.b += b * w;
+          }
+          const best = Object.values(bins).sort((a, b) => b.w - a.w)[0]; if (!best) return res(null);
+          let [r, gg, b] = [best.r / best.w, best.g / best.w, best.b / best.w];
+          const mx = Math.max(r, gg, b); if (mx < 150) { const k = 150 / mx; r *= k; gg *= k; b *= k; }
+          res(`rgb(${r | 0},${gg | 0},${b | 0})`);
+        } catch { res(null); }
+      };
+      img.onerror = () => res(null); img.src = url;
+    }));
   }
   const fmt = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
   async function loadLyrics(sp) {
@@ -594,9 +791,20 @@
     let order = p.playlist.map((_, i) => i); if (p.music.shuffle) order.sort(() => Math.random() - 0.5);
     let idx = 0;
     audio = new Audio(p.playlist[order[0]].src); audio.volume = p.music.volume / 100; audio.loop = p.playlist.length === 1;
-    const pp = root.querySelector(".player .pp"), nx = root.querySelector(".player .nx"), prog = root.querySelector(".player .prog i"), vol = root.querySelector(".player input"), tr = root.querySelector(".player .track");
-    const sync = () => { if (pp) { pp.innerHTML = svgIcon(audio.paused ? "play" : "pause"); pp.setAttribute("aria-label", audio.paused ? "Play music" : "Pause music"); } };
-    const load = (i) => { idx = (i + order.length) % order.length; const s = p.playlist[order[idx]]; audio.src = s.src; if (tr) tr.textContent = s.title || "now playing"; audio.play().catch(() => {}); };
+    const P = root.querySelector(".player");
+    const pp = root.querySelector(".player .pp"), nx = root.querySelector(".player .nx"), pr = root.querySelector(".player .pr"), prog = root.querySelector(".player .prog i"), vol = root.querySelector(".player input"), tr = root.querySelector(".player .track");
+    const sync = () => { if (pp) { pp.innerHTML = svgIcon(audio.paused ? "play" : "pause"); pp.setAttribute("aria-label", audio.paused ? "Play music" : "Pause music"); } if (P) P.classList.toggle("playing", !audio.paused); };
+    const showMeta = (s) => {
+      if (!P) return;
+      if (P.classList.contains("mp")) { const t = splitTitle(s.title); if (tr) tr.textContent = t.song; const ar = P.querySelector(".artist"); if (ar) ar.textContent = t.artist; P.querySelectorAll(".mart, .dlabel").forEach((el) => { el.innerHTML = s.cover ? `<img src="${esc(s.cover)}" alt="">` : el.classList.contains("mart") ? svgIcon("music") : ""; }); }
+      else if (tr) tr.textContent = s.title || "now playing";
+    };
+    const load = (i) => { idx = (i + order.length) % order.length; const s = p.playlist[order[idx]]; audio.src = s.src; showMeta(s); audio.play().catch(() => {}); };
+    showMeta(p.playlist[order[0]]);
+    if (pr) pr.onclick = () => (audio.currentTime > 3 ? (audio.currentTime = 0) : load(idx - 1));
+    const tc = P && P.querySelector(".tc"), tl = P && P.querySelector(".tl");
+    audio.addEventListener("loadedmetadata", () => { if (tl) tl.textContent = fmt(audio.duration * 1000); });
+    const bar = P && P.querySelector(".prog"); if (bar) bar.addEventListener("click", (e) => { const r = bar.getBoundingClientRect(); if (audio.duration) audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration; });
     const viz = root.querySelector(".player .viz");
     const vsync = () => viz && viz.classList.toggle("on", !audio.paused);
     if ((p.music.pulse || (p.background.type === "animated" && p.background.animated === "music")) && !reduce) {
@@ -620,7 +828,7 @@
     }
     audio.addEventListener("play", () => { sync(); vsync(); }); audio.addEventListener("pause", () => { sync(); vsync(); });
     audio.addEventListener("ended", () => load(idx + 1));
-    audio.addEventListener("timeupdate", () => { if (prog && audio.duration) prog.style.width = (audio.currentTime / audio.duration) * 100 + "%"; });
+    audio.addEventListener("timeupdate", () => { if (prog && audio.duration) prog.style.width = (audio.currentTime / audio.duration) * 100 + "%"; if (tc) tc.textContent = fmt(audio.currentTime * 1000); });
     if (pp) pp.onclick = () => (audio.paused ? audio.play().catch(() => {}) : audio.pause());
     if (nx) nx.onclick = () => load(idx + 1);
     if (vol) vol.oninput = () => (audio.volume = vol.value / 100);
