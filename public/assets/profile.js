@@ -75,7 +75,7 @@
     b.className = [`hv-ic-${p.hover.icons}`, `hv-bd-${p.hover.badges}`, `hv-wg-${p.hover.widgets}`, `sfx-${p.scrollFx}`, `bb-${p.bioText.box}`, `cd-${p.card.decor}`, `cf-${p.card.frame}`,
       p.name.preset !== "none" && `np-${p.name.preset}`, (p.name.shadowBlur || p.name.shadowX || p.name.shadowY) && "nshadow", p.name.outlineWidth && "noutline", `sb-${p.fx.scrollbar}`, p.buttons.tilt && "btilt", p.buttons.shiny && "bshine", p.fx.layer === "front" && "fx-front", p.radius.custom && "rcustom", `term-${p.terminal.theme}`,
       p.live.artSpin && "artspin", p.live.lyricsGlow && "lyglow", `cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
-      p.card.glow && "glow", p.card.animatedBorder && "anim-border", p.card.lift && "lift", p.card.textShadow && "text-shadow",
+      p.card.glow && "glow", p.card.animatedBorder && "anim-border",  p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
     // which sections go on which screen
@@ -106,6 +106,7 @@
     setupBackground(p);
     setupOverlay(p.overlay, p);
     if (p.fx.overlay2 !== "none" && p.fx.overlay2 !== p.overlay) setupOverlay(p.fx.overlay2, p, root.querySelector("canvas.fx2"));
+    setupBeam(p);
     if (window.__doseExtras) window.__doseExtras(p, data, { root, onCleanup, listen, every, reduce, coarse, esc, svgIcon, PREVIEW, getAudio: () => audio });
     setupNameEffect(p);
     setupBio(p);
@@ -192,6 +193,21 @@
     if (w.type === "twitch" && (m = v.replace(/^.*twitch\.tv\//i, "").match(/^[A-Za-z0-9_]{3,25}/))) return { src: `https://player.twitch.tv/?channel=${m[0]}&parent=${location.hostname}&muted=true&autoplay=false`, ratio: true };
     return null;
   };
+  function setupBeam(p) {
+    const c = p.card || {};
+    const sel = [c.beamCard && ".card", c.beamLinks && ".buttons a", c.beamIcons && ".socials a", c.beamWidgets && ".wg", c.beamBoxes && ".box", c.beamLive && ".pcard, .pstrip"].filter(Boolean).join(", ");
+    if (!sel) return;
+    root.style.setProperty("--beam-c", c.beamColor || "#ffffff");
+    root.style.setProperty("--beam-t", (11 - (c.beamSpeed || 5)) * 0.8 + 1 + "s");
+    root.style.setProperty("--beam-w", (c.beamWidth || 1) + "px");
+    root.querySelectorAll(sel).forEach((el, i) => {
+      if (el.querySelector(":scope > .beam")) return;
+      const b = document.createElement("i"); b.className = "beam" + (c.beamCount === "one" ? " one" : ""); b.setAttribute("aria-hidden", "true");
+      b.style.animationDelay = (i ? -(i * 0.37 % 3) : 0) + "s"; el.classList.add("has-beam"); el.appendChild(b);
+    });
+    if (c.beamLive) { const mo = new MutationObserver(() => { mo.disconnect(); setupBeam({ card: { ...c, beamCard: false, beamLinks: false, beamIcons: false, beamWidgets: false, beamBoxes: false } }); mo.observe(root, { childList: true, subtree: true }); }); mo.observe(root, { childList: true, subtree: true }); onCleanup(() => mo.disconnect()); }
+  }
+  function ageOf(v) { const b = new Date(v); if (!v || isNaN(b)) return null; const n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a >= 0 && a < 130 ? a : null; }
   function widgetHtml(w, p, d) {
     const M = (window.WIDGET_META || {})[w.type]; if (!M) return "";
     const size = w.size && w.size !== "auto" ? w.size : (w.wide || M.wide ? "wide" : "small");
@@ -207,6 +223,7 @@
       case "quote": return tile(`<b class="q">“${esc(w.value)}”</b>${w.label ? `<span>— ${esc(w.label)}</span>` : ""}`);
       case "gamerank": { const url = window.trackerUrl(w.label, w.extra); return tile(`<b>${esc(w.value || "unranked")}</b><span>${esc(w.extra || "rank")}</span>`).replace(/<\/div>$/, url ? `<a class="wlink" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="tracker.gg profile"></a></div>` : "</div>"); }
       case "timezone": return tile(`<b class="wclock">--:--</b><span>${esc((w.value || "").split("/").pop().replace(/_/g, " ") || "local time")}</span>`);
+      case "age": return tile(`<b class="wage">${ageOf(w.value) ?? "?"}</b><span>${esc(w.label || "years old")}</span>`);
       case "birthday": case "countdown": return tile(`<b class="wcd">…</b><span>${esc(w.type === "birthday" ? "until my birthday" : w.label || "until it's here")}</span>`);
       case "discord": return tile(`<b>loading…</b><span></span>`);
       default: return tile(`<b>${esc(w.value)}</b><span class="wsub">loading…</span>`);
@@ -235,6 +252,7 @@
           };
           every(tick, 1000); return;
         }
+        if (t === "age") return;
         if (!v && !["joined", "views"].includes(t)) return;
         if (t === "weather") {
           fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(v.split(",")[0])}`).then((r) => r.json()).then((g) => {

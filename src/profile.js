@@ -27,7 +27,7 @@ const CLICK_SOUNDS = ["none", "click", "bubble", "chime", "pop", "keyboard", "co
 const BIO_EFFECTS = ["none", "typewriter", "fade", "blurin", "scramble", "words", "rotate"];
 const VIEW_STYLES = ["off", "inline", "pill", "corner", "counter"];
 const PROJECT_ICONS = ["code", "star", "bolt", "heart", "music", "brush", "game", "gem", "flame", "moon", "trophy", "gift", "repo", "website"];
-const WIDGETS = ["timezone", "weather", "joined", "birthday", "countdown", "discord", "spotify", "soundcloud", "youtube", "twitch", "github", "steam", "roblox", "chess", "lastfm", "letterboxd", "anilist", "duolingo", "valorant", "apex", "gamerank", "mood", "quote", "views"];
+const WIDGETS = ["timezone", "weather", "joined", "birthday", "age", "countdown", "discord", "spotify", "soundcloud", "youtube", "twitch", "github", "steam", "roblox", "chess", "lastfm", "letterboxd", "anilist", "duolingo", "valorant", "apex", "gamerank", "mood", "quote", "views"];
 const NAME_EXTRAS = ["blossoms", "flames", "snow", "hearts", "bubbles", "stars", "sp-white", "sp-rainbow", "sp-green", "sp-black", "sp-blue", "sp-red", "sp-gold", "sp-pink"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
 const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
@@ -90,7 +90,7 @@ const SCHEMA = {
   card: {
     style: E(["glass", "solid", "outline", "label", "tinted", "holo", "liquid", "window", "blob", "magazine", "none"], "glass"), oneCard: B(true), darkness: N(0, 100, 55), blur: N(0, 40, 18), radius: N(0, 40, 22),
     borderColor: C(), borderWidth: N(0, 4, 1), shadow: E(["none", "soft", "deep"], "soft"), frostedEdges: B(false), reflection: B(false), mouseShadow: B(false), decor: E(["none", "tape", "pins", "stickers"], "none"), frame: E(["none", "polaroid", "film", "gold", "pixel"], "none"),
-    windowTheme: E(["win98", "mac9", "xp"], "win98"), windowTitle: S(40), glow: B(true), animatedBorder: P(B(false)), lift: B(true), textShadow: B(false),
+    windowTheme: E(["win98", "mac9", "xp"], "win98"), windowTitle: S(40), glow: B(true), animatedBorder: P(B(false)), beamCard: B(false), beamLinks: B(false), beamIcons: B(false), beamWidgets: B(false), beamBoxes: B(false), beamLive: B(false), beamColor: C("#ffffff"), beamCount: E(["one", "two"], "two"), beamSpeed: N(1, 10, 5), beamWidth: N(1, 3, 1), lift: B(true), textShadow: B(false),
   },
   colors: {
     theme: E(["pick", "picture"], "pick"), accent: C("#5ef2b0"), text: C("#ece7ef"), name: C(), bio: C(), small: C(),

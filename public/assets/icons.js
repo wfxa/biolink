@@ -94,6 +94,7 @@ window.WIDGET_META = {
   timezone:   { name: "Timezone",       color: "#0ea5e9", icon: "clock",     input: "Timezone",        ph: "Europe/London" },
   weather:    { name: "Weather",        color: "#f59e0b", icon: "sun",       input: "City",            ph: "London" },
   joined:     { name: "Account date",   color: "#7c3aed", icon: "calendar",  input: "",                ph: "" },
+  age:        { name: "Age",            color: "#a855f7", icon: "cake",      input: "Birthday",        ph: "2007-03-14", date: true, label: "Text under it (optional)" },
   birthday:   { name: "Birthday",       color: "#ec4899", icon: "cake",      input: "Date",            ph: "2005-07-14", date: true },
   countdown:  { name: "Countdown",      color: "#14b8a6", icon: "hourglass", input: "Date and time",   ph: "2026-12-25T00:00", date: true, label: "What's coming" },
   discord:    { name: "Discord server", color: "#5865f2", icon: "discord",   input: "Invite link",     ph: "discord.gg/yourserver" },

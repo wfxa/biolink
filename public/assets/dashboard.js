@@ -255,7 +255,11 @@
         F.color("card.borderColor", "Border colour", { adv: true }),
         F.chips("card.shadow", "Shadow", [["none", "None"], ["soft", "Soft"], ["deep", "Deep"]], { adv: true }),
         F.toggle("card.glow", "Soft glow", { hint: "a halo in your accent colour" }),
-        F.toggle("card.animatedBorder", "Animated border", { hint: premium ? "light travels around the edge" : "Premium", lock: true, adv: true }),
+        F.note("<b>Moving neon border</b> — a line of light that travels around the edge. Turn it on for any part."),
+        F.toggle("card.beamCard", "Card"), F.toggle("card.beamLinks", "Link buttons"), F.toggle("card.beamIcons", "Social icons"),
+        F.toggle("card.beamWidgets", "Widgets"), F.toggle("card.beamBoxes", "Boxes", { hint: "countdown, projects, server…" }), F.toggle("card.beamLive", "Discord & Spotify cards"),
+        F.color("card.beamColor", "Line colour"), F.chips("card.beamCount", "Lines", [["one", "One"], ["two", "Two"]]),
+        F.range("card.beamSpeed", "Speed", 1, 10, ""), F.range("card.beamWidth", "Thickness", 1, 3, "px"),
         F.toggle("card.lift", "Raise links on hover", { adv: true }),
         F.toggle("card.textShadow", "Text shadow", { hint: "keeps text readable on busy pictures", adv: true }),
       ]),
@@ -671,7 +675,7 @@
       : m.extra ? `<select data-wf="extra" data-i="${i}">${m.extra.map(([v, l]) => `<option value="${v}" ${(w.extra || m.extra[0][0]) === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>` : "";
     return `<div class="wrow" style="--wc:${m.color}"><span class="wi">${svgIcon(m.icon)}</span>
       <div class="wfields"><b>${esc(m.name)}</b>
-        ${m.input ? `<input type="${m.date ? (w.type === "birthday" ? "date" : "datetime-local") : "text"}" data-wf="value" data-i="${i}" value="${esc(w.value)}" placeholder="${esc(m.ph)}" maxlength="200" aria-label="${esc(m.input)}">` : `<small class="muted">nothing to fill in</small>`}
+        ${m.input ? `<input type="${m.date ? (w.type === "birthday" || w.type === "age" ? "date" : "datetime-local") : "text"}" data-wf="value" data-i="${i}" value="${esc(w.value)}" placeholder="${esc(m.ph)}" maxlength="200" aria-label="${esc(m.input)}">` : `<small class="muted">nothing to fill in</small>`}
         ${labelField}${extraField}
       </div>${acts(i, draft.widgets.length)}</div>`; }).join("") || `<p class="muted">No widgets yet. Pick some above.</p>`}</div>
     ${draft.widgets.some((w) => w.type === "lastfm") ? `<p class="note">Last.fm shows your latest song once the site owner adds a LASTFM_API_KEY. Until then it links to your profile.</p>` : ""}
