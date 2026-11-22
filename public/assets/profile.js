@@ -200,12 +200,21 @@
     root.style.setProperty("--beam-c", c.beamColor || "#ffffff");
     root.style.setProperty("--beam-t", (11 - (c.beamSpeed || 5)) * 0.8 + 1 + "s");
     root.style.setProperty("--beam-w", (c.beamWidth || 1) + "px");
-    root.querySelectorAll(sel).forEach((el, i) => {
-      if (el.querySelector(":scope > .beam")) return;
+    let n = 0;
+    const apply = () => root.querySelectorAll(sel).forEach((el) => {
+      if (el.classList.contains("has-beam")) return;
       const b = document.createElement("i"); b.className = "beam" + (c.beamCount === "one" ? " one" : ""); b.setAttribute("aria-hidden", "true");
-      b.style.animationDelay = (i ? -(i * 0.37 % 3) : 0) + "s"; el.classList.add("has-beam"); el.appendChild(b);
+      b.style.animationDelay = (n ? -(n * 0.37 % 3) : 0) + "s"; n++; el.classList.add("has-beam"); el.appendChild(b);
     });
-    if (c.beamLive) { const mo = new MutationObserver(() => { mo.disconnect(); setupBeam({ card: { ...c, beamCard: false, beamLinks: false, beamIcons: false, beamWidgets: false, beamBoxes: false } }); mo.observe(root, { childList: true, subtree: true }); }); mo.observe(root, { childList: true, subtree: true }); onCleanup(() => mo.disconnect()); }
+    apply();
+    if (!c.beamLive) return;
+    // Discord/Spotify cards arrive later: one observer, only reacts when a new card element is added, batched per frame
+    let queued = false;
+    const mo = new MutationObserver((list) => {
+      if (queued) return;
+      for (const m of list) for (const x of m.addedNodes) if (x.nodeType === 1 && (x.matches(".pcard, .pstrip") || x.querySelector?.(".pcard, .pstrip"))) { queued = true; requestAnimationFrame(() => { queued = false; apply(); }); return; }
+    });
+    mo.observe(root, { childList: true, subtree: true }); onCleanup(() => mo.disconnect());
   }
   function ageOf(v) { const b = new Date(v); if (!v || isNaN(b)) return null; const n = new Date(); let a = n.getFullYear() - b.getFullYear(); if (n.getMonth() < b.getMonth() || (n.getMonth() === b.getMonth() && n.getDate() < b.getDate())) a--; return a >= 0 && a < 130 ? a : null; }
   function widgetHtml(w, p, d) {
