@@ -253,3 +253,18 @@ canvas.viz-bg{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-ev
 html.calm .beam,.reduce .beam{animation:none;opacity:.35}
 @media (prefers-reduced-motion:reduce){.has-beam > .beam{animation:none;opacity:.35}}
 .wg.wg-age .wb b.wage{font-size:34px!important;line-height:1;font-weight:700;letter-spacing:-.02em}
+/* gradient names: text is transparent, so text-shadow would show through the letters.
+   move every shadow/glow into drop-shadow filters, which sit outside the letter shapes */
+body .name.grad.name,body .name.grad .ch,body .name.grad .tt{text-shadow:none!important}
+body .name.grad{--nfs:drop-shadow(0 0 0 transparent);--nfg:drop-shadow(0 0 0 transparent);filter:var(--nfs) var(--nfg)!important}
+body.nshadow .name.grad{--nfs:drop-shadow(var(--name-shadow))}
+body .name.grad.nglow{--nfg:drop-shadow(0 0 12px color-mix(in srgb,var(--accent) 55%,transparent))}
+body .name.grad.ne-glow{--nfg:drop-shadow(0 0 8px var(--accent)) drop-shadow(0 0 20px color-mix(in srgb,var(--accent) 50%,transparent))}
+body .name.grad.ne-neon{--nfg:drop-shadow(0 0 2px #fff) drop-shadow(0 0 8px var(--accent)) drop-shadow(0 0 18px var(--accent))}
+body .name.grad.ne-sparkle{--nfg:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 50%,transparent))}
+/* glitch copies: give them real colour so they read as glitch slices over the gradient */
+.name.grad.ne-glitch::before{-webkit-text-fill-color:var(--accent)}
+.name.grad.ne-glitch::after{-webkit-text-fill-color:#4dd2ff}
+/* effects that paint their own see-through letters: same problem with the custom shadow */
+body.nshadow .name:is(.ne-chrome,.ne-fire,.ne-ice,.ne-rainbow,.ne-shine,.ne-stroke,.ne-outline-glow),
+body.nshadow .name:is(.ne-chrome,.ne-fire,.ne-ice,.ne-rainbow,.ne-shine) .ch{text-shadow:none!important}

@@ -175,7 +175,15 @@
       <div class="tm-url"><span>‹ ›</span><div>${esc(location.host)}/${esc(me.username)}</div></div></div>`;
   }
   const pvOpts = (list, fn) => list.map(([v, l]) => [v, l, fn(v)]);
-  const fontChips = () => O.FONTS.map((f) => [f, f, `<span class="aa" style="font-family:'${f}'">Aa</span>`]);
+  const FG_NAMES = { clean: "Clean", serif: "Serif", mono: "Mono & pixel", script: "Handwriting", display: "Bold & gothic" };
+  const fontGroup = (f) => Object.keys(O.FONT_GROUPS || {}).find((g) => O.FONT_GROUPS[g].includes(f)) || "clean";
+  const fontChips = () => O.FONTS.map((f) => [f, f, `<span class="aa" data-fg="${fontGroup(f)}" style="font-family:'${f}'">Aa</span>`]);
+  const fontOpts = (first) => [["", first], ...Object.entries(O.FONT_GROUPS || { clean: O.FONTS }).flatMap(([g, list]) => list.map((f) => [f, `${FG_NAMES[g] || g} · ${f}`]))];
+  const fontFilter = () => F.custom("fonts._filter", "", () => `<div class="field wide" data-key="fonts._filter"><div class="chips fgf">${[["all", "All"], ...Object.entries(FG_NAMES)].map(([g, l]) => `<button type="button" class="chip" data-fg="${g}" aria-pressed="${g === "all"}">${l}</button>`).join("")}</div></div>`,
+    () => { const box = main.querySelector('[data-key="fonts._filter"]'); if (!box) return; $$("button", box).forEach((b) => b.addEventListener("click", () => {
+      $$("button", box).forEach((x) => x.setAttribute("aria-pressed", x === b));
+      $$('[data-key="fonts.body"] [data-chip]', main).forEach((c) => { const g = c.querySelector(".aa")?.dataset.fg; c.hidden = b.dataset.fg !== "all" && g !== b.dataset.fg; });
+    })); });
   const EFFECT_NAMES = { none: "None", shine: "Shine", glow: "Glow", neon: "Neon", colorshift: "Color shift", glitch: "Glitch", wave: "Wave", typewriter: "Typewriter", scramble: "Scramble", flicker: "Flicker", float: "Float", blurin: "Blur in", split: "Split", focus: "Focus", sparkle: "Sparkle", stroke: "Outline", shake: "Shake", rainbow: "Rainbow", loading: "Loading", flip: "Flip", bounce: "Bounce", jelly: "Jelly", pulse: "Pulse", chrome: "Chrome", fire: "Fire", ice: "Ice", toxic: "Toxic", "outline-glow": "Glow outline" };
   const EXTRA_NAMES = { blossoms: ["Cherry blossoms", "#ff9ec0"], flames: ["Flames", "#ff7a1a"], snow: ["Snow", "#e8f6ff"], hearts: ["Hearts", "#ff5c8a"], bubbles: ["Bubbles", "#9ad8ff"], stars: ["Stars", "var(--accent)"],
     "sp-white": ["White sparkles", "#ffffff"], "sp-rainbow": ["Rainbow sparkles", "conic-gradient(#ff4d6d,#ffe94d,#4dff9a,#4dc3ff,#9b6dff,#ff4d6d)"], "sp-green": ["Green sparkles", "#3ddc84"], "sp-black": ["Black sparkles", "#111"],
@@ -274,11 +282,11 @@
         F.color("colors.linkBg", "Link background", { adv: true }), F.color("colors.cards", "Cards", { adv: true, ph: "dark glass" }),
         F.toggle("colors.nameGlow", "Name glow"), F.toggle("colors.iconGlow", "Icon glow", { adv: true }),
       ]),
-      P("Fonts", "", [F.chips("fonts.body", "Body font", fontChips(), { cards: true }),
-        F.select("fonts.name", "Name font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
-        F.select("fonts.bio", "Bio font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
-        F.select("fonts.buttons", "Button font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
-        F.select("fonts.widgets", "Widget font", [["", "Same as body font"], ...O.FONTS.map((f) => [f, f])], { adv: true }),
+      P("Fonts", "", [fontFilter(), F.chips("fonts.body", "Body font", fontChips(), { cards: true }),
+        F.select("fonts.name", "Name font", fontOpts("Same as body font")),
+        F.select("fonts.bio", "Bio font", fontOpts("Same as body font"), { adv: true }),
+        F.select("fonts.buttons", "Button font", fontOpts("Same as body font"), { adv: true }),
+        F.select("fonts.widgets", "Widget font", fontOpts("Same as body font"), { adv: true }),
         ...(premium ? [F.upload("fonts.custom", "font", "Your own font", { accept: ".woff2,.woff,.ttf,.otf", note: "woff2, woff, ttf or otf" }), F.chips("fonts.useCustom", "Use it for", [["none", "Nothing"], ["name", "My name"], ["body", "Everything else"], ["all", "Everything"]])] : [F.note("Upload your own font with Premium.")]),
       ]),
       P("Bio text", "", [

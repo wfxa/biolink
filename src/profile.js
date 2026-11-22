@@ -6,11 +6,14 @@ const PLATFORMS = [
   "telegram", "reddit", "steam", "roblox", "kick", "threads", "bluesky", "pinterest", "kofi", "patreon", "throne",
   "letterboxd", "paypal", "cashapp", "email", "website",
 ];
-const FONTS = [
-  "Inter", "Outfit", "Sora", "Space Grotesk", "Syne", "Unbounded", "JetBrains Mono", "DM Serif Display", "Playfair Display",
-  "Press Start 2P", "VT323", "Caveat", "Bricolage Grotesque", "Instrument Serif", "Bebas Neue", "Archivo Black",
-  "Orbitron", "Righteous", "Silkscreen", "Pacifico",
-];
+const FONT_GROUPS = {
+  clean: ["Inter", "Outfit", "Sora", "Space Grotesk", "Syne", "Unbounded", "Bricolage Grotesque", "Poppins", "Montserrat", "Manrope", "Lexend", "Rubik", "Nunito", "Quicksand", "Comfortaa", "Fredoka", "Kanit", "Oswald", "Exo 2", "Rajdhani", "Chakra Petch"],
+  serif: ["Cormorant Garamond", "Gloock", "Bodoni Moda", "EB Garamond", "Playfair Display", "DM Serif Display", "Instrument Serif", "Fraunces", "Young Serif", "Cinzel", "Italiana"],
+  mono: ["JetBrains Mono", "Space Mono", "IBM Plex Mono", "Fira Code", "VT323", "Press Start 2P", "Silkscreen", "Major Mono Display"],
+  script: ["Caveat", "Pacifico", "Great Vibes", "Dancing Script", "Sacramento", "Satisfy", "Lobster", "Kaushan Script", "Permanent Marker", "Shadows Into Light", "Indie Flower", "Rock Salt"],
+  display: ["Bebas Neue", "Archivo Black", "Anton", "Orbitron", "Righteous", "Michroma", "Russo One", "Audiowide", "Bungee", "Lilita One", "Monoton", "UnifrakturMaguntia", "Pirata One", "Grenze Gotisch", "Metal Mania", "Creepster", "Nosifer", "Rubik Glitch", "Rubik Wet Paint"],
+};
+const FONTS = Object.values(FONT_GROUPS).flat();
 const NAME_EFFECTS = ["none", "shine", "glow", "neon", "colorshift", "glitch", "wave", "typewriter", "scramble", "flicker", "float", "blurin", "split", "focus", "sparkle", "stroke", "shake", "rainbow", "loading", "flip", "bounce", "jelly", "pulse", "chrome", "fire", "ice", "toxic", "outline-glow"];
 const OVERLAYS = ["none", "particles", "stars", "comets", "snow", "pixelsnow", "rain", "storm", "blossom", "fireflies", "matrix", "aurora", "fog", "pills3d", "bubbles", "liquid", "ink", "warp", "pixelrain", "constellation"];
 const PREMIUM_OVERLAYS = ["aurora", "fog", "storm"];
@@ -279,6 +282,6 @@ const DEFAULTS = () => defaults();
 
 module.exports = {
   DEFAULTS, clean, load, LIMITS,
-  OPTIONS: { CURSOR_PACKS, CURSOR_STYLES, FOLLOWERS, PLATFORMS, FONTS, NAME_EFFECTS, NAME_EXTRAS, WIDGETS, OVERLAYS, PREMIUM_OVERLAYS, ENTER_SCREENS, CURSORS, DECORATIONS, ANIMATED_BGS, SECTION_IDS, SECTION_NAMES, LIMITS,
+  OPTIONS: { FONT_GROUPS, CURSOR_PACKS, CURSOR_STYLES, FOLLOWERS, PLATFORMS, FONTS, NAME_EFFECTS, NAME_EXTRAS, WIDGETS, OVERLAYS, PREMIUM_OVERLAYS, ENTER_SCREENS, CURSORS, DECORATIONS, ANIMATED_BGS, SECTION_IDS, SECTION_NAMES, LIMITS,
     TEXTURES, CLICK_EFFECTS, CLICK_SOUNDS, BIO_EFFECTS, VIEW_STYLES, PROJECT_ICONS },
 };

@@ -9,6 +9,12 @@
     soundcloud: "#ff5500", snapchat: "#fffc00", telegram: "#26a5e4", reddit: "#ff4500", steam: "#c7d5e0", roblox: "#ffffff", kick: "#53fc18", threads: "#ffffff",
     bluesky: "#1185fe", pinterest: "#e60023", kofi: "#ff5e5b", patreon: "#ff424d", throne: "#ffffff", letterboxd: "#00e054", paypal: "#009cde", cashapp: "#00d632", email: "#ffffff", website: "#ffffff" };
   const SAFE_FONTS = { "Press Start 2P": "Press+Start+2P" };
+  // weights each Google font actually has (asking for a missing weight makes Google reject the whole request)
+  const FONT_W = {};
+  ["Inter", "Outfit", "Sora", "Space Grotesk", "Syne", "Unbounded", "JetBrains Mono", "Bricolage Grotesque"].forEach((f) => (FONT_W[f] = "400;600;800"));
+  ["Poppins", "Montserrat", "Manrope", "Lexend", "Rubik", "Nunito", "Quicksand", "Comfortaa", "Fredoka", "Kanit", "Oswald", "Exo 2", "Rajdhani", "Chakra Petch",
+    "Cormorant Garamond", "Bodoni Moda", "EB Garamond", "Fraunces", "Cinzel", "IBM Plex Mono", "Fira Code", "Dancing Script", "Grenze Gotisch"].forEach((f) => (FONT_W[f] = "400;600;700"));
+  ["Playfair Display", "Space Mono"].forEach((f) => (FONT_W[f] = "400;700"));
 
   let cleanups = [], audio = null, entered = false, data = null, lanyard = null, tracked = false, paused = false;
   const onCleanup = (fn) => cleanups.push(fn);
@@ -30,8 +36,8 @@
     // fonts
     const fams = [...new Set([p.fonts.body, p.fonts.name || p.fonts.body, p.fonts.bio, p.fonts.buttons, p.fonts.widgets].filter(Boolean))];
     const fl = document.getElementById("fontlink");
-    if (fl) fl.href = "https://fonts.googleapis.com/css2?" + fams.map((f) => "family=" + (SAFE_FONTS[f] || f.replace(/ /g, "+")) + (/(Inter|Outfit|Sora|Space Grotesk|Syne|Unbounded|JetBrains Mono|Bricolage Grotesque)/.test(f) ? ":wght@400;600;800" : "")).join("&") + "&display=swap";
-    const stack = (f) => `"${f}",${/Mono|VT323|Silkscreen|Press/.test(f) ? "ui-monospace,monospace" : /Serif|Playfair/.test(f) ? "Georgia,serif" : "system-ui,sans-serif"}`;
+    if (fl) fl.href = "https://fonts.googleapis.com/css2?" + fams.map((f) => "family=" + (SAFE_FONTS[f] || f.replace(/ /g, "+")) + (FONT_W[f] ? ":wght@" + FONT_W[f] : "")).join("&") + "&display=swap";
+    const stack = (f) => `"${f}",${/Mono|VT323|Silkscreen|Press|Fira Code/.test(f) ? "ui-monospace,monospace" : /Serif|Playfair|Garamond|Bodoni|Fraunces|Gloock|Cinzel|Italiana/.test(f) ? "Georgia,serif" : "system-ui,sans-serif"}`;
 
     // colours
     const set = (k, v) => (v ? R.setProperty(k, v) : R.removeProperty(k));
@@ -165,7 +171,7 @@
     if (p.details.languages) items.push(`<span>${svgIcon("comment")}${esc(p.details.languages)}</span>`);
     if (u.joined) items.push(`<span>${svgIcon("calendar")}joined ${ago(d.joined)}</span>`);
     if (["inline", "pill", "counter"].includes(p.viewCounter)) items.push(`<span class="vc">${svgIcon("eye")}<span class="views" data-n="${d.views}">${p.viewCounter === "counter" ? 0 : Number(d.views).toLocaleString()}</span></span>`);
-    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", p.name.gradient && "grad", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
+    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", p.name.gradient && !["chrome", "fire", "ice", "rainbow", "toxic", "stroke", "outline-glow"].includes(p.name.effect) && p.name.preset === "none" && "grad", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
     return `
       ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
       ${p.layout.arrangement === "rx" ? `<div class="rxtop"><b><i>Rx</i> ${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")}</span></div>` : ""}
