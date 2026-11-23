@@ -839,7 +839,11 @@
         if (dot) { dot.hidden = false; dot.style.background = col; dot.title = WORDS[L.discord_status]; }
         if (st) { st.hidden = false; const sd = st.querySelector(".sdot"); if (sd) sd.style.background = col; st.querySelector("em").textContent = WORDS[L.discord_status]; }
         const dn = root.querySelector(".line .dname"), du = L.discord_user || {};
-        if (dn && du.username) { dn.hidden = false; dn.querySelector("em").textContent = "@" + du.username; dn.title = du.global_name || du.username; }
+        if (dn && du.username) {
+          const show = p.underName.discordShow || "username", disp = du.global_name || du.display_name || du.username;
+          dn.hidden = false; dn.querySelector("em").textContent = show === "display" ? disp : show === "both" && disp !== du.username ? `${disp} (@${du.username})` : "@" + du.username;
+          dn.title = show === "display" ? "@" + du.username : disp;
+        }
         // status emoji on the picture, or a bubble next to it
         if (dot && avatar) {
           avatar.querySelectorAll(".sbadge,.sbubble").forEach((x) => x.remove()); dot.classList.remove("swapped");

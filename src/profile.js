@@ -62,7 +62,7 @@ const SCHEMA = {
   details: {
     location: S(40), timezone: { t: "tz", d: "" }, occupation: S(40), languages: S(60), weather: B(false), units: E(["c", "f"], "c"), github: { t: "re", re: /^[A-Za-z0-9-]{1,39}$/, d: "" },
   },
-  underName: { style: E(["plain", "pills"], "plain"), handle: B(true), discordName: B(false), statusDot: B(true), status: B(true), discordStyle: E(["box", "pill", "plain"], "box"), location: B(true), time: B(true), joined: B(false) },
+  underName: { style: E(["plain", "pills"], "plain"), handle: B(true), discordName: B(false), statusDot: B(true), status: B(true), discordStyle: E(["box", "pill", "plain"], "box"), discordShow: E(["username", "display", "both"], "username"), location: B(true), time: B(true), joined: B(false) },
   avatar: {
     src: IMG(), shape: E(["circle", "rounded", "square", "blob", "capsule"], "circle"), hover: E(["none", "grow", "spin", "tilt", "bounce"], "none"), decoration: E(DECORATIONS, "ring"), discordDecoration: B(false),
     size: N(56, 160, 104), border: N(0, 8, 0), borderColor: C(), hidden: B(false),

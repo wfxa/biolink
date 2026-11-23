@@ -217,9 +217,10 @@
       P("Info row", "Choose which details sit in the row under your name.", [
         F.chips("underName.style", "Look", [["plain", "Text"], ["pills", "Chips"]]),
         F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord", { hint: "Discord logo, your @ and online/offline" }),
-        F.chips("underName.discordStyle", "Discord look", [["box", "Boxed"], ["pill", "Pill"], ["plain", "Plain text"]]),
         F.toggle("underName.location", "Location"), F.toggle("underName.time", "Local time"),
         F.toggle("underName.joined", "Time on " + me.site, { hint: "how long you've had your page" }),
+        F.chips("underName.discordStyle", "Discord look", [["box", "Boxed"], ["pill", "Pill"], ["plain", "Plain text"]]),
+        F.chips("underName.discordShow", "Discord name", [["username", "@username"], ["display", "Display name"], ["both", "Both"]]),
       ], { adv: true }),
     ] },
 
