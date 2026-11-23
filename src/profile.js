@@ -111,7 +111,9 @@ const SCHEMA = {
   terminal: { theme: E(["green", "amber", "accent", "white"], "green"), prompt: S(30), motd: S(200), typing: B(true), sounds: B(false), autorun: S(60, "neofetch") },
   discordSync: { banner: B(false), accent: B(false) },
   listening: { on: B(false), source: E(["auto", "lastfm", "dose"], "auto"), lastfm: { t: "re", re: /^[A-Za-z0-9_-]{0,30}$/, d: "" }, period: E(["7day", "1month", "12month", "overall"], "1month"),
-    showNow: B(true), showRecent: B(true), showTop: B(true), recentCount: N(3, 30, 8), topCount: N(3, 10, 8), showArt: B(true) },
+    showNow: B(true), showRecent: B(true), showTop: B(true), recentCount: N(3, 30, 8), topCount: N(3, 10, 8), showArt: B(true),
+    layout: E(["auto", "side", "stacked"], "auto"), look: E(["boxes", "plain", "compact"], "boxes"), covers: E(["rounded", "square", "circle"], "rounded"),
+    showTimes: B(true), bars: B(true), links: E(["source", "spotify", "none"], "source"), accent: B(false) },
   name: {
     autoSize: B(true), size: N(20, 80, 40), weight: N(300, 900, 800), spacing: N(-8, 12, -2), uppercase: B(false),
     gradient: B(false), gradientMove: B(false), gradientSpeed: N(2, 20, 6), from: C("#ffffff"), to: C("#5ef2b0"), preset: E(["none", "sunset", "ocean", "toxic", "candy", "ice", "fire"], "none"),

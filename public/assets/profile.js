@@ -234,13 +234,15 @@
     const box = root.querySelector('[data-sec="listening"] .lsn-body'); if (!box) return;
     const L = p.listening, ago = (t) => { const s = Math.max(0, (Date.now() - t) / 1000); return s < 60 ? "now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : Math.floor(s / 86400) + "d ago"; };
     const art = (src) => L.showArt ? `<span class="lsn-art">${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()">` : svgIcon("music")}</span>` : "";
-    const row = (t) => `<a class="lsn-tr" ${t.url ? `href="${esc(t.url)}" target="_blank" rel="noopener noreferrer"` : ""}>${art(t.art)}<span class="lsn-tx"><b>${esc(t.song)}</b><small>${esc(t.artist)}</small></span><time data-at="${t.at}">${ago(t.at)}</time></a>`;
+    // where a click goes: the source (Last.fm / Spotify track), a Spotify search, or nowhere
+    const link = (url, q) => L.links === "none" ? "" : L.links === "spotify" ? `href="https://open.spotify.com/search/${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer"` : url ? `href="${esc(url)}" target="_blank" rel="noopener noreferrer"` : "";
+    const row = (t) => `<a class="lsn-tr" ${link(t.url, t.song + " " + t.artist)} title="${esc(t.song)} · ${esc(t.artist)}">${art(t.art)}<span class="lsn-tx"><b>${esc(t.song)}</b><small>${esc(t.artist)}</small></span>${L.showTimes ? `<time data-at="${t.at}">${ago(t.at)}</time>` : ""}</a>`;
     let shown = L.recentCount;
     const draw = (j) => {
       const max = Math.max(1, ...j.top.map((a) => a.plays));
       const nowBox = L.showNow ? `<div class="lsn-now">${art(j.now && j.now.art)}<span class="lsn-tx"><small>${j.now ? "listening now" : "listening"}</small><b>${j.now ? esc(j.now.song) : "nothing playing right now"}</b>${j.now ? `<small>${esc(j.now.artist)}</small>` : ""}</span>${j.now ? `<i class="eq"><b></b><b></b><b></b><b></b></i>` : ""}</div>` : "";
       const rec = L.showRecent ? `<div class="lsn-col"><div class="lsn-h">recent plays</div>${j.recent.length ? j.recent.slice(0, shown).map(row).join("") : `<p class="lsn-wait">nothing yet</p>`}${j.recent.length > shown ? `<button type="button" class="lsn-more">Show more (${j.recent.length - shown})</button>` : ""}</div>` : "";
-      const top = L.showTop ? `<div class="lsn-col"><div class="lsn-h">top artists</div>${j.top.length ? j.top.slice(0, L.topCount).map((a, i) => `<a class="lsn-ar" ${a.url ? `href="${esc(a.url)}" target="_blank" rel="noopener noreferrer"` : ""} style="--w:${Math.round((a.plays / max) * 100)}%"><span class="n">${i + 1}</span><b>${esc(a.name)}</b><small>${a.plays.toLocaleString()} play${a.plays === 1 ? "" : "s"}</small></a>`).join("") : `<p class="lsn-wait">nothing yet</p>`}</div>` : "";
+      const top = L.showTop ? `<div class="lsn-col"><div class="lsn-h">top artists</div>${j.top.length ? j.top.slice(0, L.topCount).map((a, i) => `<a class="lsn-ar" ${link(a.url, a.name)} title="${esc(a.name)}" style="--w:${Math.round((a.plays / max) * 100)}%"><span class="n">${i + 1}</span><b>${esc(a.name)}</b><small>${a.plays.toLocaleString()} play${a.plays === 1 ? "" : "s"}</small></a>`).join("") : `<p class="lsn-wait">nothing yet</p>`}</div>` : "";
       box.innerHTML = `${nowBox}${rec || top ? `<div class="lsn-cols ${rec && top ? "two" : ""}">${rec}${top}</div>` : ""}<p class="lsn-src">${j.source === "lastfm" ? `from <a href="https://www.last.fm/user/${esc(j.user)}" target="_blank" rel="noopener noreferrer">last.fm</a>` : "from spotify, via discord"}</p>`;
       const more = box.querySelector(".lsn-more"); if (more) more.onclick = () => { shown += 10; draw(j); };
     };
@@ -388,7 +390,7 @@
     const h = s.heading ? (s.big ? `<h2 class="sec-head sec-big">${esc(s.heading)}</h2>` : `<div class="sec-head">${esc(s.heading)}</div>`) : "";
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
-      case "listening": return `<div data-sec="listening" class="lsn">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;
+      case "listening": return `<div data-sec="listening" class="lsn lsn-${p.listening.look} lsn-c-${p.listening.covers} lsn-l-${p.listening.layout} ${p.listening.accent ? "lsn-acc" : ""} ${p.listening.bars ? "" : "lsn-nobars"}">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;
       case "badges": return p.badgeRow.position === "section" ? `<div data-sec="badges">${h}${badgesHtml(p, d)}</div>` : "";
       case "bio": return (p.bioText.position || "section") !== "section" ? "" : `<div data-sec="bio">${h}${bioInner(p)}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;

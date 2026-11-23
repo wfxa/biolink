@@ -579,7 +579,9 @@ async function route(req, res) {
         const api = (m, extra) => fetch(`https://ws.audioscrobbler.com/2.0/?method=${m}&user=${encodeURIComponent(fm)}&api_key=${key}&format=json${extra}`, { signal: AbortSignal.timeout(7000) }).then((r) => r.json());
         const [rt, ta] = await Promise.all([api("user.getrecenttracks", "&limit=31"), api("user.gettopartists", `&limit=10&period=${encodeURIComponent(L.period || "1month")}`)]);
         const tracks = (rt.recenttracks && rt.recenttracks.track) || [];
-        const pick = (t) => ({ song: t.name, artist: (t.artist && (t.artist["#text"] || t.artist.name)) || "", art: (((t.image || []).slice(-1)[0] || {})["#text"]) || "", url: t.url || "", at: t.date ? Number(t.date.uts) * 1000 : now() });
+        // Last.fm's "no cover" picture (a white star) counts as no cover
+        const cover = (t) => { const u = (((t.image || []).slice(-1)[0] || {})["#text"]) || ""; return /2a96cbd8b46e442fc41c2b86b821562f/.test(u) ? "" : u; };
+        const pick = (t) => ({ song: t.name, artist: (t.artist && (t.artist["#text"] || t.artist.name)) || "", art: cover(t), url: t.url || "", at: t.date ? Number(t.date.uts) * 1000 : now() });
         const nowT = tracks.find((t) => t["@attr"] && t["@attr"].nowplaying);
         body = { source: "lastfm", user: fm, now: nowT ? pick(nowT) : null, recent: tracks.filter((t) => t !== nowT).slice(0, 30).map(pick),
           top: ((ta.topartists && ta.topartists.artist) || []).map((a) => ({ name: a.name, plays: Number(a.playcount) || 0, url: a.url || "" })) };

@@ -392,3 +392,18 @@ body .name.grad.name:has(.ch){background:none!important}
 /* big section titles (like mori's "Listening") */
 .sec-head.sec-big{margin:4px 0 6px;font-family:var(--name-font);font-size:clamp(24px,5vw,32px);font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--name,var(--text));line-height:1.1;text-align:left}
 .arr-rx .sec-head.sec-big{border-bottom:0;padding-bottom:0;text-transform:none;letter-spacing:-.01em}
+/* listening: customisation */
+.lsn{container-type:inline-size}
+@container (max-width:520px){.lsn-l-auto .lsn-cols.two{grid-template-columns:1fr}}
+.lsn-l-stacked .lsn-cols.two{grid-template-columns:1fr}
+.lsn-l-side .lsn-cols.two{grid-template-columns:1fr 1fr}
+.lsn-c-square .lsn-art{border-radius:3px}.lsn-c-circle .lsn-art{border-radius:50%}
+.lsn-plain .lsn-tr,.lsn-plain .lsn-ar,.lsn-plain .lsn-now{background:none;border-color:transparent}
+.lsn-plain .lsn-tr:hover,.lsn-plain .lsn-ar:hover{background:rgba(255,255,255,.04)}
+.lsn-compact .lsn-col{gap:3px}.lsn-compact .lsn-tr{padding:4px 7px;border-radius:8px}.lsn-compact .lsn-ar{padding:6px 9px;border-radius:8px}
+.lsn-compact .lsn-art{width:28px;height:28px;border-radius:6px}.lsn-compact.lsn-c-circle .lsn-art{border-radius:50%}
+.lsn-compact .lsn-tx b,.lsn-compact .lsn-ar b{font-size:12.5px}.lsn-compact .lsn-now{padding:10px}.lsn-compact .lsn-now .lsn-art{width:44px;height:44px}
+.lsn-nobars .lsn-ar::before{display:none}
+.lsn-acc .lsn-ar::before{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 35%,transparent),color-mix(in srgb,var(--accent) 6%,transparent))}
+.lsn-acc .lsn-now{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.lsn-acc .lsn-ar .n,.lsn-acc .lsn-h{color:var(--accent)}
