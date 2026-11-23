@@ -34,10 +34,10 @@ const WIDGETS = ["timezone", "weather", "joined", "birthday", "age", "countdown"
 const NAME_EXTRAS = ["blossoms", "flames", "snow", "hearts", "bubbles", "stars", "sp-white", "sp-rainbow", "sp-green", "sp-black", "sp-blue", "sp-red", "sp-gold", "sp-pink"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
 const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
-const SECTION_IDS = ["badges", "bio", "socials", "buttons", "presence", "widgets", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
+const SECTION_IDS = ["badges", "bio", "listening", "socials", "buttons", "presence", "widgets", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
 const SECTION_NAMES = {
   widgets: "widgets",
-  badges: "badges", bio: "bio", socials: "social icons", buttons: "link buttons", presence: "now playing & games", projects: "projects",
+  badges: "badges", bio: "bio", listening: "listening (recent plays & top artists)", socials: "social icons", buttons: "link buttons", presence: "now playing & games", projects: "projects",
   embeds: "embeds", text: "text block", countdown: "countdown", server: "discord server", clock: "clock card", github: "github card", pages: "extra page buttons",
 };
 
@@ -110,6 +110,8 @@ const SCHEMA = {
     visualizer: B(false), overlay2: { t: "enum", list: OVERLAYS, d: "none", premiumValues: PREMIUM_OVERLAYS }, atmoColor: C(), density: N(25, 200, 100), speed: N(25, 200, 100), streams: B(false), scrollbar: E(["default", "thin", "hidden", "accent"], "default") },
   terminal: { theme: E(["green", "amber", "accent", "white"], "green"), prompt: S(30), motd: S(200), typing: B(true), sounds: B(false), autorun: S(60, "neofetch") },
   discordSync: { banner: B(false), accent: B(false) },
+  listening: { on: B(false), source: E(["auto", "lastfm", "dose"], "auto"), lastfm: { t: "re", re: /^[A-Za-z0-9_-]{0,30}$/, d: "" }, period: E(["7day", "1month", "12month", "overall"], "1month"),
+    showNow: B(true), showRecent: B(true), showTop: B(true), recentCount: N(3, 30, 8), topCount: N(3, 10, 8), showArt: B(true) },
   name: {
     autoSize: B(true), size: N(20, 80, 40), weight: N(300, 900, 800), spacing: N(-8, 12, -2), uppercase: B(false),
     gradient: B(false), gradientMove: B(false), gradientSpeed: N(2, 20, 6), from: C("#ffffff"), to: C("#5ef2b0"), preset: E(["none", "sunset", "ocean", "toxic", "candy", "ice", "fire"], "none"),
@@ -128,13 +130,13 @@ const SCHEMA = {
   linkButtons: { t: "list", max: LIMITS.buttons, item: { id: { t: "id" }, label: S(40), url: { t: "url" }, icon: { t: "enum", list: ["", ...PLATFORMS], d: "" }, highlight: B(false), hoverLabel: S(40) }, need: "url" },
   projects: { t: "list", max: LIMITS.projects, item: { id: { t: "id" }, name: S(40), tag: S(20), desc: S(140), url: { t: "url" }, icon: E(PROJECT_ICONS, "code") }, need: "name" },
   pages: { t: "list", max: LIMITS.pages, item: { id: { t: "id" }, slug: { t: "re", re: /^[a-z0-9-]{1,24}$/, d: "", pre: (v) => String(v || "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") }, title: S(40), body: S(3000), links: { t: "list", max: 10, item: { label: S(40), url: { t: "url" } }, need: "url" } }, need: "slug" },
-  widgets: { t: "list", max: 12, item: { id: { t: "id" }, type: E(WIDGETS, "quote"), value: S(200), label: S(40), extra: S(60), wide: B(false), size: E(["auto", "small", "wide", "tall", "big"], "auto") }, need: "type" },
-  widgetStyle: E(["brand", "card", "minimal"], "brand"),
+  widgets: { t: "list", max: 12, item: { id: { t: "id" }, type: E(WIDGETS, "quote"), value: S(200), label: S(40), extra: S(60), wide: B(false), size: E(["auto", "small", "wide", "tall", "big"], "auto"), color: C() }, need: "type" },
+  widgetStyle: E(["brand", "card", "minimal"], "brand"), widgetColor: C(), spotifyColors: E(["album", "dark"], "album"),
   tooltip: { style: E(["dark", "glass", "solid", "pill"], "dark"), color: C(), text: C() },
   pet: { type: E(["none", "cat", "dog", "pill", "ghost", "duck", "frog"], "none"), follow: B(true), size: N(28, 72, 44) },
   textBlock: S(1500),
   embeds: { t: "list", max: LIMITS.embeds, item: { t: "embed", d: "" } },
-  countdown: { label: S(40), date: { t: "re", re: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, d: "" }, done: S(40) },
+  countdown: { label: S(40), date: { t: "re", re: /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, d: "" }, done: S(40), look: E(["boxes", "plain"], "boxes"), yearly: B(false) },
   server: { t: "re", re: /^[A-Za-z0-9-]{2,32}$/, d: "", pre: (v) => String(v || "").replace(/^(https?:\/\/)?(www\.)?(discord\.gg|discord\.com\/invite)\//i, "") },
   discord: { id: { t: "re", re: /^\d{15,21}$/, d: "" } },
   live: { style: E(["widget", "simple", "strip"], "widget"), lyricsStyle: E(["list", "line", "karaoke", "subtitles"], "list"), lyricsAlbumColor: B(true), lyricsGlow: B(true),

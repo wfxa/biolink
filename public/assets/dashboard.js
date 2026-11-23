@@ -449,7 +449,9 @@
     widgets: { title: "Widgets", icon: "gem", lead: "Little live tiles: your time, weather, games, music and more. They sit together in one section you can move under Arrange.", panels: () => [
       P("Add a widget", `Up to 12. Tap one to add it.`, [F.custom("wpick", "Add a widget", () => widgetPicker(), bindWidgetPicker)]),
       P("Your widgets", "", [F.custom("widgets", "Your widgets", () => listWidgets(), bindWidgets),
-        F.chips("widgetStyle", "Look", [["brand", "Brand colours"], ["card", "Glass"], ["minimal", "Outline"]])]),
+        F.chips("widgetStyle", "Look", [["brand", "Brand colours"], ["card", "Glass"], ["minimal", "Outline"]]),
+        F.color("widgetColor", "One colour for all widgets", { ph: "each widget's own colour" }),
+        F.chips("spotifyColors", "Spotify widget colours", [["album", "Match the song's cover"], ["dark", "Always dark"]])]),
     ] },
     links: { title: "Links", icon: "website", lead: "Icons, buttons, projects, players and everything else people tap.", panels: () => [
       P("Social icons", "Small round icons for your accounts.", [F.custom("socials", "Social icons", () => listSocials(), bindSocials)]),
@@ -462,6 +464,8 @@
       P("Countdown", "Ticks down to a date you choose.", [
         F.custom("countdown.date", "Countdown date", () => `<label class="field" data-key="countdown.date">${lbl("Date and time")}<input type="datetime-local" data-k="countdown.date" value="${esc(draft.countdown.date)}"></label>`),
         F.text("countdown.label", "Label", { ph: "birthday", max: 40 }), F.text("countdown.done", "Text at zero", { ph: "it's here", max: 40, adv: true }),
+        F.chips("countdown.look", "Look", [["boxes", "Boxes (days / hours / min / sec)"], ["plain", "Plain numbers"]], { wide: true }),
+        F.toggle("countdown.yearly", "Repeat every year", { hint: "for birthdays: counts to the next one, says \"today!\" on the day" }),
       ]),
     ] },
 
@@ -475,6 +479,15 @@
 
     music: { title: "Music", icon: "music", lead: "Songs that play while people look around. Browsers wait for a tap before playing anything, so an opening screen helps.", panels: () => [
       P("Playlist", `Up to ${L("playlist")} songs${premium ? "" : ", 15 with Premium"}.`, [F.custom("playlist", "Playlist", () => listPlaylist(), bindPlaylist)]),
+      P("Listening section", "A section with what you're playing, your recent plays and your top artists. Put it on its own screen in Arrange (Page 2), like a music page.", [
+        F.toggle("listening.on", "Show the listening section", { wide: true }),
+        F.text("listening.lastfm", "Last.fm username", { ph: "optional · e.g. rj", max: 30, hint: "empty = your Spotify plays from Discord (last 30 days)" }),
+        F.chips("listening.source", "Use", [["auto", "Last.fm if set, else Discord"], ["lastfm", "Last.fm"], ["dose", "Discord history"]], { wide: true }),
+        F.chips("listening.period", "Top artists from", [["7day", "Last 7 days"], ["1month", "Last month"], ["12month", "Last year (Last.fm)"], ["overall", "All time (Last.fm)"]], { wide: true }),
+        F.toggle("listening.showNow", "Playing now"), F.toggle("listening.showRecent", "Recent plays"), F.toggle("listening.showTop", "Top artists"), F.toggle("listening.showArt", "Album covers"),
+        F.range("listening.recentCount", "Recent plays shown", 3, 30, ""), F.range("listening.topCount", "Top artists shown", 3, 10, ""),
+        ...(me.lastfmKey === false ? [F.note("Last.fm needs a key on the server (LASTFM_API_KEY). Until it's added, the Discord history is used.")] : []),
+      ]),
       P("Player", "", [F.chips("music.layout", "Layout", [["bar", "Slim bar"], ["compact", "Compact"], ["default", "Big cover"], ["banner", "Banner"], ["vinyl", "Vinyl"], ["covervinyl", "Cover + vinyl"]].map(([v, l]) => [v, l, `<span class="pv pv-scene"><span class="pv-mp pv-mp-${v}"><i class="c"></i><i class="d"></i><b></b><em></em><u></u><s></s></span></span>`]), { pv: true }),
         F.toggle("music.showVolume", "Volume slider", { adv: true }), F.range("music.volume", "Starting volume", 0, 100, "%"), F.toggle("music.showPlayer", "Show the player on my card"), F.toggle("music.visualizer", "Bouncing bars", { hint: "little bars that move while a song plays" }),
         F.toggle("music.pulse", "Pulse to the beat", { hint: "your card and picture bump along with the bass" }),
@@ -771,11 +784,13 @@
       <div class="wfields"><b>${esc(m.name)}</b>
         ${m.input ? `<input type="${m.date ? (w.type === "birthday" || w.type === "age" ? "date" : "datetime-local") : "text"}" data-wf="value" data-i="${i}" value="${esc(w.value)}" placeholder="${esc(m.ph)}" maxlength="200" aria-label="${esc(m.input)}">` : `<small class="muted">nothing to fill in</small>`}
         ${labelField}${extraField}
+        ${["spotify", "youtube", "soundcloud", "twitch"].includes(w.type) ? "" : `<span class="wcol"><input type="color" data-wf="color" data-i="${i}" value="${esc(w.color || draft.widgetColor || m.color)}" title="Widget colour" aria-label="Widget colour">${w.color ? `<button type="button" class="btn small" data-wclr="${i}">Default colour</button>` : `<small class="muted">colour</small>`}</span>`}
       </div>${acts(i, draft.widgets.length)}</div>`; }).join("") || `<p class="muted">No widgets yet. Pick some above.</p>`}</div>
     ${draft.widgets.some((w) => w.type === "lastfm") ? `<p class="note">Last.fm shows your latest song once the site owner adds a LASTFM_API_KEY. Until then it links to your profile.</p>` : ""}
     ${draft.widgets.some((w) => w.type === "valorant" || w.type === "apex") ? `<p class="note">Live ranks show once the site owner adds HENRIK_API_KEY (Valorant) or TRN_API_KEY (Apex). Until then the tile links to your tracker.gg profile.</p>` : ""}</div>`;
   function bindWidgets() {
     const root = main.querySelector('[data-key="widgets"]'); if (!root) return;
+    $$("[data-wclr]", root).forEach((b) => (b.onclick = () => { draft.widgets[Number(b.dataset.wclr)].color = ""; changed(); reView(); }));
     $$("[data-wf]", root).forEach((inp) => inp.addEventListener(inp.tagName === "SELECT" || inp.type === "date" || inp.type === "datetime-local" ? "change" : "input", () => { draft.widgets[Number(inp.dataset.i)][inp.dataset.wf] = inp.value; changed(); if (inp.dataset.re) reView(); }));
     bindList(root, "widgets", reView);
     const grid = $("#wgrid"); if (!grid) return;
@@ -872,6 +887,7 @@
   const secFilled = (id) => {
     const p = draft;
     if (id === "badges") return p.badgeRow.position === "section";
+    if (id === "listening") return !!(p.listening.on && (p.listening.lastfm || p.discord.id));
     if (id === "bio") return p.bioText.position === "section" && !!(p.bio || p.taglines.length || (p.discord.id && p.live.customStatus));
     return !!({ socials: p.socials.length, buttons: p.linkButtons.length,
       presence: p.discord.id && (p.live.spotify || p.live.games || (p.live.discordCard && p.live.style === "widget")), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,

@@ -117,6 +117,7 @@
     setupOverlay(p.overlay, p);
     if (p.fx.overlay2 !== "none" && p.fx.overlay2 !== p.overlay) setupOverlay(p.fx.overlay2, p, root.querySelector("canvas.fx2"));
     setupBeam(p);
+    setupListening(p, data);
     if (window.__doseExtras) window.__doseExtras(p, data, { root, onCleanup, listen, every, reduce, coarse, esc, svgIcon, PREVIEW, getAudio: () => audio });
     setupNameEffect(p);
     setupBio(p);
@@ -148,6 +149,7 @@
   const spot = (p) => p.motion.spotlight ? `<div class="spot"></div>` : "";
   function hasContent(id, p, d) {
     if (id === "bio" && (p.bioText.position || "section") !== "section") return false;
+    if (id === "listening") return p.listening.on && (p.listening.lastfm || p.discord.id) && (p.listening.showNow || p.listening.showRecent || p.listening.showTop);
     return ({ badges: p.badgeRow.position === "section" && d && sortBadges(d.badges || [], p).length, bio: p.bio || p.taglines.length || (p.discord.id && p.live.customStatus), socials: p.socials.length, buttons: p.linkButtons.length,
       presence: p.discord.id && (p.live.spotify || p.live.games || (p.live.discordCard && p.live.style === "widget")), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
       widgets: p.widgets.length, countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
@@ -219,14 +221,48 @@
       </div>`;
   }
   /* ---------- widgets ---------- */
-  const wEmbed = (w) => {
+  const wEmbed = (w, p) => {
     const v = w.value.trim(); let m;
-    if (w.type === "spotify" && (m = v.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|episode|artist|show)\/([A-Za-z0-9]{10,30})/))) return { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0`, h: m[1] === "track" || m[1] === "episode" ? 80 : 152 };
+    if (w.type === "spotify" && (m = v.match(/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|episode|artist|show)\/([A-Za-z0-9]{10,30})/))) return { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}${p && p.spotifyColors === "dark" ? "?theme=0" : ""}`, h: m[1] === "track" || m[1] === "episode" ? 80 : 152 };
     if (w.type === "youtube" && (m = v.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([A-Za-z0-9_-]{11})/))) return { src: `https://www.youtube-nocookie.com/embed/${m[1]}`, ratio: true };
     if (w.type === "soundcloud" && /^(https?:\/\/)?(www\.|m\.)?soundcloud\.com\//i.test(v)) return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(v.startsWith("http") ? v : "https://" + v)}&color=%23${(getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ff5500").slice(1)}&hide_related=true&show_comments=false&visual=false`, h: 120 };
     if (w.type === "twitch" && (m = v.replace(/^.*twitch\.tv\//i, "").match(/^[A-Za-z0-9_]{3,25}/))) return { src: `https://player.twitch.tv/?channel=${m[0]}&parent=${location.hostname}&muted=true&autoplay=false`, ratio: true };
     return null;
   };
+  /* Listening section: now playing, recent plays (with "show more") and top artists */
+  function setupListening(p, d) {
+    const box = root.querySelector('[data-sec="listening"] .lsn-body'); if (!box) return;
+    const L = p.listening, ago = (t) => { const s = Math.max(0, (Date.now() - t) / 1000); return s < 60 ? "now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : Math.floor(s / 86400) + "d ago"; };
+    const art = (src) => L.showArt ? `<span class="lsn-art">${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()">` : svgIcon("music")}</span>` : "";
+    const row = (t) => `<a class="lsn-tr" ${t.url ? `href="${esc(t.url)}" target="_blank" rel="noopener noreferrer"` : ""}>${art(t.art)}<span class="lsn-tx"><b>${esc(t.song)}</b><small>${esc(t.artist)}</small></span><time data-at="${t.at}">${ago(t.at)}</time></a>`;
+    let shown = L.recentCount;
+    const draw = (j) => {
+      const max = Math.max(1, ...j.top.map((a) => a.plays));
+      const nowBox = L.showNow ? `<div class="lsn-now">${art(j.now && j.now.art)}<span class="lsn-tx"><small>${j.now ? "listening now" : "listening"}</small><b>${j.now ? esc(j.now.song) : "nothing playing right now"}</b>${j.now ? `<small>${esc(j.now.artist)}</small>` : ""}</span>${j.now ? `<i class="eq"><b></b><b></b><b></b><b></b></i>` : ""}</div>` : "";
+      const rec = L.showRecent ? `<div class="lsn-col"><div class="lsn-h">recent plays</div>${j.recent.length ? j.recent.slice(0, shown).map(row).join("") : `<p class="lsn-wait">nothing yet</p>`}${j.recent.length > shown ? `<button type="button" class="lsn-more">Show more (${j.recent.length - shown})</button>` : ""}</div>` : "";
+      const top = L.showTop ? `<div class="lsn-col"><div class="lsn-h">top artists</div>${j.top.length ? j.top.slice(0, L.topCount).map((a, i) => `<a class="lsn-ar" ${a.url ? `href="${esc(a.url)}" target="_blank" rel="noopener noreferrer"` : ""} style="--w:${Math.round((a.plays / max) * 100)}%"><span class="n">${i + 1}</span><b>${esc(a.name)}</b><small>${a.plays.toLocaleString()} play${a.plays === 1 ? "" : "s"}</small></a>`).join("") : `<p class="lsn-wait">nothing yet</p>`}</div>` : "";
+      box.innerHTML = `${nowBox}${rec || top ? `<div class="lsn-cols ${rec && top ? "two" : ""}">${rec}${top}</div>` : ""}<p class="lsn-src">${j.source === "lastfm" ? `from <a href="https://www.last.fm/user/${esc(j.user)}" target="_blank" rel="noopener noreferrer">last.fm</a>` : "from spotify, via discord"}</p>`;
+      const more = box.querySelector(".lsn-more"); if (more) more.onclick = () => { shown += 10; draw(j); };
+    };
+    let last = null;
+    const load = () => fetch(`/api/listening/${encodeURIComponent(d.username)}`).then((r) => r.json()).then((j) => { if (!j || !j.recent) throw 0; last = j; draw(j); }).catch(() => { if (!last) box.innerHTML = `<p class="lsn-wait">couldn't load music right now</p>`; });
+    every(() => { if (!document.hidden || !last) load(); }, 60000);
+    every(() => box.querySelectorAll("time[data-at]").forEach((t) => (t.textContent = ago(Number(t.dataset.at)))), 30000);
+  }
+  // countdown helpers. Yearly = birthdays: rolls over to next year, and shows "today" for the whole day
+  function cdTarget(v, yearly) {
+    let d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(v) ? v + "T00:00" : v); if (isNaN(d)) return null; // a bare date means local midnight
+    if (!yearly) return d.getTime();
+    const n = new Date(); d = new Date(n.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes());
+    if (d.getMonth() === n.getMonth() && d.getDate() === n.getDate() && n >= d) return "today";
+    if (d < n) d.setFullYear(n.getFullYear() + 1);
+    return d.getTime();
+  }
+  function cdParts(target) {
+    let s = Math.max(0, Math.floor((target - Date.now()) / 1000));
+    const dd = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
+    return [[String(dd).padStart(2, "0"), "days"], [String(h).padStart(2, "0"), "hours"], [String(m).padStart(2, "0"), "min"], [String(s).padStart(2, "0"), "sec"]];
+  }
   function setupBeam(p) {
     const c = p.card || {};
     const sel = [c.beamCard && ".card", c.beamLinks && ".buttons a", c.beamIcons && ".socials a", c.beamWidgets && ".wg", c.beamBoxes && ".box", c.beamLive && ".pcard, .pstrip"].filter(Boolean).join(", ");
@@ -256,9 +292,9 @@
     const size = w.size && w.size !== "auto" ? w.size : (w.wide || M.wide ? "wide" : "small");
     const wide = size === "wide" || size === "big", title = w.type === "gamerank" ? ((window.GAME_TRACKERS[w.label] || [])[0] || w.label || M.name) : w.label && !M.label ? w.label : M.name;
     const head = `<div class="wh"><span class="wi">${svgIcon(M.icon)}</span><small>${esc(title)}</small></div>`;
-    const tile = (body, extra = "") => `<div class="wg wg-${w.type} sz-${size}" style="--wc:${M.color}" data-wt="${w.type}" data-wv="${esc(w.value)}" data-we="${esc(w.extra || "")}" data-wl="${esc(w.label || "")}" ${extra}>${head}<div class="wb">${body}</div></div>`;
-    const emb = ["spotify", "youtube", "soundcloud", "twitch"].includes(w.type) ? wEmbed(w) : null;
-    if (emb) return `<div class="wg wg-${w.type} sz-${size === "small" || size === "tall" ? "wide" : size} embed" style="--wc:${M.color}">${head}<iframe src="${esc(emb.src)}" loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" ${emb.ratio ? 'class="r169"' : `style="height:${emb.h}px"`} title="${esc(M.name)}"></iframe></div>`;
+    const tile = (body, extra = "") => `<div class="wg wg-${w.type} sz-${size}" style="--wc:${esc(w.color || p.widgetColor || M.color)}" data-wt="${w.type}" data-wv="${esc(w.value)}" data-we="${esc(w.extra || "")}" data-wl="${esc(w.label || "")}" ${extra}>${head}<div class="wb">${body}</div></div>`;
+    const emb = ["spotify", "youtube", "soundcloud", "twitch"].includes(w.type) ? wEmbed(w, p) : null;
+    if (emb) return `<div class="wg wg-${w.type} sz-${size === "small" || size === "tall" ? "wide" : size} embed" style="--wc:${esc(w.color || p.widgetColor || M.color)}">${head}<iframe src="${esc(emb.src)}" loading="lazy" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" ${emb.ratio ? 'class="r169"' : `style="height:${emb.h}px"`} title="${esc(M.name)}"></iframe></div>`;
     switch (w.type) {
       case "joined": { const days = Math.max(1, Math.floor((Date.now() - d.joined) / 864e5)); return tile(`<b>${days.toLocaleString()} day${days === 1 ? "" : "s"}</b><span>on ${esc(window.__SITE)} since ${new Date(d.joined).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>`); }
       case "views": return tile(`<b>${Number(d.views).toLocaleString()}</b><span>visits to this page</span>`);
@@ -288,6 +324,11 @@
         if (t === "birthday" || t === "countdown") {
           const tick = () => {
             let target = new Date(v); if (isNaN(target)) { el.querySelector(".wcd").textContent = "set a date"; return; }
+            if (t === "birthday" && (el.classList.contains("sz-wide") || el.classList.contains("sz-big"))) { // wide birthday tile: days / hours / min / sec boxes
+              const tg = cdTarget(v, true), wcd = el.querySelector(".wcd");
+              if (tg === "today") { wcd.textContent = "today!"; return; }
+              wcd.classList.add("wcd-boxes"); wcd.innerHTML = cdParts(tg).map(([n, l]) => `<span class="cdb"><b>${n}</b><em>${l}</em></span>`).join(""); return;
+            }
             if (t === "birthday") { const n = new Date(); target = new Date(n.getFullYear(), target.getMonth(), target.getDate()); if (target < new Date(n.getFullYear(), n.getMonth(), n.getDate())) target.setFullYear(n.getFullYear() + 1); const days = Math.round((target - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 864e5); el.querySelector(".wcd").textContent = days === 0 ? "today!" : `${days} day${days === 1 ? "" : "s"}`; return; }
             const ms = target - Date.now(); if (ms <= 0) { el.querySelector(".wcd").textContent = "it's here"; return; }
             const dd = Math.floor(ms / 864e5), hh = Math.floor(ms / 36e5) % 24, mm = Math.floor(ms / 6e4) % 60, ss = Math.floor(ms / 1000) % 60;
@@ -344,6 +385,7 @@
     const h = s.heading ? `<div class="sec-head">${esc(s.heading)}</div>` : "";
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
+      case "listening": return `<div data-sec="listening" class="lsn">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;
       case "badges": return p.badgeRow.position === "section" ? `<div data-sec="badges">${h}${badgesHtml(p, d)}</div>` : "";
       case "bio": return (p.bioText.position || "section") !== "section" ? "" : `<div data-sec="bio">${h}${bioInner(p)}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
@@ -355,11 +397,11 @@
       case "embeds": return `<div class="pstack">${h}${p.embeds.map((e) => {
           const [kind, val] = [e.slice(0, e.indexOf(":")), e.slice(e.indexOf(":") + 1)];
           if (kind === "youtube") return `<div class="embed"><iframe src="https://www.youtube-nocookie.com/embed/${esc(val)}" style="aspect-ratio:16/9" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy" title="YouTube video"></iframe></div>`;
-          if (kind === "spotify") return `<div class="embed"><iframe src="https://open.spotify.com/embed/${esc(val)}?theme=0" height="${/^track|^episode/.test(val) ? 80 : 152}" allow="encrypted-media" loading="lazy" title="Spotify"></iframe></div>`;
+          if (kind === "spotify") return `<div class="embed"><iframe src="https://open.spotify.com/embed/${esc(val)}${p.spotifyColors === "dark" ? "?theme=0" : ""}" height="${/^track|^episode/.test(val) ? 80 : 152}" allow="encrypted-media" loading="lazy" title="Spotify"></iframe></div>`;
           return `<div class="embed"><iframe height="120" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(val)}&color=%23${(p.colors.accent || "#ff2e4d").slice(1)}&visual=false" loading="lazy" title="SoundCloud"></iframe></div>`;
         }).join("")}</div>`;
       case "text": return `<div>${h}<p class="textblock">${redactHtml(p.textBlock)}</p></div>`;
-      case "countdown": return `<div class="box countdown" data-date="${esc(p.countdown.date)}" data-done="${esc(p.countdown.done)}">${s.heading || p.countdown.label ? `<small>${esc(s.heading || p.countdown.label)}</small>` : ""}<div class="t"></div></div>`;
+      case "countdown": return `<div class="box countdown cd-${p.countdown.look || "boxes"}" data-date="${esc(p.countdown.date)}" data-done="${esc(p.countdown.done)}" data-yearly="${p.countdown.yearly ? 1 : ""}">${s.heading || p.countdown.label ? `<small>${esc(s.heading || p.countdown.label)}</small>` : ""}<div class="t"></div></div>`;
       case "server": return `<div>${h}<div class="box server" data-invite="${esc(p.server)}"><span class="ic">${icon("discord")}</span><div class="txt"><b>loading server…</b><small></small></div><a class="join" href="https://discord.gg/${esc(p.server)}" target="_blank" rel="noopener">Join</a></div></div>`;
       case "clock": return `<div class="box clock">${h}<div class="t bigtime">--:--</div><small>${esc(p.details.location || p.details.timezone)}</small></div>`;
       case "github": return `<div>${h}<div class="box gh" data-gh="${esc(p.details.github)}"><div class="txt"><b>${esc(p.details.github)}</b><small>loading GitHub…</small></div></div></div>`;
@@ -834,12 +876,12 @@
     }).catch(() => { gh.querySelector("small").textContent = "github.com/" + p.details.github; });
     const cd = root.querySelector("[data-date]");
     if (cd) {
-      const target = new Date(cd.dataset.date).getTime(), t = cd.querySelector(".t");
+      const t = cd.querySelector(".t"), boxes = cd.classList.contains("cd-boxes");
       every(() => {
-        let s = Math.floor((target - Date.now()) / 1000);
-        if (s <= 0) { t.innerHTML = `<span>${esc(cd.dataset.done || "it's here")}</span>`; return; }
-        const dd = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
-        t.innerHTML = [[dd, "days"], [h, "hrs"], [m, "min"], [s, "sec"]].map(([v, l]) => `<span>${String(v).padStart(2, "0")}<em>${l}</em></span>`).join("");
+        const target = cdTarget(cd.dataset.date, !!cd.dataset.yearly);
+        if (target === "today" || (target !== null && target <= Date.now())) { t.innerHTML = `<span class="cd-done">${esc(cd.dataset.done || (cd.dataset.yearly ? "today!" : "it's here"))}</span>`; return; }
+        if (target === null) return;
+        t.innerHTML = cdParts(target).map(([v, l]) => boxes ? `<span class="cdb"><b>${v}</b><em>${l}</em></span>` : `<span>${v}<em>${l === "hours" ? "hrs" : l}</em></span>`).join("");
       }, 1000);
     }
     const sv = root.querySelector("[data-invite]");
