@@ -562,6 +562,44 @@ async function route(req, res) {
     }
     return send(res, 200, out, { "Cache-Control": "no-store" });
   }
+  // Listening section: Last.fm when the page has a Last.fm name and the server has a key, otherwise dose's own Spotify history
+  const lsm = p.match(/^\/api\/listening\/([a-z0-9_.]{1,20})$/i);
+  if (lsm && method === "GET") {
+    const u = db.prepare("SELECT id, profile, premium FROM users WHERE username = ? AND banned = 0").get(lsm[1]);
+    if (!u) return fail(res, 404, "Not found");
+    let pr = {}; try { pr = Profile.load(u.profile || "{}", { premium: !!u.premium }) || {}; } catch {}
+    const L = pr.listening || {}, fm = (L.lastfm || "").trim(), key = process.env.LASTFM_API_KEY;
+    const want = L.source || "auto", useFm = fm && key && want !== "dose";
+    const cacheKey = "ls:" + u.id + ":" + (useFm ? fm + ":" + L.period : "dose");
+    const hit = widgetCache.get(cacheKey);
+    if (hit && hit.until > now()) return send(res, 200, hit.body, { "Cache-Control": "no-store" });
+    let body;
+    if (useFm) {
+      try {
+        const api = (m, extra) => fetch(`https://ws.audioscrobbler.com/2.0/?method=${m}&user=${encodeURIComponent(fm)}&api_key=${key}&format=json${extra}`, { signal: AbortSignal.timeout(7000) }).then((r) => r.json());
+        const [rt, ta] = await Promise.all([api("user.getrecenttracks", "&limit=31"), api("user.gettopartists", `&limit=10&period=${encodeURIComponent(L.period || "1month")}`)]);
+        const tracks = (rt.recenttracks && rt.recenttracks.track) || [];
+        const pick = (t) => ({ song: t.name, artist: (t.artist && (t.artist["#text"] || t.artist.name)) || "", art: (((t.image || []).slice(-1)[0] || {})["#text"]) || "", url: t.url || "", at: t.date ? Number(t.date.uts) * 1000 : now() });
+        const nowT = tracks.find((t) => t["@attr"] && t["@attr"].nowplaying);
+        body = { source: "lastfm", user: fm, now: nowT ? pick(nowT) : null, recent: tracks.filter((t) => t !== nowT).slice(0, 30).map(pick),
+          top: ((ta.topartists && ta.topartists.artist) || []).map((a) => ({ name: a.name, plays: Number(a.playcount) || 0, url: a.url || "" })) };
+      } catch { body = null; }
+    }
+    if (!body) {
+      const days = { "7day": 7, "1month": 30 }[L.period] || 30, since = now() - days * DAY;
+      const recent = db.prepare("SELECT song, artist, art, track_id, started FROM spotify_plays WHERE user_id = ? ORDER BY started DESC LIMIT 31").all(u.id);
+      const np = nowPlaying.get(u.id), live = np && np.until > now() && recent[0] && recent[0].track_id === np.track_id ? recent[0] : null;
+      const counts = new Map();
+      for (const r of db.prepare("SELECT artist FROM spotify_plays WHERE user_id = ? AND started > ?").all(u.id, since)) {
+        const a = String(r.artist || "").split(/;|,/)[0].trim(); if (a) counts.set(a, (counts.get(a) || 0) + 1);
+      }
+      const pick = (r) => ({ song: r.song, artist: String(r.artist || "").replace(/;/g, ","), art: r.art || "", url: r.track_id ? `https://open.spotify.com/track/${r.track_id}` : "", at: r.started });
+      body = { source: "dose", now: live ? pick(live) : null, recent: recent.filter((r) => r !== live).slice(0, 30).map(pick),
+        top: [...counts].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, plays]) => ({ name, plays, url: `https://open.spotify.com/search/${encodeURIComponent(name)}` })) };
+    }
+    widgetCache.set(cacheKey, { body, until: now() + (body.source === "lastfm" ? 90000 : 20000) });
+    return send(res, 200, body, { "Cache-Control": "no-store" });
+  }
   const ai = p.match(/^\/api\/appicon\/(\d{15,21})$/);
   if (ai && method === "GET") {
     const hit = appIconCache.get(ai[1]);
@@ -773,7 +811,7 @@ async function route(req, res) {
       return send(res, 200, { ...publicUser(me), options: Profile.OPTIONS, limits: config.UPLOAD_LIMITS, site: config.SITE_NAME,
         announcement: getSetting("dashAnnouncement", ""),
         aliases: db.prepare("SELECT name FROM aliases WHERE user_id = ? ORDER BY ts").all(me.id).map((a) => a.name),
-        aliasLimit: me.premium ? 3 : 1,
+        aliasLimit: me.premium ? 3 : 1, lastfmKey: !!process.env.LASTFM_API_KEY,
         premiumUntil: me.premium_until || null, nameLockedUntil: me.name_locked_until || null,
         impersonatedBy: me.imp_by ? (db.prepare("SELECT username FROM users WHERE id = ?").get(me.imp_by) || {}).username || "the team" : null,
         linkClicks: Object.fromEntries(db.prepare("SELECT link_id, COUNT(*) n FROM clicks WHERE user_id = ? AND ts >= ? GROUP BY link_id").all(me.id, now() - 30 * DAY).map((r) => [r.link_id, r.n])),
