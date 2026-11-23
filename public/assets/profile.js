@@ -67,7 +67,11 @@
     R.setProperty("--font", (["body", "all"].includes(p.fonts.useCustom) ? cust : "") + stack(p.fonts.body)); R.setProperty("--name-font", (["name", "all"].includes(p.fonts.useCustom) ? cust : "") + stack(p.fonts.name || p.fonts.body));
     R.setProperty("--name-size", p.name.autoSize ? "clamp(28px,8vw,42px)" : p.name.size + "px");
     R.setProperty("--name-weight", p.name.weight); R.setProperty("--name-spacing", p.name.spacing / 100 + "em");
-    R.setProperty("--g1", p.name.from); R.setProperty("--g2", p.name.to);
+    { // one gradient system: your own two colours, or a moving preset (which also sets a third colour)
+      const NP = { sunset: ["#ff5f6d", "#ffc371", "#ff8fb3"], ocean: ["#00c6ff", "#0072ff", "#6ef2ff"], toxic: ["#a8ff3e", "#32ff7e", "#e8ff3e"], candy: ["#ff9ad5", "#b28dff", "#8ff7ff"], ice: ["#ffffff", "#9be7ff", "#c5d8ff"], fire: ["#ff3d00", "#ffb300", "#ff6a00"] }[p.name.preset];
+      R.setProperty("--g1", NP ? NP[0] : p.name.from); R.setProperty("--g2", NP ? NP[1] : p.name.to); R.setProperty("--g3", NP ? NP[2] : p.name.to);
+      R.setProperty("--gspeed", (NP ? 5 : p.name.gradientSpeed || 6) + "s");
+    }
     R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px", blob: "42% 58% 63% 37% / 41% 44% 56% 59%", capsule: "999px" }[p.avatar.shape]);
     R.setProperty("--av-w", p.avatar.shape === "capsule" ? "0.72" : "1");
     R.setProperty("--card-bw", p.card.borderWidth + "px");
@@ -79,7 +83,7 @@
 
     const b = document.body;
     b.className = [`hv-ic-${p.hover.icons}`, `hv-bd-${p.hover.badges}`, `hv-wg-${p.hover.widgets}`, `sfx-${p.scrollFx}`, `bb-${p.bioText.box}`, `crt-${p.bioText.caret}`, `cd-${p.card.decor}`, `cf-${p.card.frame}`,
-      p.name.preset !== "none" && `np-${p.name.preset}`, (p.name.shadowBlur || p.name.shadowX || p.name.shadowY) && "nshadow", p.name.outlineWidth && "noutline", `sb-${p.fx.scrollbar}`, p.buttons.tilt && "btilt", p.buttons.shiny && "bshine", p.fx.layer === "front" && "fx-front", p.radius.custom && "rcustom", `term-${p.terminal.theme}`,
+      (p.name.shadowBlur || p.name.shadowX || p.name.shadowY) && "nshadow", p.name.outlineWidth && "noutline", `sb-${p.fx.scrollbar}`, p.buttons.tilt && "btilt", p.buttons.shiny && "bshine", p.fx.layer === "front" && "fx-front", p.radius.custom && "rcustom", `term-${p.terminal.theme}`,
       p.live.artSpin && "artspin", p.live.lyricsGlow && "lyglow", `cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border",  p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
@@ -188,7 +192,7 @@
     if (p.details.languages) items.push(`<span>${svgIcon("comment")}${esc(p.details.languages)}</span>`);
     if (u.joined) items.push(`<span>${svgIcon("calendar")}joined ${ago(d.joined)}</span>`);
     if (["inline", "pill", "counter"].includes(p.viewCounter)) items.push(`<span class="vc">${svgIcon("eye")}<span class="views" data-n="${d.views}">${p.viewCounter === "counter" ? 0 : Number(d.views).toLocaleString()}</span></span>`);
-    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", p.name.gradient && !["chrome", "fire", "ice", "rainbow", "toxic", "stroke", "outline-glow"].includes(p.name.effect) && p.name.preset === "none" && "grad", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
+    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", (p.name.gradient || p.name.preset !== "none") && !["chrome", "fire", "ice", "rainbow", "toxic", "stroke", "outline-glow"].includes(p.name.effect) && "grad", (p.name.preset !== "none" || (p.name.gradient && p.name.gradientMove)) && "gmove", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
     return `
       ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
       ${p.layout.arrangement === "rx" ? `<div class="rxtop"><b><i>Rx</i> ${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")}</span></div>` : ""}
@@ -466,11 +470,11 @@
     if (e === "loading") split((i) => `animation-delay:${i * 0.12}s`);
     if (e === "flip") split((i) => `animation-delay:${i * 0.1}s`);
     if (e === "bounce") split((i) => `animation-delay:${i * 0.08}s`);
-    // gradient names: each letter shows its own slice of one gradient across the whole name
-    if (el.classList.contains("grad") && el.querySelector(".ch")) {
-      const place = () => { el.style.setProperty("--nw", el.scrollWidth + "px"); el.querySelectorAll(".ch").forEach((c) => c.style.setProperty("--cx", c.offsetLeft + "px")); };
+    // gradient names: one gradient as wide as the name; each split letter shows its own slice of it
+    if (el.classList.contains("grad")) {
+      const place = () => { el.style.setProperty("--nw", Math.max(1, el.scrollWidth) + "px"); el.querySelectorAll(".ch").forEach((c) => c.style.setProperty("--cx", c.offsetLeft + "px")); };
       place(); if (document.fonts) document.fonts.ready.then(place);
-      listen(window, "resize", place);
+      if (!el.dataset.gplaced) { el.dataset.gplaced = 1; listen(window, "resize", place); }
     }
   }
   /* little things that float around the name; up to two, on top of the main effect */
