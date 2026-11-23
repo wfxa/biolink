@@ -162,8 +162,11 @@
     const name = p.displayName || d.username;
     const u = p.underName, items = [];
     if (u.handle && p.handle.trim()) items.push(`<span>${esc(p.handle)}</span>`);
-    const cardShown = p.live.hideWithCard && p.live.style === "widget" && p.live.discordCard && p.sections.some((x) => x.id === "presence" && x.show);
-    if (u.status && p.discord.id && !cardShown) items.push(`<span class="status" hidden><i class="sdot"></i><em style="font-style:normal"></em></span>`);
+    // Discord logo + @username + status: only with the Simple style (Wide cards and Slim strip already show it)
+    if (u.status && p.discord.id && p.live.style === "simple") {
+      items.push(`<a class="dname" hidden href="https://discord.com/users/${esc(p.discord.id)}" target="_blank" rel="noopener noreferrer" aria-label="Discord profile">${svgIcon("discord")}<em style="font-style:normal"></em></a>`);
+      items.push(`<span class="status" hidden><em style="font-style:normal"></em></span>`);
+    }
     if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
     if (p.details.weather && p.details.location) items.push(`<span class="wx" hidden></span>`);
     if (u.time && p.details.timezone) items.push(`<span>${svgIcon("clock")}<span class="localtime">--:--</span></span>`);
@@ -825,7 +828,9 @@
         const emo = custom && custom.emoji ? (custom.emoji.id ? `<img class="emj" alt="" src="https://cdn.discordapp.com/emojis/${custom.emoji.id}.${custom.emoji.animated ? "gif" : "webp"}?size=48">` : `<span class="emj">${esc(custom.emoji.name)}</span>`) : "";
         const dot = root.querySelector(".avatar .dot"), st = root.querySelector(".line .status"), col = COLORS[L.discord_status] || COLORS.offline;
         if (dot) { dot.hidden = false; dot.style.background = col; dot.title = WORDS[L.discord_status]; }
-        if (st) { st.hidden = false; st.querySelector(".sdot").style.background = col; st.querySelector("em").textContent = WORDS[L.discord_status]; }
+        if (st) { st.hidden = false; const sd = st.querySelector(".sdot"); if (sd) sd.style.background = col; st.querySelector("em").textContent = WORDS[L.discord_status]; }
+        const dn = root.querySelector(".line .dname"), du = L.discord_user || {};
+        if (dn && du.username) { dn.hidden = false; dn.querySelector("em").textContent = "@" + du.username; dn.title = du.global_name || du.username; }
         // status emoji on the picture, or a bubble next to it
         if (dot && avatar) {
           avatar.querySelectorAll(".sbadge,.sbubble").forEach((x) => x.remove()); dot.classList.remove("swapped");
@@ -851,6 +856,8 @@
           if (p.live.discordCard) bits.push(`<span class="ps-i"><i class="sdot" style="background:${col}"></i>${WORDS[L.discord_status]}${custom && (custom.state || emo) && p.live.customStatus ? ` · ${emo}${esc(custom.state || "")}` : ""}</span>`);
           if (playing) bits.push(`<a class="ps-i sp" href="https://open.spotify.com/track/${esc(L.spotify.track_id || "")}" target="_blank" rel="noopener noreferrer">${L.spotify.album_art_url ? `<img src="${esc(L.spotify.album_art_url)}" alt="">` : svgIcon("spotify")}<b>${esc(L.spotify.song)}</b><span>${esc(L.spotify.artist.split(";")[0])}</span><i class="psbar"><i class="spbar"></i></i></a>`);
           if (p.live.games) for (const a of acts) bits.push(`<span class="ps-i">${svgIcon("game")}<b>${esc(rename(a.name))}</b>${a.timestamps && a.timestamps.start ? `<span class="elapsed" data-start="${a.timestamps.start}"></span>` : ""}</span>`);
+          // nothing going on and offline: a lone "offline" bar isn't worth showing
+          if (bits.length === 1 && p.live.discordCard && !playing && !(p.live.games && acts.length) && (L.discord_status || "offline") === "offline") bits.length = 0;
           stack.innerHTML = bits.length ? `<div class="pstrip">${bits.join(`<i class="ps-sep"></i>`)}</div>` : ""; sec.hidden = !bits.length;
         } else {
           if (W && p.live.discordCard) {

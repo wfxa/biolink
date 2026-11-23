@@ -216,7 +216,7 @@
       ]),
       P("Info row", "Choose which details sit in the row under your name.", [
         F.chips("underName.style", "Look", [["plain", "Text"], ["pills", "Chips"]]),
-        F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord status", { hint: "the coloured dot and its word" }),
+        F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord", { hint: "Discord logo, your @ and online/offline · Simple style only" }),
         F.toggle("underName.location", "Location"), F.toggle("underName.time", "Local time"),
         F.toggle("underName.joined", "Time on " + me.site, { hint: "how long you've had your page" }),
       ], { adv: true }),
@@ -484,7 +484,7 @@
           ...(draft.live.onRepeat ? [F.range("live.repeatAt", "Show it after", 2, 5, " plays")] : []),
           F.toggle("live.combine", "All in one card", { hint: "Discord, Spotify and games stacked inside a single card" }),
           F.toggle("live.albumColor", "Spotify card takes the album colour", { hint: "glow and progress bar match the cover" })] : []),
-        F.toggle("live.status", "Status dot on my picture", { hint: "green, yellow or red" }), F.toggle("underName.status", "Status under my name", { hint: "the \"online / offline\" chip" }),
+        F.toggle("live.status", "Status dot on my picture", { hint: "green, yellow or red" }), ...(draft.live.style === "simple" ? [F.toggle("underName.status", "Discord under my name", { hint: "Discord logo, your @ and online/offline" })] : []),
         ...(draft.live.style === "widget" && draft.live.discordCard ? [F.toggle("live.hideWithCard", "Hide both while the Discord card shows", { hint: "the card already shows your status" })] : []), F.toggle("live.spotify", "Now playing", { hint: "the Spotify track with a progress bar" }),
         F.toggle("live.lyrics", "Lyrics", { hint: "lines light up in time with the song" }), F.toggle("live.games", "Games & apps", { hint: "what's open right now" }),
         F.toggle("live.customStatus", "Status as bio", { hint: "your Discord status fills in when your bio is empty" }),
