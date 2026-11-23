@@ -33,7 +33,7 @@ const PROJECT_ICONS = ["code", "star", "bolt", "heart", "music", "brush", "game"
 const WIDGETS = ["timezone", "weather", "joined", "birthday", "age", "countdown", "discord", "spotify", "soundcloud", "youtube", "twitch", "github", "steam", "roblox", "chess", "lastfm", "letterboxd", "anilist", "duolingo", "valorant", "apex", "gamerank", "mood", "quote", "views"];
 const NAME_EXTRAS = ["blossoms", "flames", "snow", "hearts", "bubbles", "stars", "sp-white", "sp-rainbow", "sp-green", "sp-black", "sp-blue", "sp-red", "sp-gold", "sp-pink"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
-const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
+const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music", "paper"];
 const SECTION_IDS = ["badges", "bio", "listening", "socials", "buttons", "presence", "widgets", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
 const SECTION_NAMES = {
   widgets: "widgets",
@@ -112,6 +112,7 @@ const SCHEMA = {
   discordSync: { banner: B(false), accent: B(false) },
   chapters: P({ t: "list", max: 10, item: { id: { t: "id" }, jp: S(40), title: S(60), sub: S(80), image: IMG(), label: S(20) }, need: "image", d: [] }), // Premium
   chapterStyle: P(E(["manga", "clean", "polaroid"], "manga")),
+  chapterFx: { turn: P(B(true)), vertical: P(B(true)), typing: P(B(true)), footer: P(B(true)) }, // Premium
   listening: { on: B(false), source: E(["auto", "lastfm", "dose"], "auto"), lastfm: { t: "re", re: /^[A-Za-z0-9_-]{0,30}$/, d: "" }, period: E(["7day", "1month", "12month", "overall"], "1month"),
     showNow: B(true), showRecent: B(true), showTop: B(true), recentCount: N(3, 30, 8), topCount: N(3, 10, 8), showArt: B(true),
     layout: E(["auto", "side", "stacked"], "auto"), look: E(["boxes", "plain", "compact"], "boxes"), covers: E(["rounded", "square", "circle"], "rounded"),
@@ -129,7 +130,7 @@ const SCHEMA = {
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),
   },
   sections: { t: "sections" },
-  scroll: { transition: E(["snap", "free"], "snap"), hint: B(true), dots: B(true), dotStyle: E(["pill", "dots", "lines", "numbers", "bar"], "pill"), dotSide: E(["right", "left"], "right") },
+  scroll: { transition: E(["snap", "free"], "snap"), hint: B(true), dots: B(true), dotStyle: E(["pill", "dots", "lines", "numbers", "bar", "book"], "pill"), dotSide: E(["right", "left"], "right"), turnButton: B(false), turnText: S(40, "めくる — turn the page") },
   socials: { t: "list", max: LIMITS.socials, item: { id: { t: "id" }, platform: E(PLATFORMS, "website"), url: { t: "url" } }, need: "url" },
   linkButtons: { t: "list", max: LIMITS.buttons, item: { id: { t: "id" }, label: S(40), url: { t: "url" }, icon: { t: "enum", list: ["", ...PLATFORMS], d: "" }, highlight: B(false), hoverLabel: S(40) }, need: "url" },
   projects: { t: "list", max: LIMITS.projects, item: { id: { t: "id" }, name: S(40), tag: S(20), desc: S(140), url: { t: "url" }, icon: E(PROJECT_ICONS, "code") }, need: "name" },

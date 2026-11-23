@@ -528,3 +528,43 @@ body.ilk-plain .socials a{background:none;border-color:transparent;box-shadow:no
 .dots.dst-bar button b{font:700 12px/1 var(--name-font)}
 .dots.dst-bar button:hover{color:var(--text)}
 .dots.dst-bar button[aria-current=true]{background:var(--text);color:#0b0b0e;transform:none}
+/* ===== book layout for chapters (Premium): vertical titles, paper sheet, footer ===== */
+.chap.chv{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:18px;align-items:start;width:min(100%,560px)}
+.chv-l,.chv-r{writing-mode:vertical-rl;text-orientation:mixed;white-space:nowrap;min-height:40vh}
+.chv-l .vt{font-family:"Noto Serif JP",var(--name-font),serif;font-size:15px;letter-spacing:.32em;color:var(--name,var(--text))}
+.chv-r{font-family:var(--name-font);font-style:italic;font-size:11.5px;letter-spacing:.28em;color:var(--small);opacity:.55}
+.chv-sheet{padding:16px 16px 10px;background:color-mix(in srgb,var(--text) 6%,transparent);border:1px solid color-mix(in srgb,var(--text) 10%,transparent);box-shadow:0 30px 60px -30px rgba(0,0,0,.45)}
+.chv-sheet .chap-f{margin:0}
+.chv-sheet .chap-f img{max-height:72vh}
+.chv-foot{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:10px;letter-spacing:.12em;color:var(--small);font-family:var(--name-font)}
+.chv.chs-manga .chap-f{rotate:0deg;box-shadow:none;outline:0;border:2px solid #111}
+.chv.chs-polaroid .chv-sheet{background:none;border:0;box-shadow:none;padding:0}
+@media (max-width:560px){.chap.chv{grid-template-columns:auto minmax(0,1fr);gap:10px}.chv-r{display:none}.chv-l .vt{font-size:12.5px}}
+/* page turn: a sheet of paper sweeps across the screen */
+.pturn{position:fixed;inset:0;z-index:60;pointer-events:none;perspective:1800px;overflow:hidden}
+.pturn i{position:absolute;top:-4vh;bottom:-4vh;left:12vw;width:76vw;background:linear-gradient(90deg,rgba(250,250,247,.96),rgba(236,236,232,.97) 70%,rgba(210,210,206,.98));box-shadow:-30px 0 60px rgba(0,0,0,.25),inset 6px 0 18px rgba(0,0,0,.06);transform-origin:left center;transform:rotateY(-100deg);opacity:0}
+.pturn.go.fwd i{animation:pturn .9s cubic-bezier(.45,.05,.3,1) both}
+.pturn.go.back i{transform-origin:left center;animation:pturnb .9s cubic-bezier(.45,.05,.3,1) both}
+@keyframes pturn{0%{transform:rotateY(0deg) translateX(60vw);opacity:0}15%{opacity:1}55%{transform:rotateY(-35deg) translateX(0);opacity:1}100%{transform:rotateY(-100deg) translateX(-30vw);opacity:0}}
+@keyframes pturnb{0%{transform:rotateY(-100deg) translateX(-30vw);opacity:0}45%{transform:rotateY(-35deg) translateX(0);opacity:1}85%{opacity:1}100%{transform:rotateY(0deg) translateX(60vw);opacity:0}}
+/* book index: 表紙 一 二 三 written down the side */
+.dots.dst-book{gap:12px;align-items:center}
+.dots.dst-book button{width:auto;height:auto;padding:2px;background:none;writing-mode:vertical-rl;font:500 12px/1 "Noto Serif JP",var(--name-font),serif;color:color-mix(in srgb,var(--text) 40%,transparent);transform:none;transition:color .25s}
+.dots.dst-book button[aria-current=true]{color:var(--text);transform:none;position:relative}
+.dots.dst-book button[aria-current=true]::before{content:"";position:absolute;right:calc(100% + 6px);top:50%;width:10px;height:1px;background:currentColor}
+.dots.dst-book.dsd-left button[aria-current=true]::before{right:auto;left:calc(100% + 6px)}
+/* "turn the page" button */
+.turnbtn{position:fixed;left:50%;bottom:22px;translate:-50% 0;z-index:40;padding:7px 18px;border-radius:99px;border:1px solid color-mix(in srgb,var(--text) 22%,transparent);background:color-mix(in srgb,var(--text) 5%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:color-mix(in srgb,var(--text) 70%,transparent);font:italic 500 12px/1.2 var(--name-font);letter-spacing:.18em;cursor:pointer;transition:color .2s,background .2s}
+.turnbtn:hover{color:var(--text);background:color-mix(in srgb,var(--text) 10%,transparent)}
+body:has(.player) .turnbtn{bottom:84px}
+/* paper background: light grey paper with slow drifting ink washes and a little grain */
+.anim-paper{background:#d5d9dc}
+.anim-paper i{position:absolute;border-radius:50%;filter:blur(60px);background:rgba(120,126,132,.28);animation:pwash 26s ease-in-out infinite alternate}
+.anim-paper i:nth-child(1){width:55vw;height:40vw;left:-10vw;top:-8vw}
+.anim-paper i:nth-child(2){width:45vw;height:45vw;right:-12vw;top:30vh;background:rgba(150,155,160,.24);animation-duration:32s}
+.anim-paper i:nth-child(3){width:50vw;height:30vw;left:25vw;bottom:-14vw;background:rgba(110,116,122,.2);animation-duration:38s}
+.anim-paper::after{content:"";position:absolute;inset:0;opacity:.16;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .3  0 0 0 0 .3  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+@keyframes pwash{to{transform:translate(6vw,4vh) scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.anim-paper i{animation:none}}
+.bg .anim-paper{position:absolute;inset:0;overflow:hidden;filter:none}
+body:has(.turnbtn) .hint{display:none}

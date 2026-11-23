@@ -111,8 +111,12 @@
     if (totalScreens > 1) {
       if (p.scroll.dots) { const dots = document.createElement("nav"); dots.className = `dots dst-${p.scroll.dotStyle || "pill"} dsd-${p.scroll.dotSide || "right"}`; dots.setAttribute("aria-label", "Pages");
         // icon bar: home for the first screen, a music note for a screen with your listening section, chapter numbers for chapters
+        const bookLabel = (i) => i === 0 ? "表紙" : i < screens.length ? String(i + 1) : (KANJI[i - screens.length] || i - screens.length + 1);
         const barIcon = (i) => i === 0 ? svgIcon("heart") : i < screens.length ? (screens[i].some((s) => s.id === "listening") ? svgIcon("music") : `<b>${i + 1}</b>`) : `<b>${i - screens.length + 1}</b>`;
-        dots.innerHTML = Array.from({ length: totalScreens }, (_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}">${p.scroll.dotStyle === "numbers" ? i + 1 : p.scroll.dotStyle === "bar" ? barIcon(i) : ""}</button>`).join(""); document.body.appendChild(dots); }
+        dots.innerHTML = Array.from({ length: totalScreens }, (_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}">${p.scroll.dotStyle === "numbers" ? i + 1 : p.scroll.dotStyle === "bar" ? barIcon(i) : p.scroll.dotStyle === "book" ? `<span>${bookLabel(i)}</span>` : ""}</button>`).join(""); document.body.appendChild(dots); }
+      if (p.scroll.turnButton) { const tb = document.createElement("button"); tb.className = "turnbtn"; tb.type = "button"; tb.textContent = p.scroll.turnText || "turn the page"; document.body.appendChild(tb);
+        tb.onclick = () => { const sc = root.querySelector(".scroller"), all = root.querySelectorAll(".screen"), i = Math.round(sc.scrollTop / sc.clientHeight); (all[i + 1] || all[0]).scrollIntoView({ behavior: "smooth" }); }; }
+      if (chapters.length && (p.chapterFx || {}).turn && !reduce) { const pt = document.createElement("div"); pt.className = "pturn"; pt.innerHTML = "<i></i>"; document.body.appendChild(pt); }
       if (p.scroll.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = "scroll for more ↓"; root.querySelector(".screen").appendChild(h); }
       setupScroll();
     }
@@ -165,7 +169,7 @@
     if (bg.type === "image" && bg.image) inner = `<img class="media" src="${esc(bg.image)}" alt="">`;
     else if (bg.type === "video" && bg.video) inner = `<video class="media" src="${esc(bg.video)}" autoplay muted loop playsinline></video>`;
     else if (bg.type === "auto") inner = `<img class="media auto" src="${esc(p.avatar.src || "")}" alt="" ${p.avatar.src ? "" : "hidden"}>`;
-    else if (bg.type === "animated") inner = { gradient: `<div class="media anim-gradient"></div>`, mesh: `<div class="media anim-mesh"><i></i><i></i><i></i></div>`, waves: `<canvas class="media waves"></canvas>`, grid: `<div class="anim-grid"></div>`, music: `<div class="media anim-music"><i></i><i></i><i></i><i></i></div>` }[bg.animated];
+    else if (bg.type === "animated") inner = { gradient: `<div class="media anim-gradient"></div>`, mesh: `<div class="media anim-mesh"><i></i><i></i><i></i></div>`, waves: `<canvas class="media waves"></canvas>`, grid: `<div class="anim-grid"></div>`, music: `<div class="media anim-music"><i></i><i></i><i></i><i></i></div>`, paper: `<div class="media anim-paper"><i></i><i></i><i></i></div>` }[bg.animated];
     const filter = { none: "", grayscale: "grayscale(1)", sepia: "sepia(.8)", contrast: "contrast(1.4)" }[bg.filter];
     const blur = bg.type === "auto" ? Math.max(bg.blur, 24) : bg.blur;
     return `<div class="bg motion-${bg.motion}" style="--bg-color:${bg.color || "#07060a"};--bg-blur:${blur}px;--bg-dim:${bg.dim / 100};--bg-filter:${filter}">${inner}${["image", "video", "auto"].includes(bg.type) ? `<div class="dim"></div>` : ""}</div>`;
@@ -275,9 +279,21 @@
   // true for light colours (e.g. Roblox white), so brand-coloured icons can use a dark symbol
   function lightHex(h) { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return false; const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return 0.299 * r + 0.587 * g + 0.114 * b > 186; }
   /* manga-style chapters: each one is a full screen with a title, subtitle, a big picture and a page label */
+  const KANJI = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"], WORDS_N = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
   function chapterHtml(c, k, p) {
-    const n = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"][k] || k + 1;
+    const n = KANJI[k] || k + 1;
     const label = c.label || `page ${String(k + 7).padStart(2, "0")}`;
+    const fx = p.chapterFx || {};
+    if (fx.vertical) {
+      // book layout: vertical title down the left (types itself in), the page on a paper sheet, faint subtitle down the right
+      const side = `第${n}話 · ${c.title || ""}`.trim();
+      return `<article class="chap chv chs-${p.chapterStyle || "manga"}" style="--k:${k}">
+        <div class="chv-l"><span class="vt" data-text="${esc(side)}">${fx.typing ? "" : esc(side)}</span></div>
+        <div class="chv-sheet"><figure class="chap-f"><img src="${esc(c.image)}" alt="${esc(c.title || "chapter " + (k + 1))}" loading="lazy">${fx.footer ? "" : `<figcaption>${esc(label)}</figcaption>`}</figure>
+          ${fx.footer ? `<div class="chv-foot"><span>${esc(p.displayName || "")} · 第${n}話${c.jp ? `「${esc(c.jp)}」` : ""}</span><span>${esc(label.replace(/^page\s*/i, "p. "))}</span></div>` : ""}</div>
+        <div class="chv-r">${esc(`chapter ${WORDS_N[k] || k + 1}${c.jp ? " — " + c.jp : ""}${c.sub ? " · " + c.sub : ""}`)}</div>
+      </article>`;
+    }
     return `<article class="chap chs-${p.chapterStyle || "manga"}" style="--k:${k}">
       <header class="chap-h"><span class="chap-no">第${n}話</span>${c.jp ? `<span class="chap-jp">${esc(c.jp)}</span>` : ""}</header>
       ${c.title ? `<h2 class="chap-t">${esc(c.title)}</h2>` : ""}${c.sub ? `<p class="chap-s">${esc(c.sub)}</p>` : ""}
@@ -488,8 +504,17 @@
     const sc = root.querySelector(".scroller"), dots = document.querySelectorAll(".dots button"), hint = document.querySelector(".hint");
     const screens = root.querySelectorAll(".screen");
     dots.forEach((b, i) => (b.onclick = () => screens[i].scrollIntoView({ behavior: "smooth" })));
+    let lastI = 0;
+    const typeIn = (scr) => { const vt = scr && scr.querySelector(".vt[data-text]"); if (!vt || vt.dataset.done) return; vt.dataset.done = 1; const t = vt.dataset.text; if (reduce) { vt.textContent = t; return; } let k = 0; const tick = () => { vt.textContent = t.slice(0, ++k); if (k < t.length) setTimeout(tick, 55); }; setTimeout(tick, 350); };
     listen(sc, "scroll", () => {
       const i = Math.round(sc.scrollTop / sc.clientHeight);
+      if (i !== lastI) {
+        // turning to (or from) a chapter: sweep a sheet of paper across, then type the chapter title in
+        const pt = document.querySelector(".pturn"), to = screens[i];
+        if (pt && to && (to.classList.contains("chapter-screen") || (screens[lastI] && screens[lastI].classList.contains("chapter-screen")))) { pt.classList.remove("go", "back"); void pt.offsetWidth; pt.classList.add("go", i < lastI ? "back" : "fwd"); }
+        if (to) typeIn(to);
+        lastI = i;
+      }
       dots.forEach((b, j) => b.setAttribute("aria-current", i === j));
       if (hint) hint.style.opacity = sc.scrollTop > 40 ? 0 : 1;
     });

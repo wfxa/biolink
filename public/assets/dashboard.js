@@ -246,7 +246,7 @@
         ...(draft.background.type === "color" ? [F.color("background.color", "Colour", { noClear: true })] : []),
         ...(draft.background.type === "image" ? [F.upload("background.image", "background", "Image", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp" })] : []),
         ...(draft.background.type === "video" ? (premium ? [F.upload("background.video", "background", "Video", { accept: "video/mp4,video/webm", note: "plays muted, on loop" }), F.toggle("background.videoSound", "Let visitors turn the sound on", { hint: "a small speaker button in the corner" })] : [F.note("Video backgrounds come with Premium.")]) : []),
-        ...(draft.background.type === "animated" ? [F.chips("background.animated", "Animation", [["gradient", "Gradient"], ["mesh", "Mesh"], ["waves", "Waves"], ["grid", "Grid"], ["music", "Moves with my music"]], { hint: draft.background.animated === "music" ? "the colours shift and swell with songs you upload" : "" , rerender: true }), F.color("background.color", "Base colour", { noClear: true })] : []),
+        ...(draft.background.type === "animated" ? [F.chips("background.animated", "Animation", [["gradient", "Gradient"], ["mesh", "Mesh"], ["waves", "Waves"], ["grid", "Grid"], ["music", "Moves with my music"], ["paper", "Paper (light, with ink washes)"]], { hint: draft.background.animated === "music" ? "the colours shift and swell with songs you upload" : "" , rerender: true }), F.color("background.color", "Base colour", { noClear: true })] : []),
         F.range("background.blur", "Blur", 0, 40, "px"), F.range("background.dim", "Darken", 0, 95, "%"),
         F.range("background.vignette", "Vignette", 0, 100, "%", { adv: true }),
         F.chips("background.motion", "Motion", [["none", "None"], ["zoom", "Slow zoom"], ["pan", "Pan"]], { adv: true }),
@@ -482,12 +482,23 @@
       P("Order", "", [F.custom("sections", "Section order", () => listSections(), bindSections)]),
       P("Chapters", "Manga-style screens: each chapter gets a full screen with a title and a big picture, after your other screens.", premium ? [
         F.custom("chapters", "Chapters", () => listChapters(), bindChapters),
-        ...(draft.chapters.length ? [F.chips("chapterStyle", "Look", [["manga", "Manga panel"], ["clean", "Clean"], ["polaroid", "Polaroid"]])] : []),
+        ...(draft.chapters.length ? [F.chips("chapterStyle", "Look", [["manga", "Manga panel"], ["clean", "Clean"], ["polaroid", "Polaroid"]]),
+          F.toggle("chapterFx.vertical", "Book layout", { hint: "title written down the side, the page on a paper sheet" }), F.toggle("chapterFx.typing", "Title types itself in"),
+          F.toggle("chapterFx.footer", "Page footer", { hint: "your name · 第一話「…」 · p. 07 under each page" }), F.toggle("chapterFx.turn", "Page turn", { hint: "a sheet of paper sweeps across when you move between chapters" }),
+          F.custom("chapters._paper", "", () => `<div class="field wide" data-key="chapters._paper"><button type="button" class="btn small" id="paperLook">Make my page look like a manga book</button><small class="muted" style="display:block;margin-top:6px">paper background, dark ink text, book index, "turn the page" button. You can change any of it after.</small></div>`,
+            () => { const b = $("#paperLook"); if (!b) return; b.onclick = () => {
+              Object.assign(draft.background, { type: "animated", animated: "paper", filter: "none" }); draft.overlay = "none";
+              Object.assign(draft.colors, { text: "#2a2b2d", name: "#1c1d1f", bio: "#3a3b3e", small: "#6b6e72", accent: "#2a2b2d" });
+              Object.assign(draft.card, { style: "none", glow: false }); Object.assign(draft.name, { gradient: false, gradientMove: false, preset: "none", effect: "none" }); draft.colors.nameGlow = false; draft.colors.iconGlow = false; Object.assign(draft.scroll, { dots: true, dotStyle: "book", turnButton: true });
+              Object.assign(draft.chapterFx, { vertical: true, typing: true, footer: true, turn: true }); draft.chapterStyle = "manga";
+              changed(); reView(); toast("Done. Save to keep it, or undo with the arrow at the top."); }; }),
+        ] : []),
       ] : [F.note(`<b>Premium</b> · Turn your page into a manga: chapters with Japanese titles, big panels and page numbers, each on its own screen. Get Premium to unlock it.`)]),
       P("Extra screens", "Used when any section is on screen 2 or later.", [
         F.chips("scroll.transition", "Transition", [["snap", "Smooth snap"], ["free", "Free scroll"]]),
         F.toggle("scroll.hint", "Scroll hint", { hint: "a small arrow nudging people down" }), F.toggle("scroll.dots", "Screen dots", { hint: "a dot for each screen at the side" }),
-        F.chips("scroll.dotStyle", "Dot style", [["pill", "Glowing pill"], ["dots", "Dots"], ["lines", "Lines"], ["numbers", "Numbers"], ["bar", "Icon bar at the bottom"]]), F.chips("scroll.dotSide", "Side", [["right", "Right"], ["left", "Left"]]),
+        F.chips("scroll.dotStyle", "Dot style", [["pill", "Glowing pill"], ["dots", "Dots"], ["lines", "Lines"], ["numbers", "Numbers"], ["bar", "Icon bar at the bottom"], ["book", "Book index (表紙 一 二 三)"]]),
+        F.toggle("scroll.turnButton", "\"Turn the page\" button", { hint: "a button at the bottom that goes to the next screen" }), F.text("scroll.turnText", "Button text", { ph: "めくる — turn the page", max: 40 }), F.chips("scroll.dotSide", "Side", [["right", "Right"], ["left", "Left"]]),
       ]),
     ] },
 
