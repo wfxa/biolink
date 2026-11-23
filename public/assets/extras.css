@@ -294,7 +294,7 @@ body.bdg-plain .badge{width:calc(var(--bsz,28px) * .8)}
 /* bio placed in the header */
 .bio-head{margin:2px 0;text-align:inherit}
 .bio-head .bio,.bio-head .taglines{margin:0}
-.bio-head.bh-under-name{margin-top:-2px}
+.bio-head.bh-under-name{margin-top:0}
 /* rotating lines without typing */
 .lsw{display:inline-block;transition:opacity .35s ease,transform .35s ease,filter .35s ease}
 .lsw.out,.lsw.in{opacity:0}
@@ -309,3 +309,14 @@ body .head .line svg{width:calc(var(--row-fs,12px) + 1px);height:calc(var(--row-
 /* status dot sits on the corner for square-ish pictures (on a circle the 4% spot is already on the edge) */
 .av-rounded .avatar .dot,.av-square .avatar .dot{right:-5px;bottom:-5px}
 .av-rounded .avatar .sbadge,.av-square .avatar .sbadge{right:-8px;bottom:-8px}
+/* gradient + letter-by-letter effects: the name itself paints nothing (that made a ghost copy behind
+   the moving letters); each letter paints its own slice of a gradient as wide as the whole name */
+body .name.grad:has(.ch){background:none!important;-webkit-text-fill-color:currentColor}
+body .name.grad .ch{background:linear-gradient(90deg,var(--g1),var(--g2))!important;background-size:var(--nw,100%) 100%!important;background-position:calc(var(--cx,0px) * -1) 0!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;-webkit-text-fill-color:transparent}
+/* glitch: the slices use the gradient too, so it still reads as your gradient name */
+.name.grad.ne-glitch::before,.name.grad.ne-glitch::after{background:linear-gradient(90deg,var(--g1),var(--g2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.name.grad.ne-glitch::before{filter:hue-rotate(35deg) brightness(1.2)}
+.name.grad.ne-glitch::after{filter:hue-rotate(-35deg)}
+/* even spacing around the name: trim the empty room fonts keep above capital letters */
+.who .name{text-box:trim-start cap alphabetic}
+.who > .above + .namewrap{margin-top:2px}

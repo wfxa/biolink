@@ -466,6 +466,12 @@
     if (e === "loading") split((i) => `animation-delay:${i * 0.12}s`);
     if (e === "flip") split((i) => `animation-delay:${i * 0.1}s`);
     if (e === "bounce") split((i) => `animation-delay:${i * 0.08}s`);
+    // gradient names: each letter shows its own slice of one gradient across the whole name
+    if (el.classList.contains("grad") && el.querySelector(".ch")) {
+      const place = () => { el.style.setProperty("--nw", el.scrollWidth + "px"); el.querySelectorAll(".ch").forEach((c) => c.style.setProperty("--cx", c.offsetLeft + "px")); };
+      place(); if (document.fonts) document.fonts.ready.then(place);
+      listen(window, "resize", place);
+    }
   }
   /* little things that float around the name; up to two, on top of the main effect */
   function setupNameExtras(p) {
