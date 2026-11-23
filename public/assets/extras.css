@@ -319,4 +319,10 @@ body .name.grad .ch{background:linear-gradient(90deg,var(--g1),var(--g2))!import
 .name.grad.ne-glitch::after{filter:hue-rotate(-35deg)}
 /* even spacing around the name: trim the empty room fonts keep above capital letters */
 .who .name{text-box:trim-start cap alphabetic}
-.who > .above + .namewrap{margin-top:2px}
+/* header spacing, matched to mori: greeting a little apart, bio snug under the name, the rest evenly spaced */
+.who{gap:8px}
+.who > .above{margin-top:4px}
+.who > .above + .namewrap,.who > .above + .badges + .namewrap{margin-top:4px}
+.who .bio-head .bio,.who .bio-head .taglines{line-height:1.35;min-height:0}
+.who > .bio-head.bh-under-name{margin-top:-2px}
+.who > .line + .badges,.who > .badges + .line{margin-top:2px}
