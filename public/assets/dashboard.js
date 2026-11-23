@@ -489,6 +489,8 @@
         F.chips("listening.layout", "Layout", [["auto", "Side by side, stacks on small cards"], ["side", "Always side by side"], ["stacked", "Always stacked"]], { wide: true }),
         F.chips("listening.look", "Look", [["boxes", "Boxes"], ["plain", "Plain"], ["compact", "Compact"]]),
         F.chips("listening.covers", "Cover shape", [["rounded", "Rounded"], ["square", "Square"], ["circle", "Circle"]]),
+        F.toggle("listening.bare", "No card behind it", { hint: "sits right on your background when it has its own screen (Page 2 in Arrange)" }),
+        F.toggle("listening.serif", "Song & artist names in my name font", { hint: "small labels stay in the normal font" }),
         F.toggle("listening.showTimes", "Show \"3h ago\""), F.toggle("listening.bars", "Bars behind top artists"), F.toggle("listening.accent", "Use my accent colour"),
         F.chips("listening.links", "Clicking a song or artist opens", [["source", "Last.fm / Spotify track"], ["spotify", "Spotify search"], ["none", "Nothing"]], { wide: true }),
         ...(me.lastfmKey === false ? [F.note("Last.fm needs a key on the server (LASTFM_API_KEY). Until it's added, the Discord history is used.")] : []),

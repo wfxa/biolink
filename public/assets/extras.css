@@ -407,3 +407,10 @@ body .name.grad.name:has(.ch){background:none!important}
 .lsn-acc .lsn-ar::before{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 35%,transparent),color-mix(in srgb,var(--accent) 6%,transparent))}
 .lsn-acc .lsn-now{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
 .lsn-acc .lsn-ar .n,.lsn-acc .lsn-h{color:var(--accent)}
+/* listening: sit straight on the background, and serif song/artist names (like mori's music screen) */
+.card.card-bare{background:none!important;border-color:transparent!important;box-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;padding-left:0;padding-right:0}
+.card.card-bare::before,.card.card-bare::after,.card.card-bare > .spot,.card.card-bare > .beam{display:none!important}
+.lsn-serif .lsn-tx b,.lsn-serif .lsn-tx small,.lsn-serif .lsn-ar b,.lsn-serif .lsn-ar small,.lsn-serif .lsn-more{font-family:var(--name-font)}
+.lsn-serif .lsn-now .lsn-tx b{font-size:17px}
+.lsn-serif .lsn-tx small:first-child{font-family:var(--font)}
+.card.card-bare .sec-head.sec-big{margin-bottom:26px}

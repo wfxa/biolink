@@ -232,6 +232,8 @@
   /* Listening section: now playing, recent plays (with "show more") and top artists */
   function setupListening(p, d) {
     const box = root.querySelector('[data-sec="listening"] .lsn-body'); if (!box) return;
+    // "no card": when the listening section has a card to itself (e.g. its own screen), drop that card's background
+    if (p.listening.bare) { const c = box.closest(".card"); if (c && c.querySelectorAll("[data-sec]").length === 1) c.classList.add("card-bare"); }
     const L = p.listening, ago = (t) => { const s = Math.max(0, (Date.now() - t) / 1000); return s < 60 ? "now" : s < 3600 ? Math.floor(s / 60) + "m ago" : s < 86400 ? Math.floor(s / 3600) + "h ago" : Math.floor(s / 86400) + "d ago"; };
     const art = (src) => L.showArt ? `<span class="lsn-art">${src ? `<img src="${esc(src)}" alt="" loading="lazy" onerror="this.remove()">` : svgIcon("music")}</span>` : "";
     // where a click goes: the source (Last.fm / Spotify track), a Spotify search, or nowhere
@@ -390,7 +392,7 @@
     const h = s.heading ? (s.big ? `<h2 class="sec-head sec-big">${esc(s.heading)}</h2>` : `<div class="sec-head">${esc(s.heading)}</div>`) : "";
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
-      case "listening": return `<div data-sec="listening" class="lsn lsn-${p.listening.look} lsn-c-${p.listening.covers} lsn-l-${p.listening.layout} ${p.listening.accent ? "lsn-acc" : ""} ${p.listening.bars ? "" : "lsn-nobars"}">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;
+      case "listening": return `<div data-sec="listening" class="lsn lsn-${p.listening.look} lsn-c-${p.listening.covers} lsn-l-${p.listening.layout} ${p.listening.accent ? "lsn-acc" : ""} ${p.listening.serif ? "lsn-serif" : ""} ${p.listening.bars ? "" : "lsn-nobars"}">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;
       case "badges": return p.badgeRow.position === "section" ? `<div data-sec="badges">${h}${badgesHtml(p, d)}</div>` : "";
       case "bio": return (p.bioText.position || "section") !== "section" ? "" : `<div data-sec="bio">${h}${bioInner(p)}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
