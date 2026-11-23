@@ -788,14 +788,35 @@
     $$("[data-pladd]", root).forEach((b) => (b.onclick = () => { draft.pages[b.dataset.pladd].links.push({ label: "", url: "" }); changed(); reView(); }));
     $("#addPage").onclick = () => { if (draft.pages.length >= L("pages")) return toast(`You can have up to ${L("pages")} extra page${L("pages") > 1 ? "s" : ""}.`, true); draft.pages.push({ id: newId(), slug: "page" + (draft.pages.length + 1), title: "", body: "", links: [] }); changed(); reView(); };
   }
-  const listSections = () => `<div class="field wide" data-key="sections"><div class="list">${draft.sections.map((s, i) => (s.id === "badges" && draft.badgeRow.position !== "section") || (s.id === "bio" && draft.bioText.position !== "section") ? "" : `<div class="row secrow"><span class="n">${i + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
+  // which sections actually have something in them (same idea as the page itself)
+  const secFilled = (id) => {
+    const p = draft;
+    if (id === "badges") return p.badgeRow.position === "section";
+    if (id === "bio") return p.bioText.position === "section" && !!(p.bio || p.taglines.length || (p.discord.id && p.live.customStatus));
+    return !!({ socials: p.socials.length, buttons: p.linkButtons.length,
+      presence: p.discord.id && (p.live.spotify || p.live.games || (p.live.discordCard && p.live.style === "widget")), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
+      widgets: p.widgets.length, countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
+  };
+  const listSections = () => {
+    const vis = draft.sections.map((s, i) => [s, i]).filter(([s]) => secFilled(s.id));
+    const empty = draft.sections.filter((s) => !secFilled(s.id) && !(s.id === "badges" || (s.id === "bio" && draft.bioText.position !== "section")));
+    return `<div class="field wide" data-key="sections"><div class="list">${vis.map(([s, i], k) => `<div class="row secrow"><span class="n">${k + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
       <input type="text" data-sf="heading" data-i="${i}" value="${esc(s.heading)}" placeholder="no heading" maxlength="40">
       <select data-sf="page" data-i="${i}">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === s.page ? "selected" : ""}>Page ${n}</option>`).join("")}</select>
       <input type="checkbox" class="sw" data-sf="show" data-i="${i}" ${s.show ? "checked" : ""} aria-label="Show ${O.SECTION_NAMES[s.id]}" style="accent-color:var(--accent);width:18px;height:18px">
-      <div class="acts"><button data-mv="-1" data-i="${i}" ${i ? "" : "disabled"} aria-label="Move up">↑</button><button data-mv="1" data-i="${i}" ${i < draft.sections.length - 1 ? "" : "disabled"} aria-label="Move down">↓</button></div></div>`).join("")}</div></div>`;
+      <div class="acts"><button data-mv="-1" data-i="${i}" ${k ? "" : "disabled"} aria-label="Move up">↑</button><button data-mv="1" data-i="${i}" ${k < vis.length - 1 ? "" : "disabled"} aria-label="Move down">↓</button></div></div>`).join("")}</div>
+      ${vis.length ? "" : `<p class="note">Nothing to arrange yet. Add a bio, links or widgets first.</p>`}
+      ${empty.length ? `<p class="note" style="margin-top:10px">Not filled in yet, so hidden here: ${empty.map((s) => O.SECTION_NAMES[s.id]).join(", ")}. They show up once you add something to them.</p>` : ""}</div>`;
+  };
   function bindSections() {
     const root = main.querySelector('[data-key="sections"]'); if (!root) return;
-    $$("[data-mv]", root).forEach((b) => (b.onclick = () => { move(draft.sections, Number(b.dataset.i), Number(b.dataset.mv)); changed(); reView(); }));
+    // move past the next visible section, not just one step (hidden ones sit in between)
+    $$("[data-mv]", root).forEach((b) => (b.onclick = () => {
+      const from = Number(b.dataset.i), dir = Number(b.dataset.mv);
+      let to = from + dir; while (to >= 0 && to < draft.sections.length && !secFilled(draft.sections[to].id)) to += dir;
+      if (to < 0 || to >= draft.sections.length) return;
+      const [x] = draft.sections.splice(from, 1); draft.sections.splice(to, 0, x); changed(); reView();
+    }));
     $$("[data-sf]", root).forEach((inp) => inp.addEventListener(inp.type === "text" ? "input" : "change", () => {
       const s = draft.sections[Number(inp.dataset.i)]; s[inp.dataset.sf] = inp.type === "checkbox" ? inp.checked : inp.dataset.sf === "page" ? Number(inp.value) : inp.value; changed();
     }));
