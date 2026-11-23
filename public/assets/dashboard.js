@@ -219,6 +219,7 @@
         F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord", { hint: "Discord logo, your @ and online/offline" }),
         F.toggle("underName.location", "Location"), F.toggle("underName.time", "Local time"),
         F.toggle("underName.joined", "Time on " + me.site, { hint: "how long you've had your page" }),
+        F.range("underName.size", "Text size", 9, 18, "px"),
         F.chips("underName.discordShow", "Discord name", [["username", "@username"], ["display", "Display name"], ["both", "Both"]]),
       ], { adv: true }),
     ] },
@@ -292,6 +293,9 @@
       ]),
       P("Bio text", "", [
         F.chips("bioText.position", "Where your bio goes", [["above-name", "Above name"], ["under-name", "Under name"], ["under-row", "Under info row"], ["under-badges", "Under badges"], ["section", "Normal (move in Arrange)"]], { wide: true }),
+        F.range("bioText.size", "Bio text size", 10, 28, "px"), F.range("bioText.linesSize", "Rotating lines size", 10, 24, "px"),
+        F.chips("bioText.lineSwitch", "How rotating lines change", [["type", "Type out"], ["fade", "Fade"], ["slide", "Slide up"], ["blur", "Blur"], ["scramble", "Decode"], ["still", "Don't rotate (show all)"]], { wide: true }),
+        F.range("bioText.lineHold", "Time on each line", 1, 15, "s"),
         F.chips("bioText.caret", "Typing cursor", [["line", "Thin line |"], ["block", "Block █"], ["underscore", "Underscore _"], ["none", "Hidden"]]),
         F.color("bioText.caretColor", "Typing cursor colour", { hint: "empty = same as your bio text" }),
         F.chips("bioText.box", "Bio style", [["plain", "Plain"], ["quote", "Quote"], ["bubble", "Speech bubble"], ["terminal", "Terminal"], ["note", "Sticky note"]]),

@@ -295,3 +295,14 @@ body.bdg-plain .badge{width:calc(var(--bsz,28px) * .8)}
 .bio-head{margin:2px 0;text-align:inherit}
 .bio-head .bio,.bio-head .taglines{margin:0}
 .bio-head.bh-under-name{margin-top:-2px}
+/* rotating lines without typing */
+.lsw{display:inline-block;transition:opacity .35s ease,transform .35s ease,filter .35s ease}
+.lsw.out,.lsw.in{opacity:0}
+.lsw-slide.out{transform:translateY(-8px)}.lsw-slide.in{transform:translateY(8px);transition:none}
+.lsw-blur.out,.lsw-blur.in{filter:blur(6px)}
+.lsw.in{transition:none}
+/* text sizes */
+body .bio{font-size:var(--bio-fs,14px)}
+body .taglines{font-size:var(--tl-fs,13px)}
+body .head .line{font-size:var(--row-fs,12px)}
+body .head .line svg{width:calc(var(--row-fs,12px) + 1px);height:calc(var(--row-fs,12px) + 1px)}

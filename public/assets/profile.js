@@ -59,7 +59,7 @@
     if (p.radius.custom) { R.setProperty("--btn-radius-x", p.radius.buttons + "px"); R.setProperty("--ic-radius", p.radius.icons + "px"); R.setProperty("--wg-radius", p.radius.widgets + "px"); }
     else ["--btn-radius-x", "--ic-radius", "--wg-radius"].forEach((k) => R.removeProperty(k));
     R.setProperty("--op-btn", p.opacity.buttons / 100); R.setProperty("--op-ic", p.opacity.icons / 100); R.setProperty("--op-wg", p.opacity.widgets / 100);
-    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection); set("--caret", p.bioText.caretColor); R.setProperty("--bsz", (p.badgeRow.size || 28) + "px");
+    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection); set("--caret", p.bioText.caretColor); R.setProperty("--bsz", (p.badgeRow.size || 28) + "px"); R.setProperty("--bio-fs", (p.bioText.size || 14) + "px"); R.setProperty("--tl-fs", (p.bioText.linesSize || 13) + "px"); R.setProperty("--row-fs", (p.underName.size || 12) + "px");
     R.setProperty("--fx-k", p.fx.intensity / 100);
     R.setProperty("--btn-radius", { rounded: "14px", pill: "999px", square: "4px" }[p.buttons.shape]);
     R.setProperty("--gap", { compact: "10px", normal: "16px", airy: "24px" }[p.layout.spacing]);
@@ -545,12 +545,29 @@
   const REDACT = /\|\|(.+?)\|\|/g;
   const redactHtml = (text) => esc(text).replace(REDACT, (_, w) => `<span class="redact" tabindex="0" title="hover to reveal">${w}</span>`);
   const redactPlain = (text) => text.replace(REDACT, (_, w) => "█".repeat(w.length));
+  // rotating lines without typing: swap whole lines with a fade / slide / blur / decode, or just show them all
+  function swapLines(el, plain, html, p) {
+    const mode = p.bioText.lineSwitch || "type", hold = (p.bioText.lineHold || 3) * 1000;
+    const caret = el.parentElement && el.parentElement.querySelector(".caret"); if (caret) caret.remove();
+    if (mode === "still" || plain.length === 1) { el.innerHTML = mode === "still" ? html.join("<br>") : html[0]; return; }
+    let i = 0, t; el.classList.add("lsw", "lsw-" + mode); el.innerHTML = html[0];
+    const next = () => {
+      i = (i + 1) % plain.length;
+      if (mode === "scramble") { scramble(el, plain[i], () => (el.innerHTML = html[i])); t = setTimeout(next, hold + plain[i].length * 30); return; }
+      el.classList.add("out");
+      t = setTimeout(() => { el.innerHTML = html[i]; el.classList.remove("out"); el.classList.add("in"); requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove("in"))); t = setTimeout(next, hold); }, 350);
+    };
+    t = setTimeout(next, hold); onCleanup(() => clearTimeout(t));
+  }
   function setupBio(p) {
     const el = root.querySelector(".bio:not(.cstatus)"); if (!el || reduce) return;
     const text = redactPlain(p.bio), done = () => (el.innerHTML = redactHtml(p.bio));
     if (p.bioEffect === "typewriter") { let i = 0; el.textContent = ""; const tick = () => { el.textContent = text.slice(0, i); if (i++ < text.length) t = setTimeout(tick, 22); else done(); }; let t = setTimeout(tick, 500); onCleanup(() => clearTimeout(t)); }
     if (p.bioEffect === "scramble") scramble(el, text, done);
-    if (p.bioEffect === "rotate") {
+    if (p.bioEffect === "rotate" && (p.bioText.lineSwitch || "type") !== "type") {
+      el.innerHTML = `<span class="typed"></span>`;
+      swapLines(el.firstChild, [text, ...p.taglines.map(redactPlain)], [redactHtml(p.bio), ...p.taglines.map(redactHtml)], p);
+    } else if (p.bioEffect === "rotate") {
       const lines = [text, ...p.taglines.map(redactPlain)], full = [redactHtml(p.bio), ...p.taglines.map(redactHtml)];
       el.innerHTML = `<span class="typed"></span><span class="caret"></span>`;
       const tt = el.firstChild; let li = 0, ci = 0, del = false, t;
@@ -576,6 +593,7 @@
     const el = root.querySelector(".taglines .typed"); if (!el) return;
     const lines = p.taglines;
     if (reduce) { el.textContent = lines.join(" · "); return; }
+    if ((p.bioText.lineSwitch || "type") !== "type") return swapLines(el, lines.map(redactPlain), lines.map(redactHtml), p);
     let li = 0, ci = 0, del = false, t;
     const tick = () => {
       const line = lines[li]; el.textContent = line.slice(0, ci);
