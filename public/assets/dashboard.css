@@ -469,3 +469,15 @@ a.vrow:hover{background:rgba(255,255,255,.04)}
 .bigt{flex:none;width:38px;border-radius:10px;border:1px solid var(--line-2,rgba(255,255,255,.12));background:rgba(255,255,255,.04);color:var(--dim,#8a8f98);font:700 13px/1 Georgia,serif;cursor:pointer}
 .bigt[aria-pressed="true"]{color:var(--text);background:color-mix(in srgb,var(--accent) 22%,transparent);border-color:var(--accent);font-size:15px}
 @media (max-width:640px){.sechd{display:none}}
+/* icon shape / look previews */
+.pv-ic{display:flex;gap:6px}
+.pv-ic i{width:20px;height:20px;border-radius:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);position:relative;color:#fff}
+.pv-ic i::after{content:"";position:absolute;inset:6px;border-radius:2px;background:currentColor;opacity:.85}
+.pv-ic.ish-circle i,.pv-ic.ish-circle i::after{border-radius:50%}
+.pv-ic.ish-square i{border-radius:2px}.pv-ic.ish-squircle i{border-radius:34%}
+.pv-ic.ilk-glass i{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.pv-ic.ilk-solid i{background:#ece7ef;border-color:transparent;color:#0c0c10}
+.pv-ic.ilk-outline i{background:none;border:1.5px solid rgba(255,255,255,.6)}
+.pv-ic.ilk-glow i{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.5);box-shadow:0 0 8px rgba(255,255,255,.55)}
+.pv-ic.ilk-brand i{background:var(--bc);border-color:transparent}
+.pv-ic.ilk-plain i{background:none;border-color:transparent}

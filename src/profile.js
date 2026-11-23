@@ -121,7 +121,7 @@ const SCHEMA = {
     cycle: { t: "list", max: 5, item: S(40) }, cycleSpeed: N(2, 10, 3), cycleStyle: E(["scramble", "fade", "type", "morph"], "scramble"), extras: { t: "list", max: 2, item: E(NAME_EXTRAS, "sp-white") },
   },
   buttons: { iconSize: N(12, 28, 18), tilt: B(false), shiny: B(false), style: E(["glass", "filled", "outline", "soft"], "glass"), shape: E(["rounded", "pill", "square"], "rounded"), hover: E(["glow", "lift", "fill", "slide", "none"], "glow"), align: E(["center", "left"], "center"), arrow: B(true) },
-  icons: { size: N(34, 64, 46), style: E(["boxed", "round", "plain"], "boxed"), gap: N(4, 20, 10) },
+  icons: { size: N(34, 64, 46), style: E(["boxed", "round", "plain"], "boxed"), gap: N(4, 20, 10), shape: E(["auto", "rounded", "circle", "square", "squircle"], "auto"), look: E(["auto", "boxed", "glass", "solid", "outline", "glow", "brand", "plain"], "auto") },
   layout: {
     arrangement: E(["centered", "classic", "minimal", "rx", "bento", "terminal"], "centered"), spacing: E(["compact", "normal", "airy"], "normal"),
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),

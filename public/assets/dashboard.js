@@ -14,6 +14,9 @@
     document.body.appendChild(bar);
     bar.querySelector("#impBack").onclick = async () => { await fetch("/api/auth/unimpersonate", { method: "POST" }); location.href = "/admin#users"; };
   }
+  // icon shape/look start as "auto" (follow the old Style setting); show them as the real choice
+  const iconAuto = (pr) => { if (!pr || !pr.icons) return; if (pr.icons.shape === "auto") pr.icons.shape = pr.icons.style === "round" ? "circle" : "rounded"; if (pr.icons.look === "auto") pr.icons.look = pr.icons.style === "plain" ? "plain" : "boxed"; };
+  iconAuto(me.profile);
   saved = clone(me.profile); draft = clone(me.profile);
   const O = me.options, premium = me.premium, isStaff = me.role === "owner" || me.role === "staff";
   const L = (k) => O.LIMITS[k][premium ? 1 : 0];
@@ -58,7 +61,7 @@
     $("#save").disabled = true;
     try {
       const r = await api("/api/me/profile", { method: "PUT", body: { profile: draft } });
-      saved = clone(r.profile); draft = clone(r.profile); me.profile = clone(r.profile);
+      iconAuto(r.profile); saved = clone(r.profile); draft = clone(r.profile); me.profile = clone(r.profile);
       hist = [JSON.stringify(draft)]; hpos = 0; histBtns();
       changed(true); toast("Saved. Your page is live."); renderSide(); show(view, true);
     } catch (e) { toast(e.message, true); }
@@ -112,6 +115,8 @@
     card: (v) => `<span class="pv pv-scene"><span class="pv-card pv-cs-${v}"><i class="pv-av pv-av-${draft.avatar.shape}" style="${pvFace()}"></i><b></b><em></em><u></u></span></span>`,
     btn: (style, shape) => `<span class="pv pv-scene"><span class="pv-btn pv-bs-${style} pv-bsh-${shape}"><i></i><b></b></span><span class="pv-btn pv-bs-${style} pv-bsh-${shape}"><i></i><b></b></span></span>`,
     bhover: (v) => `<span class="pv pv-scene"><span class="pv-btn pv-bs-${draft.buttons.style} pv-bsh-${draft.buttons.shape} pv-bh-${v}"><i></i><b></b></span></span>`,
+    ishape: (v) => `<span class="pv pv-scene"><span class="pv-ic ish-${v}"><i style="--bc:#5865f2"></i><i style="--bc:#e1306c"></i><i style="--bc:#1db954"></i></span></span>`,
+    ilook: (v) => `<span class="pv pv-scene"><span class="pv-ic ilk-${v}"><i style="--bc:#5865f2"></i><i style="--bc:#e1306c"></i><i style="--bc:#1db954"></i></span></span>`,
     icons: (v) => `<span class="pv pv-scene"><span class="pv-icons pv-is-${v}"><i></i><i></i><i></i><i></i></span></span>`,
     arr: (v) => `<span class="pv pv-scene"><span class="pv-arr pv-arr-${v}"><i class="pv-av pv-av-${draft.avatar.shape}" style="${pvFace()}"></i><span><b></b><em></em></span></span></span>`,
   };
@@ -337,10 +342,6 @@
         F.range("buttons.iconSize", "Icon size", 12, 28, "px", { adv: true }),
         F.toggle("buttons.arrow", "Arrow on the right", { adv: true }),
       ]),
-      P("Social icons", "The row of little icons.", [
-        F.chips("icons.style", "Style", pvOpts([["boxed", "Boxed"], ["round", "Round"], ["plain", "Plain"]], PV.icons), { pv: true }),
-        F.range("icons.size", "Size", 34, 64, "px"), F.range("icons.gap", "Spacing", 4, 20, "px", { adv: true }),
-      ]),
       P("Hover effects", "What happens when the pointer goes over things.", [
         F.chips("hover.icons", "Social icons", [["lift", "Lift"], ["glow", "Glow"], ["wobble", "Wobble"], ["spin", "Spin"], ["none", "Nothing"]]),
         F.chips("hover.badges", "Badges", [["lift", "Lift"], ["glow", "Glow"], ["wobble", "Wobble"], ["spin", "Spin"], ["none", "Nothing"]]),
@@ -454,7 +455,12 @@
         F.chips("spotifyColors", "Spotify widget colours", [["album", "Match the song's cover"], ["dark", "Always dark"]])]),
     ] },
     links: { title: "Links", icon: "website", lead: "Icons, buttons, projects, players and everything else people tap.", panels: () => [
-      P("Social icons", "Small round icons for your accounts.", [F.custom("socials", "Social icons", () => listSocials(), bindSocials)]),
+      P("Social icons", "Small icons for your accounts.", [F.custom("socials", "Social icons", () => listSocials(), bindSocials)]),
+      P("Icon style", "How your social icons look.", [
+        F.chips("icons.shape", "Shape", [["rounded", "Rounded"], ["circle", "Circle"], ["square", "Square"], ["squircle", "Squircle"]].map(([v, l]) => [v, l, PV.ishape(v)]), { pv: true }),
+        F.chips("icons.look", "Look", [["boxed", "Boxed"], ["glass", "Glass"], ["solid", "Solid"], ["outline", "Outline"], ["glow", "Glowing"], ["brand", "Brand colours"], ["plain", "Transparent"]].map(([v, l]) => [v, l, PV.ilook(v)]), { pv: true }),
+        F.range("icons.size", "Size", 34, 64, "px"), F.range("icons.gap", "Spacing", 4, 20, "px"),
+      ]),
       P("Link buttons", "Full-width buttons with a label. Highlight one to make it pulse.", [F.custom("linkButtons", "Link buttons", () => listButtons(), bindButtons)]),
       P("Projects", "Things you've made, each with a tag and a short line.", [F.custom("projects", "Projects", () => listProjects(), bindProjects)]),
       P("Players", "Paste a Spotify, YouTube or SoundCloud link to put a player on your page.", [F.custom("embeds", "Players", () => listEmbeds(), bindEmbeds)]),

@@ -84,7 +84,7 @@
     const b = document.body;
     b.className = [`hv-ic-${p.hover.icons}`, `hv-bd-${p.hover.badges}`, `hv-wg-${p.hover.widgets}`, `sfx-${p.scrollFx}`, `bb-${p.bioText.box}`, `crt-${p.bioText.caret}`, `cd-${p.card.decor}`, `cf-${p.card.frame}`,
       (p.name.shadowBlur || p.name.shadowX || p.name.shadowY) && "nshadow", p.name.outlineWidth && "noutline", `sb-${p.fx.scrollbar}`, p.buttons.tilt && "btilt", p.buttons.shiny && "bshine", p.fx.layer === "front" && "fx-front", p.radius.custom && "rcustom", `term-${p.terminal.theme}`,
-      p.live.artSpin && "artspin", p.live.lyricsGlow && "lyglow", `cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
+      p.live.artSpin && "artspin", p.live.lyricsGlow && "lyglow", `cs-${p.card.style}`, `ish-${p.icons.shape === "auto" ? (p.icons.style === "round" ? "circle" : "rounded") : p.icons.shape}`, `ilk-${p.icons.look === "auto" ? (p.icons.style === "plain" ? "plain" : "boxed") : p.icons.look}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border",  p.card.lift && "lift", p.card.textShadow && "text-shadow",
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
@@ -267,6 +267,8 @@
     const dd = Math.floor(s / 86400); s %= 86400; const h = Math.floor(s / 3600); s %= 3600; const m = Math.floor(s / 60); s %= 60;
     return [[String(dd).padStart(2, "0"), "days"], [String(h).padStart(2, "0"), "hours"], [String(m).padStart(2, "0"), "min"], [String(s).padStart(2, "0"), "sec"]];
   }
+  // true for light colours (e.g. Roblox white), so brand-coloured icons can use a dark symbol
+  function lightHex(h) { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return false; const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return 0.299 * r + 0.587 * g + 0.114 * b > 186; }
   function setupBeam(p) {
     const c = p.card || {};
     const sel = [c.beamCard && ".card", c.beamLinks && ".buttons a", c.beamIcons && ".socials a", c.beamWidgets && ".wg", c.beamBoxes && ".box", c.beamLive && ".pcard, .pstrip"].filter(Boolean).join(", ");
@@ -395,7 +397,7 @@
       case "listening": return `<div data-sec="listening" class="lsn lsn-${p.listening.look} lsn-c-${p.listening.covers} lsn-l-${p.listening.layout} ${p.listening.accent ? "lsn-acc" : ""} ${p.listening.serif ? "lsn-serif" : ""} ${p.listening.bars ? "" : "lsn-nobars"}">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;
       case "badges": return p.badgeRow.position === "section" ? `<div data-sec="badges">${h}${badgesHtml(p, d)}</div>` : "";
       case "bio": return (p.bioText.position || "section") !== "section" ? "" : `<div data-sec="bio">${h}${bioInner(p)}</div>`;
-      case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
+      case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" style="--bc:${BRAND[l.platform] || "#555"};--bfg:${lightHex(BRAND[l.platform]) ? "#111" : "#fff"};${c(p).brandIcons ? `color:${BRAND[l.platform]}` : ""}">${icon(l.platform)}</a>`).join("")}</nav></div>`;
       case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""} ${l.hoverLabel ? "hl" : ""}">${l.icon ? icon(l.icon) : ""}<span>${l.hoverLabel ? `<i class="l1">${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</i><i class="l2">${esc(l.hoverLabel)}</i>` : esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
       case "widgets": return `<div>${h}<div class="widgets ws-${p.widgetStyle}">${p.widgets.map((w) => widgetHtml(w, p, d)).join("")}</div></div>`;
       case "presence": return `<div data-sec="presence" hidden>${h}<div class="pstack"></div></div>`;
