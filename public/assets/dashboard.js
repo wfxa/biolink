@@ -641,8 +641,55 @@
   }
 
   /* ---------- list editors ---------- */
+  const GRIP_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>`;
+  /* drag to reorder: any row with a .grip. The list's array is found from the [data-key] around it
+     (or data-sortlist for special lists), and the new order is written back into the same slots,
+     so lists that hide some rows (like Arrange) keep the hidden ones where they were. */
+  const SORTERS = {};
+  function applyOrder(key, order) {
+    if (SORTERS[key]) return SORTERS[key](order);
+    const arr = get(key); if (!Array.isArray(arr)) return;
+    const slots = [...order].sort((a, b) => a - b), vals = order.map((i) => arr[i]);
+    slots.forEach((s, k) => (arr[s] = vals[k])); changed(); reView();
+  }
+  const ROW_SEL = ".row, .wrow, .berow, .secrow";
+  const rowsOf = (list) => [...list.children].filter((c) => c.matches(ROW_SEL) && c.querySelector(".grip"));
+  const orderOf = (list) => rowsOf(list).map((c) => Number(c.querySelector(".grip").dataset.gi));
+  const keyOf = (list) => list.dataset.sortlist || (list.closest("[data-key]") || {}).dataset?.key;
+  document.addEventListener("pointerdown", (e) => {
+    const g = e.target.closest(".grip"); if (!g || e.button) return;
+    const row = g.closest(ROW_SEL), list = row && row.parentElement; if (!list) return;
+    e.preventDefault();
+    const start = orderOf(list).join(), key = keyOf(list);
+    row.classList.add("dragging"); list.classList.add("sorting");
+    // scroll the page when dragging near the top or bottom edge
+    const scroller = (() => { let el = list; while (el && el !== document.body) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight) return el; el = el.parentElement; } return document.scrollingElement; })();
+    let lastY = e.clientY, raf = 0;
+    const tick = () => { const H = innerHeight, d = lastY < 70 ? -(70 - lastY) / 4 : lastY > H - 70 ? (lastY - (H - 70)) / 4 : 0; if (d) { scroller.scrollTop += d; onMove({ clientY: lastY }); } raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    const onMove = (ev) => { lastY = ev.clientY;
+      const others = rowsOf(list).filter((r) => r !== row);
+      const before = others.find((r) => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+      if (before) { if (row.nextElementSibling !== before) list.insertBefore(row, before); }
+      else if (others.length) { const last = others[others.length - 1]; if (last.nextElementSibling !== row) last.after(row); }
+    };
+    const onUp = () => {
+      cancelAnimationFrame(raf); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); document.removeEventListener("pointercancel", onUp); row.classList.remove("dragging"); list.classList.remove("sorting");
+      const order = orderOf(list); if (order.join() !== start) applyOrder(key, order);
+    };
+    // listen on the whole page: moving the row in the page would drop a capture on the handle
+    document.addEventListener("pointermove", onMove); document.addEventListener("pointerup", onUp); document.addEventListener("pointercancel", onUp);
+  });
+  document.addEventListener("keydown", (e) => {
+    const g = e.target.closest && e.target.closest(".grip"); if (!g || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    const row = g.closest(ROW_SEL), list = row.parentElement, order = orderOf(list), at = order.indexOf(Number(g.dataset.gi)), to = at + (e.key === "ArrowUp" ? -1 : 1);
+    if (to < 0 || to >= order.length) return; e.preventDefault();
+    [order[at], order[to]] = [order[to], order[at]]; const gi = g.dataset.gi; applyOrder(keyOf(list), order);
+    setTimeout(() => { const ng = [...document.querySelectorAll(".grip")].find((x) => x.closest(ROW_SEL) && Number(x.dataset.gi) === order.slice().sort((a, b) => a - b)[to]); if (ng) ng.focus(); }, 30);
+  });
   const move = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; };
-  const acts = (i, n) => `<div class="acts"><button data-mv="-1" data-i="${i}" aria-label="Move up" ${i ? "" : "disabled"}>↑</button><button data-mv="1" data-i="${i}" aria-label="Move down" ${i < n - 1 ? "" : "disabled"}>↓</button><button data-del="${i}" aria-label="Remove">✕</button></div>`;
+  const grip = (i, n) => n > 1 ? `<button type="button" class="grip" data-gi="${i}" aria-label="Drag to move (or use the arrow keys)" title="Drag to move">${GRIP_SVG}</button>` : "";
+  const acts = (i, n) => `<div class="acts">${grip(i, n)}<button data-del="${i}" aria-label="Remove">✕</button></div>`;
   const newId = () => Math.random().toString(36).slice(2, 10);
   function bindList(root, key, rerender) {
     const arr = get(key);
@@ -804,7 +851,7 @@
       <input type="text" data-sf="heading" data-i="${i}" value="${esc(s.heading)}" placeholder="no heading" maxlength="40">
       <select data-sf="page" data-i="${i}">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === s.page ? "selected" : ""}>Page ${n}</option>`).join("")}</select>
       <input type="checkbox" class="sw" data-sf="show" data-i="${i}" ${s.show ? "checked" : ""} aria-label="Show ${O.SECTION_NAMES[s.id]}" style="accent-color:var(--accent);width:18px;height:18px">
-      <div class="acts"><button data-mv="-1" data-i="${i}" ${k ? "" : "disabled"} aria-label="Move up">↑</button><button data-mv="1" data-i="${i}" ${k < vis.length - 1 ? "" : "disabled"} aria-label="Move down">↓</button></div></div>`).join("")}</div>
+      <div class="acts">${grip(i, vis.length)}</div></div>`).join("")}</div>
       ${vis.length ? "" : `<p class="note">Nothing to arrange yet. Add a bio, links or widgets first.</p>`}
       ${empty.length ? `<p class="note" style="margin-top:10px">Not filled in yet, so hidden here: ${empty.map((s) => O.SECTION_NAMES[s.id]).join(", ")}. They show up once you add something to them.</p>` : ""}</div>`;
   };
@@ -917,14 +964,14 @@
   function renderBadgeEditor() {
     const box = $("#bedit"); if (!box) return;
     const list = badgeOrder();
-    box.innerHTML = list.length ? `<div class="bedit">${list.map((b, i) => `<div class="berow ${b.it.hidden ? "off" : ""}">
-        <div class="acts"><button data-bm="-1" data-i="${i}" aria-label="Move up" ${i ? "" : "disabled"}>↑</button><button data-bm="1" data-i="${i}" aria-label="Move down" ${i < list.length - 1 ? "" : "disabled"}>↓</button></div>
+    box.innerHTML = list.length ? `<div class="bedit" data-sortlist="__badges">${list.map((b, i) => `<div class="berow ${b.it.hidden ? "off" : ""}">
+        <div class="acts">${grip(i, list.length)}</div>
         <span class="ic" style="color:${esc(b.it.color || draft.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span><b>${esc(b.name)}</b>
         <input type="color" data-bc="${i}" value="${b.it.color || b.color}" title="Badge colour">${b.it.color ? `<button class="btn small" data-bx="${i}">Original</button>` : ""}
         <label class="toggle" title="Show on my page"><input type="checkbox" data-bh="${i}" ${b.it.hidden ? "" : "checked"}></label></div>`).join("")}</div>
       <div class="bprev"><small>preview</small><div class="badges">${list.filter((b) => !b.it.hidden).map((b) => `<span class="badge" style="color:${esc(b.it.color || draft.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div></div>` : `<p class="muted">No badges yet.</p>`;
     const commit = (l) => { draft.badgeRow.items = l.map((b) => ({ slug: b.slug, color: b.it.color || "", hidden: !!b.it.hidden })); changed(); renderBadgeEditor(); };
-    $$("[data-bm]", box).forEach((x) => (x.onclick = () => { const l = badgeOrder(), i = Number(x.dataset.i), j = i + Number(x.dataset.bm); [l[i], l[j]] = [l[j], l[i]]; commit(l); }));
+    SORTERS.__badges = (order) => { const l = badgeOrder(); commit(order.map((i) => l[i])); };
     $$("[data-bc]", box).forEach((x) => (x.onchange = () => { const l = badgeOrder(); l[Number(x.dataset.bc)].it.color = x.value; commit(l); }));
     $$("[data-bx]", box).forEach((x) => (x.onclick = () => { const l = badgeOrder(); l[Number(x.dataset.bx)].it.color = ""; commit(l); }));
     $$("[data-bh]", box).forEach((x) => (x.onchange = () => { const l = badgeOrder(); l[Number(x.dataset.bh)].it.hidden = !x.checked; commit(l); }));

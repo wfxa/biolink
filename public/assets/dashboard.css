@@ -450,3 +450,12 @@ a.vrow:hover{background:rgba(255,255,255,.04)}
 .pv-sb .d{position:absolute;right:1px;bottom:1px;width:12px;height:12px;border-radius:50%;background:#3ba55d;box-shadow:0 0 0 3px #0c0d10}
 .pv-sb .e{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;background:#15111a;box-shadow:0 0 0 2px #3ba55d;font-size:11px;display:grid;place-items:center;font-style:normal}
 .pv-sb .b{position:absolute;left:36px;top:-8px;white-space:nowrap;font-size:9px;font-style:normal;padding:3px 7px;border-radius:10px;background:#1c1b22;border:1px solid rgba(255,255,255,.15);color:#ddd}
+/* drag handles */
+.grip{width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:none;display:grid;place-items:center;cursor:grab;touch-action:none;color:var(--muted,#8a8f98);flex:none;padding:0}
+.grip svg{width:16px;height:16px;fill:currentColor;pointer-events:none}
+.grip:hover,.grip:focus-visible{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--line-2,rgba(255,255,255,.12))}
+.berow .acts .grip{width:26px;height:30px;border-radius:7px}
+.wrow .acts{display:flex;gap:4px;align-items:center}
+.sorting,.sorting *{cursor:grabbing!important;user-select:none}
+.dragging{position:relative;z-index:5;opacity:.92;box-shadow:0 14px 34px -10px rgba(0,0,0,.7),0 0 0 1.5px var(--accent);border-radius:12px;transform:scale(1.01);transition:none!important}
+.dragging .grip{color:var(--accent)}
