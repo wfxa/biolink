@@ -117,13 +117,13 @@ body.noutline .name{-webkit-text-stroke:var(--name-outline)!important;paint-orde
 .np-sunset{--np1:#ff5f6d;--np2:#ffc371;--np3:#ff8fb3}.np-ocean{--np1:#00c6ff;--np2:#0072ff;--np3:#6ef2ff}.np-toxic{--np1:#a8ff3e;--np2:#32ff7e;--np3:#e8ff3e}
 .np-candy{--np1:#ff9ad5;--np2:#b28dff;--np3:#8ff7ff}.np-ice{--np1:#ffffff;--np2:#9be7ff;--np3:#c5d8ff}.np-fire{--np1:#ff3d00;--np2:#ffb300;--np3:#ff6a00}
 /* bio boxes */
-.bb-quote .bio:not(.cstatus){position:relative;padding:10px 14px 10px 30px;font-style:italic;text-align:left;border-left:3px solid var(--accent)}
-.bb-quote .bio:not(.cstatus)::before{content:"“";position:absolute;left:8px;top:-4px;font:900 34px Georgia,serif;color:var(--accent);opacity:.8}
-.bb-bubble .bio:not(.cstatus){position:relative;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid var(--line)}
-.bb-bubble .bio:not(.cstatus)::after{content:"";position:absolute;left:50%;top:-7px;width:12px;height:12px;background:inherit;border-left:1px solid var(--line);border-top:1px solid var(--line);rotate:45deg;translate:-50% 0;background:rgba(40,38,46,.9)}
-.bb-terminal .bio:not(.cstatus){padding:10px 12px;border-radius:8px;background:#05070a;border:1px solid #1d2a22;color:#7dffa1;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px;text-align:left}
-.bb-terminal .bio:not(.cstatus)::before{content:"$ cat bio.txt\a";white-space:pre;color:#4e9a65}
-.bb-note .bio:not(.cstatus){padding:12px 14px;border-radius:2px;background:#fff6a8;color:#3b3415;rotate:-1deg;box-shadow:0 8px 16px -8px rgba(0,0,0,.6);text-align:left;font-family:"Caveat","Comic Sans MS",cursive,var(--font)}
+.bb-quote :is(.bio:not([hidden]),.bio[hidden] + .taglines){position:relative;padding:10px 14px 10px 30px;font-style:italic;text-align:left;border-left:3px solid var(--accent)}
+.bb-quote :is(.bio:not([hidden]),.bio[hidden] + .taglines)::before{content:"“";position:absolute;left:8px;top:-4px;font:900 34px Georgia,serif;color:var(--accent);opacity:.8}
+.bb-bubble :is(.bio:not([hidden]),.bio[hidden] + .taglines){position:relative;padding:10px 14px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid var(--line)}
+.bb-bubble :is(.bio:not([hidden]),.bio[hidden] + .taglines)::after{content:"";position:absolute;left:50%;top:-7px;width:12px;height:12px;background:inherit;border-left:1px solid var(--line);border-top:1px solid var(--line);rotate:45deg;translate:-50% 0;background:rgba(40,38,46,.9)}
+.bb-terminal :is(.bio:not([hidden]),.bio[hidden] + .taglines){padding:10px 12px;border-radius:8px;background:#05070a;border:1px solid #1d2a22;color:#7dffa1;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px;text-align:left}
+.bb-terminal :is(.bio:not([hidden]),.bio[hidden] + .taglines)::before{content:"$ cat bio.txt\a";white-space:pre;color:#4e9a65}
+.bb-note :is(.bio:not([hidden]),.bio[hidden] + .taglines){padding:12px 14px;border-radius:2px;background:#fff6a8;color:#3b3415;rotate:-1deg;box-shadow:0 8px 16px -8px rgba(0,0,0,.6);text-align:left;font-family:"Caveat","Comic Sans MS",cursive,var(--font)}
 /* radius + opacity + icon sizes */
 .rcustom .buttons a{border-radius:var(--btn-radius-x)!important}
 .rcustom .socials a{border-radius:var(--ic-radius)!important}
