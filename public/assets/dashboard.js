@@ -215,11 +215,10 @@
         F.text("details.github", "GitHub username", { ph: "octocat", hint: "adds a card with your repos", max: 39 }),
       ]),
       P("Info row", "Choose which details sit in the row under your name.", [
-        F.chips("underName.style", "Look", [["plain", "Text"], ["pills", "Chips"]]),
+        F.chips("underName.style", "Look", [["plain", "Text"], ["pills", "Chips"], ["boxed", "Boxed Discord"]]),
         F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord", { hint: "Discord logo, your @ and online/offline" }),
         F.toggle("underName.location", "Location"), F.toggle("underName.time", "Local time"),
         F.toggle("underName.joined", "Time on " + me.site, { hint: "how long you've had your page" }),
-        F.chips("underName.discordStyle", "Discord look", [["box", "Boxed"], ["pill", "Pill"], ["plain", "Plain text"]]),
         F.chips("underName.discordShow", "Discord name", [["username", "@username"], ["display", "Display name"], ["both", "Both"]]),
       ], { adv: true }),
     ] },
@@ -292,6 +291,7 @@
         ...(premium ? [F.upload("fonts.custom", "font", "Your own font", { accept: ".woff2,.woff,.ttf,.otf", note: "woff2, woff, ttf or otf" }), F.chips("fonts.useCustom", "Use it for", [["none", "Nothing"], ["name", "My name"], ["body", "Everything else"], ["all", "Everything"]])] : [F.note("Upload your own font with Premium.")]),
       ]),
       P("Bio text", "", [
+        F.chips("bioText.position", "Where your bio goes", [["above-name", "Above name"], ["under-name", "Under name"], ["under-row", "Under info row"], ["under-badges", "Under badges"], ["section", "Normal (move in Arrange)"]], { wide: true }),
         F.chips("bioText.caret", "Typing cursor", [["line", "Thin line |"], ["block", "Block █"], ["underscore", "Underscore _"], ["none", "Hidden"]]),
         F.color("bioText.caretColor", "Typing cursor colour", { hint: "empty = same as your bio text" }),
         F.chips("bioText.box", "Bio style", [["plain", "Plain"], ["quote", "Quote"], ["bubble", "Speech bubble"], ["terminal", "Terminal"], ["note", "Sticky note"]]),
@@ -788,7 +788,7 @@
     $$("[data-pladd]", root).forEach((b) => (b.onclick = () => { draft.pages[b.dataset.pladd].links.push({ label: "", url: "" }); changed(); reView(); }));
     $("#addPage").onclick = () => { if (draft.pages.length >= L("pages")) return toast(`You can have up to ${L("pages")} extra page${L("pages") > 1 ? "s" : ""}.`, true); draft.pages.push({ id: newId(), slug: "page" + (draft.pages.length + 1), title: "", body: "", links: [] }); changed(); reView(); };
   }
-  const listSections = () => `<div class="field wide" data-key="sections"><div class="list">${draft.sections.map((s, i) => s.id === "badges" && draft.badgeRow.position !== "section" ? "" : `<div class="row secrow"><span class="n">${i + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
+  const listSections = () => `<div class="field wide" data-key="sections"><div class="list">${draft.sections.map((s, i) => (s.id === "badges" && draft.badgeRow.position !== "section") || (s.id === "bio" && draft.bioText.position !== "section") ? "" : `<div class="row secrow"><span class="n">${i + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
       <input type="text" data-sf="heading" data-i="${i}" value="${esc(s.heading)}" placeholder="no heading" maxlength="40">
       <select data-sf="page" data-i="${i}">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === s.page ? "selected" : ""}>Page ${n}</option>`).join("")}</select>
       <input type="checkbox" class="sw" data-sf="show" data-i="${i}" ${s.show ? "checked" : ""} aria-label="Show ${O.SECTION_NAMES[s.id]}" style="accent-color:var(--accent);width:18px;height:18px">

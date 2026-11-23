@@ -143,6 +143,7 @@
   /* ---------- html builders ---------- */
   const spot = (p) => p.motion.spotlight ? `<div class="spot"></div>` : "";
   function hasContent(id, p, d) {
+    if (id === "bio" && (p.bioText.position || "section") !== "section") return false;
     return ({ badges: p.badgeRow.position === "section" && d && sortBadges(d.badges || [], p).length, bio: p.bio || p.taglines.length || (p.discord.id && p.live.customStatus), socials: p.socials.length, buttons: p.linkButtons.length,
       presence: p.discord.id && (p.live.spotify || p.live.games || (p.live.discordCard && p.live.style === "widget")), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
       widgets: p.widgets.length, countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
@@ -158,6 +159,14 @@
     const blur = bg.type === "auto" ? Math.max(bg.blur, 24) : bg.blur;
     return `<div class="bg motion-${bg.motion}" style="--bg-color:${bg.color || "#07060a"};--bg-blur:${blur}px;--bg-dim:${bg.dim / 100};--bg-filter:${filter}">${inner}${["image", "video", "auto"].includes(bg.type) ? `<div class="dim"></div>` : ""}</div>`;
   }
+  function bioInner(p) {
+    return `${p.bio ? `<p class="bio be-${p.bioEffect}">${redactHtml(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}`;
+  }
+  function bioHead(p, at) {
+    if ((p.bioText.position || "section") !== at) return "";
+    if (!(p.bio || p.taglines.length || (p.discord.id && p.live.customStatus))) return "";
+    return `<div data-sec="bio" class="bio-head bh-${at}">${bioInner(p)}</div>`;
+  }
   function badgesHtml(p, d, extra = "") {
     const list = sortBadges(d.badges, p); if (!list.length) return "";
     return `<div class="badges ${extra}">${list.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(b.mine || p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>`;
@@ -169,7 +178,7 @@
     // Discord logo + @username + status in the info row (skipped only when the big Discord card already shows it and you asked to hide it)
     const cardShown = p.live.hideWithCard && p.live.style === "widget" && p.live.discordCard && p.sections.some((x) => x.id === "presence" && x.show);
     if (u.status && p.discord.id && !cardShown) {
-      items.push(`<a class="dname dn-${u.discordStyle || "box"}" hidden href="https://discord.com/users/${esc(p.discord.id)}" target="_blank" rel="noopener noreferrer" aria-label="Discord profile">${svgIcon("discord")}<em style="font-style:normal"></em></a>`);
+      items.push(`<a class="dname dn-${{ pills: "pill", boxed: "box" }[u.style] || "plain"}" hidden href="https://discord.com/users/${esc(p.discord.id)}" target="_blank" rel="noopener noreferrer" aria-label="Discord profile">${svgIcon("discord")}<em style="font-style:normal"></em></a>`);
       items.push(`<span class="status" hidden><em style="font-style:normal"></em></span>`);
     }
     if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
@@ -193,11 +202,15 @@
         </div>`}
         <div class="who">
           ${p.aboveName ? `<div class="above">${esc(p.aboveName)}</div>` : ""}
+          ${bioHead(p, "above-name")}
           ${bpos === "above-name" ? badgesHtml(p, d) : ""}
           <div class="namewrap ${bpos === "beside" ? "nw-beside" : ""}">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1>${bpos === "beside" ? badgesHtml(p, d) : ""}</div>
+          ${bioHead(p, "under-name")}
           ${bpos === "under-name" ? badgesHtml(p, d) : ""}
           ${items.length ? `<div class="line ${u.style === "pills" || p.viewCounter === "pill" ? "pills" : ""}">${items.join("")}</div>` : ""}
+          ${bioHead(p, "under-row")}
           ${bpos === "under-row" ? badgesHtml(p, d) : ""}
+          ${bioHead(p, "under-badges")}
         </div>
       </div>`;
   }
@@ -328,7 +341,7 @@
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
       case "badges": return p.badgeRow.position === "section" ? `<div data-sec="badges">${h}${badgesHtml(p, d)}</div>` : "";
-      case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${redactHtml(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
+      case "bio": return (p.bioText.position || "section") !== "section" ? "" : `<div data-sec="bio">${h}${bioInner(p)}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
       case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""} ${l.hoverLabel ? "hl" : ""}">${l.icon ? icon(l.icon) : ""}<span>${l.hoverLabel ? `<i class="l1">${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</i><i class="l2">${esc(l.hoverLabel)}</i>` : esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;
       case "widgets": return `<div>${h}<div class="widgets ws-${p.widgetStyle}">${p.widgets.map((w) => widgetHtml(w, p, d)).join("")}</div></div>`;

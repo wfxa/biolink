@@ -62,7 +62,7 @@ const SCHEMA = {
   details: {
     location: S(40), timezone: { t: "tz", d: "" }, occupation: S(40), languages: S(60), weather: B(false), units: E(["c", "f"], "c"), github: { t: "re", re: /^[A-Za-z0-9-]{1,39}$/, d: "" },
   },
-  underName: { style: E(["plain", "pills"], "plain"), handle: B(true), discordName: B(false), statusDot: B(true), status: B(true), discordStyle: E(["box", "pill", "plain"], "box"), discordShow: E(["username", "display", "both"], "username"), location: B(true), time: B(true), joined: B(false) },
+  underName: { style: E(["plain", "pills", "boxed"], "plain"), handle: B(true), discordName: B(false), statusDot: B(true), status: B(true), discordStyle: E(["box", "pill", "plain"], "box"), discordShow: E(["username", "display", "both"], "username"), location: B(true), time: B(true), joined: B(false) },
   avatar: {
     src: IMG(), shape: E(["circle", "rounded", "square", "blob", "capsule"], "circle"), hover: E(["none", "grow", "spin", "tilt", "bounce"], "none"), decoration: E(DECORATIONS, "ring"), discordDecoration: B(false),
     size: N(56, 160, 104), border: N(0, 8, 0), borderColor: C(), hidden: B(false),
@@ -101,7 +101,7 @@ const SCHEMA = {
   },
   fonts: { body: E(FONTS, "JetBrains Mono"), name: { t: "enum", list: ["", ...FONTS], d: "" }, bio: { t: "enum", list: ["", ...FONTS], d: "" },
     buttons: { t: "enum", list: ["", ...FONTS], d: "" }, widgets: { t: "enum", list: ["", ...FONTS], d: "" }, custom: P(UP("font")), useCustom: E(["none", "name", "body", "all"], "none") },
-  bioText: { spacing: N(-2, 10, 0), lineHeight: N(12, 24, 16), box: E(["plain", "quote", "bubble", "terminal", "note"], "plain"), caret: E(["line", "block", "underscore", "none"], "line"), caretColor: C() },
+  bioText: { spacing: N(-2, 10, 0), lineHeight: N(12, 24, 16), box: E(["plain", "quote", "bubble", "terminal", "note"], "plain"), caret: E(["line", "block", "underscore", "none"], "line"), position: E(["section", "above-name", "under-name", "under-row", "under-badges"], "section"), caretColor: C() },
   hover: { icons: E(["lift", "glow", "wobble", "spin", "none"], "lift"), badges: E(["lift", "glow", "wobble", "spin", "none"], "lift"), widgets: E(["lift", "glow", "wobble", "spin", "none"], "lift") },
   scrollFx: E(["none", "fade", "slide", "zoom", "tilt"], "none"),
   radius: { custom: B(false), buttons: N(0, 30, 14), icons: N(0, 30, 12), widgets: N(0, 30, 16) },

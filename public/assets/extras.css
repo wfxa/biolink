@@ -291,3 +291,7 @@ body.bdg-plain .badge{width:calc(var(--bsz,28px) * .8)}
 .line a.dname.dn-pill{padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
 .line a.dname svg{width:13px;height:13px;fill:currentColor}
 .line.pills > a.dname.dn-plain{padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+/* bio placed in the header */
+.bio-head{margin:2px 0;text-align:inherit}
+.bio-head .bio,.bio-head .taglines{margin:0}
+.bio-head.bh-under-name{margin-top:-2px}
