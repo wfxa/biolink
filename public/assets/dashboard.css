@@ -465,3 +465,7 @@ a.vrow:hover{background:rgba(255,255,255,.04)}
 .dragging .grip{color:var(--accent)}
 .wcol{display:inline-flex;align-items:center;gap:8px;margin-top:6px}
 .wcol input[type=color]{width:34px;height:28px;padding:0;border:1px solid var(--line-2,rgba(255,255,255,.12));border-radius:8px;background:none;cursor:pointer}
+.sechd{display:flex;gap:6px;min-width:0}.sechd input{flex:1;min-width:0}
+.bigt{flex:none;width:38px;border-radius:10px;border:1px solid var(--line-2,rgba(255,255,255,.12));background:rgba(255,255,255,.04);color:var(--dim,#8a8f98);font:700 13px/1 Georgia,serif;cursor:pointer}
+.bigt[aria-pressed="true"]{color:var(--text);background:color-mix(in srgb,var(--accent) 22%,transparent);border-color:var(--accent);font-size:15px}
+@media (max-width:640px){.sechd{display:none}}

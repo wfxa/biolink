@@ -389,3 +389,6 @@ body .name.grad.name:has(.ch){background:none!important}
 /* widget colour picker in the dashboard */
 .wg-birthday .wcd.wcd-boxes + span{display:none}
 .wg-birthday:has(.wcd-boxes) .wb{width:100%}
+/* big section titles (like mori's "Listening") */
+.sec-head.sec-big{margin:4px 0 6px;font-family:var(--name-font);font-size:clamp(24px,5vw,32px);font-weight:700;letter-spacing:-.01em;text-transform:none;color:var(--name,var(--text));line-height:1.1;text-align:left}
+.arr-rx .sec-head.sec-big{border-bottom:0;padding-bottom:0;text-transform:none;letter-spacing:-.01em}

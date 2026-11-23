@@ -327,7 +327,10 @@
             if (t === "birthday" && (el.classList.contains("sz-wide") || el.classList.contains("sz-big"))) { // wide birthday tile: days / hours / min / sec boxes
               const tg = cdTarget(v, true), wcd = el.querySelector(".wcd");
               if (tg === "today") { wcd.textContent = "today!"; return; }
-              wcd.classList.add("wcd-boxes"); wcd.innerHTML = cdParts(tg).map(([n, l]) => `<span class="cdb"><b>${n}</b><em>${l}</em></span>`).join(""); return;
+              // styles inline on purpose, so the boxes look right even if an old stylesheet is cached
+              wcd.classList.add("wcd-boxes"); wcd.style.cssText = "display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;font-style:normal";
+              const sub = wcd.nextElementSibling; if (sub && sub.tagName === "SPAN") sub.style.display = "none";
+              wcd.innerHTML = cdParts(tg).map(([n, l]) => `<span class="cdb" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px 8px;border-radius:10px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.12)"><b style="font-family:var(--name-font);font-size:22px;line-height:1;font-style:normal;font-variant-numeric:tabular-nums">${n}</b><em style="font-style:normal;font-family:var(--font);font-size:9px;letter-spacing:.16em;text-transform:uppercase;opacity:.7">${l}</em></span>`).join(""); return;
             }
             if (t === "birthday") { const n = new Date(); target = new Date(n.getFullYear(), target.getMonth(), target.getDate()); if (target < new Date(n.getFullYear(), n.getMonth(), n.getDate())) target.setFullYear(n.getFullYear() + 1); const days = Math.round((target - new Date(n.getFullYear(), n.getMonth(), n.getDate())) / 864e5); el.querySelector(".wcd").textContent = days === 0 ? "today!" : `${days} day${days === 1 ? "" : "s"}`; return; }
             const ms = target - Date.now(); if (ms <= 0) { el.querySelector(".wcd").textContent = "it's here"; return; }
@@ -382,7 +385,7 @@
     return `<div class="card ${p.motion.glint ? "glint" : ""}">${spot(p)}${headHtml(p, d)}${tail}</div>` + secs.map((s) => `<div class="card">${spot(p)}${sectionHtml(s, p, d)}</div>`).join("");
   }
   function sectionHtml(s, p, d) {
-    const h = s.heading ? `<div class="sec-head">${esc(s.heading)}</div>` : "";
+    const h = s.heading ? (s.big ? `<h2 class="sec-head sec-big">${esc(s.heading)}</h2>` : `<div class="sec-head">${esc(s.heading)}</div>`) : "";
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
       case "listening": return `<div data-sec="listening" class="lsn">${h}<div class="lsn-body"><p class="lsn-wait">loading your music…</p></div></div>`;

@@ -897,7 +897,7 @@
     const vis = draft.sections.map((s, i) => [s, i]).filter(([s]) => secFilled(s.id));
     const empty = draft.sections.filter((s) => !secFilled(s.id) && !(s.id === "badges" || (s.id === "bio" && draft.bioText.position !== "section")));
     return `<div class="field wide" data-key="sections"><div class="list">${vis.map(([s, i], k) => `<div class="row secrow"><span class="n">${k + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
-      <input type="text" data-sf="heading" data-i="${i}" value="${esc(s.heading)}" placeholder="no heading" maxlength="40">
+      <span class="sechd"><input type="text" data-sf="heading" data-i="${i}" value="${esc(s.heading)}" placeholder="no heading" maxlength="40"><button type="button" class="bigt" data-big="${i}" aria-pressed="${!!s.big}" title="Big title" aria-label="Big title">Aa</button></span>
       <select data-sf="page" data-i="${i}">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === s.page ? "selected" : ""}>Page ${n}</option>`).join("")}</select>
       <input type="checkbox" class="sw" data-sf="show" data-i="${i}" ${s.show ? "checked" : ""} aria-label="Show ${O.SECTION_NAMES[s.id]}" style="accent-color:var(--accent);width:18px;height:18px">
       <div class="acts">${grip(i, vis.length)}</div></div>`).join("")}</div>
@@ -913,6 +913,7 @@
       if (to < 0 || to >= draft.sections.length) return;
       const [x] = draft.sections.splice(from, 1); draft.sections.splice(to, 0, x); changed(); reView();
     }));
+    $$("[data-big]", root).forEach((b) => (b.onclick = () => { const s = draft.sections[Number(b.dataset.big)]; s.big = !s.big; b.setAttribute("aria-pressed", s.big); changed(); }));
     $$("[data-sf]", root).forEach((inp) => inp.addEventListener(inp.type === "text" ? "input" : "change", () => {
       const s = draft.sections[Number(inp.dataset.i)]; s[inp.dataset.sf] = inp.type === "checkbox" ? inp.checked : inp.dataset.sf === "page" ? Number(inp.value) : inp.value; changed();
     }));

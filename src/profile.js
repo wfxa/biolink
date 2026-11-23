@@ -150,7 +150,7 @@ const SCHEMA = {
   customCss: P({ t: "css", d: "" }),
 };
 
-const DEFAULT_SECTIONS = () => SECTION_IDS.map((id) => ({ id, heading: id === "projects" ? "building" : "", page: 1, show: true }));
+const DEFAULT_SECTIONS = () => SECTION_IDS.map((id) => ({ id, heading: id === "projects" ? "building" : "", page: 1, show: true, big: false }));
 
 /* ---------- cleaning ---------- */
 const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
@@ -218,7 +218,7 @@ function cleanLeaf(s, v, premium) {
       for (const x of arr) {
         if (!isObj(x) || !SECTION_IDS.includes(x.id) || seen.has(x.id)) continue;
         seen.add(x.id);
-        out.push({ id: x.id, heading: typeof x.heading === "string" ? x.heading.slice(0, 40).trim() : "", page: Math.min(5, Math.max(1, Math.round(Number(x.page) || 1))), show: x.show !== false });
+        out.push({ id: x.id, heading: typeof x.heading === "string" ? x.heading.slice(0, 40).trim() : "", page: Math.min(5, Math.max(1, Math.round(Number(x.page) || 1))), show: x.show !== false, big: x.big === true });
       }
       for (const d of DEFAULT_SECTIONS()) if (!seen.has(d.id)) out.push(d);
       return out;
