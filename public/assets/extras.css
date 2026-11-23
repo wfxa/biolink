@@ -323,7 +323,7 @@ body .name.grad .ch{background:linear-gradient(90deg,var(--g1),var(--g2))!import
 .who > .above{margin-top:4px}
 .who > .above + .namewrap,.who > .above + .badges + .namewrap{margin-top:4px}
 .who .bio-head .bio,.who .bio-head .taglines{line-height:1.35;min-height:0}
-.who > .bio-head.bh-under-name{margin-top:-2px}
+.who > .bio-head.bh-under-name{margin-top:4px}
 .who > .line + .badges,.who > .badges + .line{margin-top:2px}
 /* banner: fade out with a mask so it melts into any card (glass, solid, tinted) instead of fading to a fixed colour */
 .banner{-webkit-mask-image:linear-gradient(#000 45%,transparent);mask-image:linear-gradient(#000 45%,transparent)}
