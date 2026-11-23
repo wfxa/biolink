@@ -268,3 +268,8 @@ body .name.grad.ne-sparkle{--nfg:drop-shadow(0 0 6px color-mix(in srgb,var(--acc
 /* effects that paint their own see-through letters: same problem with the custom shadow */
 body.nshadow .name:is(.ne-chrome,.ne-fire,.ne-ice,.ne-rainbow,.ne-shine,.ne-stroke,.ne-outline-glow),
 body.nshadow .name:is(.ne-chrome,.ne-fire,.ne-ice,.ne-rainbow,.ne-shine) .ch{text-shadow:none!important}
+/* typing cursor: follows the bio text colour unless a colour is picked */
+body .bio .caret,body .taglines .caret,body .tw-caret{background:var(--caret,currentColor)}
+body.crt-line .bio .caret,body.crt-line .taglines .caret{width:.08em;margin-left:3px}
+body.crt-underscore .bio .caret,body.crt-underscore .taglines .caret{width:.55em;height:.1em;vertical-align:-.1em}
+body.crt-none .bio .caret,body.crt-none .taglines .caret,body.crt-none .tw-caret{display:none}

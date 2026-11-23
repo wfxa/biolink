@@ -290,6 +290,8 @@
         ...(premium ? [F.upload("fonts.custom", "font", "Your own font", { accept: ".woff2,.woff,.ttf,.otf", note: "woff2, woff, ttf or otf" }), F.chips("fonts.useCustom", "Use it for", [["none", "Nothing"], ["name", "My name"], ["body", "Everything else"], ["all", "Everything"]])] : [F.note("Upload your own font with Premium.")]),
       ]),
       P("Bio text", "", [
+        F.chips("bioText.caret", "Typing cursor", [["line", "Thin line |"], ["block", "Block █"], ["underscore", "Underscore _"], ["none", "Hidden"]]),
+        F.color("bioText.caretColor", "Typing cursor colour", { hint: "empty = same as your bio text" }),
         F.chips("bioText.box", "Bio style", [["plain", "Plain"], ["quote", "Quote"], ["bubble", "Speech bubble"], ["terminal", "Terminal"], ["note", "Sticky note"]]),
         F.range("bioText.spacing", "Letter spacing", -2, 10, ""), F.range("bioText.lineHeight", "Line height", 12, 24, ""),
       ], { adv: true }),

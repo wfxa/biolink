@@ -101,7 +101,7 @@ const SCHEMA = {
   },
   fonts: { body: E(FONTS, "JetBrains Mono"), name: { t: "enum", list: ["", ...FONTS], d: "" }, bio: { t: "enum", list: ["", ...FONTS], d: "" },
     buttons: { t: "enum", list: ["", ...FONTS], d: "" }, widgets: { t: "enum", list: ["", ...FONTS], d: "" }, custom: P(UP("font")), useCustom: E(["none", "name", "body", "all"], "none") },
-  bioText: { spacing: N(-2, 10, 0), lineHeight: N(12, 24, 16), box: E(["plain", "quote", "bubble", "terminal", "note"], "plain") },
+  bioText: { spacing: N(-2, 10, 0), lineHeight: N(12, 24, 16), box: E(["plain", "quote", "bubble", "terminal", "note"], "plain"), caret: E(["line", "block", "underscore", "none"], "line"), caretColor: C() },
   hover: { icons: E(["lift", "glow", "wobble", "spin", "none"], "lift"), badges: E(["lift", "glow", "wobble", "spin", "none"], "lift"), widgets: E(["lift", "glow", "wobble", "spin", "none"], "lift") },
   scrollFx: E(["none", "fade", "slide", "zoom", "tilt"], "none"),
   radius: { custom: B(false), buttons: N(0, 30, 14), icons: N(0, 30, 12), widgets: N(0, 30, 16) },

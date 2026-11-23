@@ -59,7 +59,7 @@
     if (p.radius.custom) { R.setProperty("--btn-radius-x", p.radius.buttons + "px"); R.setProperty("--ic-radius", p.radius.icons + "px"); R.setProperty("--wg-radius", p.radius.widgets + "px"); }
     else ["--btn-radius-x", "--ic-radius", "--wg-radius"].forEach((k) => R.removeProperty(k));
     R.setProperty("--op-btn", p.opacity.buttons / 100); R.setProperty("--op-ic", p.opacity.icons / 100); R.setProperty("--op-wg", p.opacity.widgets / 100);
-    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection);
+    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection); set("--caret", p.bioText.caretColor);
     R.setProperty("--fx-k", p.fx.intensity / 100);
     R.setProperty("--btn-radius", { rounded: "14px", pill: "999px", square: "4px" }[p.buttons.shape]);
     R.setProperty("--gap", { compact: "10px", normal: "16px", airy: "24px" }[p.layout.spacing]);
@@ -78,7 +78,7 @@
     const cc = document.getElementById("custom-css"); if (cc && d.__css !== undefined) cc.textContent = d.__css;
 
     const b = document.body;
-    b.className = [`hv-ic-${p.hover.icons}`, `hv-bd-${p.hover.badges}`, `hv-wg-${p.hover.widgets}`, `sfx-${p.scrollFx}`, `bb-${p.bioText.box}`, `cd-${p.card.decor}`, `cf-${p.card.frame}`,
+    b.className = [`hv-ic-${p.hover.icons}`, `hv-bd-${p.hover.badges}`, `hv-wg-${p.hover.widgets}`, `sfx-${p.scrollFx}`, `bb-${p.bioText.box}`, `crt-${p.bioText.caret}`, `cd-${p.card.decor}`, `cf-${p.card.frame}`,
       p.name.preset !== "none" && `np-${p.name.preset}`, (p.name.shadowBlur || p.name.shadowX || p.name.shadowY) && "nshadow", p.name.outlineWidth && "noutline", `sb-${p.fx.scrollbar}`, p.buttons.tilt && "btilt", p.buttons.shiny && "bshine", p.fx.layer === "front" && "fx-front", p.radius.custom && "rcustom", `term-${p.terminal.theme}`,
       p.live.artSpin && "artspin", p.live.lyricsGlow && "lyglow", `cs-${p.card.style}`, p.card.frostedEdges && "frosted", p.card.reflection && "reflect", p.card.mouseShadow && "mshadow", `wt-${p.card.windowTheme}`, `tt-${p.tooltip.style}`, `bs-${p.buttons.style}`, `bh-${p.buttons.hover}`, `ba-${p.buttons.align}`, p.buttons.arrow ? "" : "no-arrow", `sh-${p.card.shadow}`, `is-${p.icons.style}`, `bdg-${p.badgeRow.style}`, p.music.pulse && "pulse", `av-${p.avatar.shape}`, `ah-${p.avatar.hover}`, `arr-${p.layout.arrangement}`, `ent-${p.layout.entrance}`,
       p.card.glow && "glow", p.card.animatedBorder && "anim-border",  p.card.lift && "lift", p.card.textShadow && "text-shadow",
