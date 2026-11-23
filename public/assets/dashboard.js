@@ -216,7 +216,8 @@
       ]),
       P("Info row", "Choose which details sit in the row under your name.", [
         F.chips("underName.style", "Look", [["plain", "Text"], ["pills", "Chips"]]),
-        F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord", { hint: "Discord logo, your @ and online/offline · Simple style only" }),
+        F.toggle("underName.handle", "Sub-name"), F.toggle("underName.status", "Discord", { hint: "Discord logo, your @ and online/offline" }),
+        F.chips("underName.discordStyle", "Discord look", [["box", "Boxed"], ["pill", "Pill"], ["plain", "Plain text"]]),
         F.toggle("underName.location", "Location"), F.toggle("underName.time", "Local time"),
         F.toggle("underName.joined", "Time on " + me.site, { hint: "how long you've had your page" }),
       ], { adv: true }),
@@ -311,6 +312,8 @@
         ...(draft.name.cycle.length ? [F.chips("name.cycleStyle", "Switch with", [["scramble", "Decode"], ["fade", "Fade"], ["type", "Retype"], ["morph", "Morph"]]), F.range("name.cycleSpeed", "Each name stays", 2, 10, "s")] : []),
       ]),
       P("Badge row", "", [
+        F.chips("badgeRow.position", "Where your badges go", [["above-name", "Above name"], ["beside", "Next to name"], ["under-name", "Under name"], ["under-row", "Under info row"], ["corner", "Top corner of card"], ["section", "Anywhere (move in Arrange)"]], { wide: true, rerender: true }),
+        F.range("badgeRow.size", "Badge size", 16, 40, "px"),
         F.chips("badgeRow.style", "Style", [["tile", "Tiles"], ["plain", "Plain"], ["glow", "Glow"]]),
         F.color("badgeRow.color", "One colour for all badges", { ph: "each badge's own colour" }),
         ...(draft.name.gradient ? [F.color("name.from", "Gradient from", { noClear: true }), F.color("name.to", "Gradient to", { noClear: true })] : []),
@@ -484,7 +487,7 @@
           ...(draft.live.onRepeat ? [F.range("live.repeatAt", "Show it after", 2, 5, " plays")] : []),
           F.toggle("live.combine", "All in one card", { hint: "Discord, Spotify and games stacked inside a single card" }),
           F.toggle("live.albumColor", "Spotify card takes the album colour", { hint: "glow and progress bar match the cover" })] : []),
-        F.toggle("live.status", "Status dot on my picture", { hint: "green, yellow or red" }), ...(draft.live.style === "simple" ? [F.toggle("underName.status", "Discord under my name", { hint: "Discord logo, your @ and online/offline" })] : []),
+        F.toggle("live.status", "Status dot on my picture", { hint: "green, yellow or red" }), 
         ...(draft.live.style === "widget" && draft.live.discordCard ? [F.toggle("live.hideWithCard", "Hide both while the Discord card shows", { hint: "the card already shows your status" })] : []), F.toggle("live.spotify", "Now playing", { hint: "the Spotify track with a progress bar" }),
         F.toggle("live.lyrics", "Lyrics", { hint: "lines light up in time with the song" }), F.toggle("live.games", "Games & apps", { hint: "what's open right now" }),
         F.toggle("live.customStatus", "Status as bio", { hint: "your Discord status fills in when your bio is empty" }),
@@ -784,7 +787,7 @@
     $$("[data-pladd]", root).forEach((b) => (b.onclick = () => { draft.pages[b.dataset.pladd].links.push({ label: "", url: "" }); changed(); reView(); }));
     $("#addPage").onclick = () => { if (draft.pages.length >= L("pages")) return toast(`You can have up to ${L("pages")} extra page${L("pages") > 1 ? "s" : ""}.`, true); draft.pages.push({ id: newId(), slug: "page" + (draft.pages.length + 1), title: "", body: "", links: [] }); changed(); reView(); };
   }
-  const listSections = () => `<div class="field wide" data-key="sections"><div class="list">${draft.sections.map((s, i) => `<div class="row secrow"><span class="n">${i + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
+  const listSections = () => `<div class="field wide" data-key="sections"><div class="list">${draft.sections.map((s, i) => s.id === "badges" && draft.badgeRow.position !== "section" ? "" : `<div class="row secrow"><span class="n">${i + 1}</span><b style="font-size:12.5px">${O.SECTION_NAMES[s.id]}</b>
       <input type="text" data-sf="heading" data-i="${i}" value="${esc(s.heading)}" placeholder="no heading" maxlength="40">
       <select data-sf="page" data-i="${i}">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === s.page ? "selected" : ""}>Page ${n}</option>`).join("")}</select>
       <input type="checkbox" class="sw" data-sf="show" data-i="${i}" ${s.show ? "checked" : ""} aria-label="Show ${O.SECTION_NAMES[s.id]}" style="accent-color:var(--accent);width:18px;height:18px">

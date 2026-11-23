@@ -59,7 +59,7 @@
     if (p.radius.custom) { R.setProperty("--btn-radius-x", p.radius.buttons + "px"); R.setProperty("--ic-radius", p.radius.icons + "px"); R.setProperty("--wg-radius", p.radius.widgets + "px"); }
     else ["--btn-radius-x", "--ic-radius", "--wg-radius"].forEach((k) => R.removeProperty(k));
     R.setProperty("--op-btn", p.opacity.buttons / 100); R.setProperty("--op-ic", p.opacity.icons / 100); R.setProperty("--op-wg", p.opacity.widgets / 100);
-    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection); set("--caret", p.bioText.caretColor);
+    R.setProperty("--btn-ic", p.buttons.iconSize + "px"); set("--sel", c.selection); set("--caret", p.bioText.caretColor); R.setProperty("--bsz", (p.badgeRow.size || 28) + "px");
     R.setProperty("--fx-k", p.fx.intensity / 100);
     R.setProperty("--btn-radius", { rounded: "14px", pill: "999px", square: "4px" }[p.buttons.shape]);
     R.setProperty("--gap", { compact: "10px", normal: "16px", airy: "24px" }[p.layout.spacing]);
@@ -85,7 +85,7 @@
       p.colors.iconGlow && "iglow", entered || PREVIEW || !p.enter.show ? "in" : "pre"].filter(Boolean).join(" ");
 
     // which sections go on which screen
-    const sections = p.sections.filter((s) => s.show && hasContent(s.id, p));
+    const sections = p.sections.filter((s) => s.show && hasContent(s.id, p, d));
     const pagesN = d.subpage ? 1 : Math.max(1, ...sections.map((s) => s.page));
     const screens = [];
     for (let i = 1; i <= pagesN; i++) screens.push(sections.filter((s) => s.page === i));
@@ -142,8 +142,8 @@
 
   /* ---------- html builders ---------- */
   const spot = (p) => p.motion.spotlight ? `<div class="spot"></div>` : "";
-  function hasContent(id, p) {
-    return ({ bio: p.bio || p.taglines.length || (p.discord.id && p.live.customStatus), socials: p.socials.length, buttons: p.linkButtons.length,
+  function hasContent(id, p, d) {
+    return ({ badges: p.badgeRow.position === "section" && d && sortBadges(d.badges || [], p).length, bio: p.bio || p.taglines.length || (p.discord.id && p.live.customStatus), socials: p.socials.length, buttons: p.linkButtons.length,
       presence: p.discord.id && (p.live.spotify || p.live.games || (p.live.discordCard && p.live.style === "widget")), projects: p.projects.length, embeds: p.embeds.length, text: p.textBlock,
       widgets: p.widgets.length, countdown: p.countdown.date, server: p.server, clock: p.details.timezone, github: p.details.github, pages: p.pages.length })[id];
   }
@@ -158,13 +158,18 @@
     const blur = bg.type === "auto" ? Math.max(bg.blur, 24) : bg.blur;
     return `<div class="bg motion-${bg.motion}" style="--bg-color:${bg.color || "#07060a"};--bg-blur:${blur}px;--bg-dim:${bg.dim / 100};--bg-filter:${filter}">${inner}${["image", "video", "auto"].includes(bg.type) ? `<div class="dim"></div>` : ""}</div>`;
   }
+  function badgesHtml(p, d, extra = "") {
+    const list = sortBadges(d.badges, p); if (!list.length) return "";
+    return `<div class="badges ${extra}">${list.map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(b.mine || p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>`;
+  }
   function headHtml(p, d) {
-    const name = p.displayName || d.username;
+    const name = p.displayName || d.username, bpos = p.badgeRow.position || "under-row";
     const u = p.underName, items = [];
     if (u.handle && p.handle.trim()) items.push(`<span>${esc(p.handle)}</span>`);
-    // Discord logo + @username + status: only with the Simple style (Wide cards and Slim strip already show it)
-    if (u.status && p.discord.id && p.live.style === "simple") {
-      items.push(`<a class="dname" hidden href="https://discord.com/users/${esc(p.discord.id)}" target="_blank" rel="noopener noreferrer" aria-label="Discord profile">${svgIcon("discord")}<em style="font-style:normal"></em></a>`);
+    // Discord logo + @username + status in the info row (skipped only when the big Discord card already shows it and you asked to hide it)
+    const cardShown = p.live.hideWithCard && p.live.style === "widget" && p.live.discordCard && p.sections.some((x) => x.id === "presence" && x.show);
+    if (u.status && p.discord.id && !cardShown) {
+      items.push(`<a class="dname dn-${u.discordStyle || "box"}" hidden href="https://discord.com/users/${esc(p.discord.id)}" target="_blank" rel="noopener noreferrer" aria-label="Discord profile">${svgIcon("discord")}<em style="font-style:normal"></em></a>`);
       items.push(`<span class="status" hidden><em style="font-style:normal"></em></span>`);
     }
     if (u.location && p.details.location) items.push(`<span>${svgIcon("pin")}${esc(p.details.location)}</span>`);
@@ -178,6 +183,7 @@
     return `
       ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
       ${p.layout.arrangement === "rx" ? `<div class="rxtop"><b><i>Rx</i> ${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")}</span></div>` : ""}
+      ${bpos === "corner" ? badgesHtml(p, d, "bpos-corner") : ""}
       <div class="head ${p.banner ? "has-banner" : ""}">
         ${p.avatar.hidden ? "" : `<div class="avatar dec-${p.avatar.decoration}">
           ${p.avatar.decoration !== "none" ? `<span class="deco"></span>` : ""}
@@ -187,9 +193,11 @@
         </div>`}
         <div class="who">
           ${p.aboveName ? `<div class="above">${esc(p.aboveName)}</div>` : ""}
-          <div class="namewrap">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1></div>
+          ${bpos === "above-name" ? badgesHtml(p, d) : ""}
+          <div class="namewrap ${bpos === "beside" ? "nw-beside" : ""}">${p.name.showUid ? `<span class="uid">uid ${d.memberNo}</span>` : ""}<h1 class="${nameCls}" data-text="${esc(name)}">${esc(name)}</h1>${bpos === "beside" ? badgesHtml(p, d) : ""}</div>
+          ${bpos === "under-name" ? badgesHtml(p, d) : ""}
           ${items.length ? `<div class="line ${u.style === "pills" || p.viewCounter === "pill" ? "pills" : ""}">${items.join("")}</div>` : ""}
-          ${sortBadges(d.badges, p).length ? `<div class="badges">${sortBadges(d.badges, p).map((b) => `<span class="badge" tabindex="0" data-tip="${esc(b.name)}" style="color:${esc(b.mine || p.badgeRow.color || b.color)}">${svgIcon(b.icon)}</span>`).join("")}</div>` : ""}
+          ${bpos === "under-row" ? badgesHtml(p, d) : ""}
         </div>
       </div>`;
   }
@@ -319,6 +327,7 @@
     const h = s.heading ? `<div class="sec-head">${esc(s.heading)}</div>` : "";
     const icon = (pl) => svgIcon(pl);
     switch (s.id) {
+      case "badges": return p.badgeRow.position === "section" ? `<div data-sec="badges">${h}${badgesHtml(p, d)}</div>` : "";
       case "bio": return `<div data-sec="bio">${h}${p.bio ? `<p class="bio be-${p.bioEffect}">${redactHtml(p.bio)}</p>` : `<p class="bio cstatus" hidden></p>`}${p.taglines.length && !(p.bioEffect === "rotate" && p.bio) ? `<p class="taglines"><span class="typed"></span><span class="caret"></span></p>` : ""}</div>`;
       case "socials": return `<div>${h}<nav class="socials" aria-label="Socials">${p.socials.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer me" data-id="${l.id}" aria-label="${l.platform}" title="${l.platform}" ${c(p).brandIcons ? `style="color:${BRAND[l.platform]}"` : ""}>${icon(l.platform)}</a>`).join("")}</nav></div>`;
       case "buttons": return `<div>${h}<nav class="buttons" aria-label="Links">${p.linkButtons.map((l) => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer" data-id="${l.id}" class="${l.highlight ? "hot" : ""} ${l.hoverLabel ? "hl" : ""}">${l.icon ? icon(l.icon) : ""}<span>${l.hoverLabel ? `<i class="l1">${esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</i><i class="l2">${esc(l.hoverLabel)}</i>` : esc(l.label || l.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))}</span><svg class="arrow" viewBox="0 0 24 24"><path d="${ICONS.arrow}"/></svg></a>`).join("")}</nav></div>`;

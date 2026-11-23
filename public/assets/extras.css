@@ -273,3 +273,21 @@ body .bio .caret,body .taglines .caret,body .tw-caret{background:var(--caret,cur
 body.crt-line .bio .caret,body.crt-line .taglines .caret{width:.08em;margin-left:3px}
 body.crt-underscore .bio .caret,body.crt-underscore .taglines .caret{width:.55em;height:.1em;vertical-align:-.1em}
 body.crt-none .bio .caret,body.crt-none .taglines .caret,body.crt-none .tw-caret{display:none}
+.line a.dname{display:inline-flex;align-items:center;gap:5px;color:inherit;text-decoration:none;transition:color .2s,opacity .2s}
+.line a.dname[hidden]{display:none}
+.line a.dname:hover{color:#5865f2}
+/* badge size + positions */
+body .badge{width:var(--bsz,28px);height:var(--bsz,28px);border-radius:calc(var(--bsz,28px) * .29)}
+body .badge svg{width:calc(var(--bsz,28px) * .54);height:calc(var(--bsz,28px) * .54)}
+body.bdg-plain .badge{width:calc(var(--bsz,28px) * .8)}
+.namewrap.nw-beside{display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center}
+.namewrap.nw-beside .badges{flex-wrap:nowrap;gap:4px}
+.who > .badges + .namewrap{margin-top:8px}
+.badges.bpos-corner{position:absolute;top:14px;right:14px;z-index:7;max-width:45%;justify-content:flex-end}
+[data-sec="badges"] .badges{justify-content:center}
+/* Discord bit in the info row */
+.line a.dname.dn-box{padding:1px 6px;border:1.5px solid currentColor;border-radius:5px;font-weight:700;color:var(--text)}
+.line a.dname.dn-box + .status{font-weight:700;color:var(--text)}
+.line a.dname.dn-pill{padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.line a.dname svg{width:13px;height:13px;fill:currentColor}
+.line.pills > a.dname.dn-plain{padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid var(--line)}

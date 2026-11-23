@@ -34,10 +34,10 @@ const WIDGETS = ["timezone", "weather", "joined", "birthday", "age", "countdown"
 const NAME_EXTRAS = ["blossoms", "flames", "snow", "hearts", "bubbles", "stars", "sp-white", "sp-rainbow", "sp-green", "sp-black", "sp-blue", "sp-red", "sp-gold", "sp-pink"];
 const DECORATIONS = ["none", "ring", "pulse", "orbit", "rainbow", "dashed"];
 const ANIMATED_BGS = ["gradient", "mesh", "waves", "grid", "music"];
-const SECTION_IDS = ["bio", "socials", "buttons", "presence", "widgets", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
+const SECTION_IDS = ["badges", "bio", "socials", "buttons", "presence", "widgets", "projects", "embeds", "text", "countdown", "server", "clock", "github", "pages"];
 const SECTION_NAMES = {
   widgets: "widgets",
-  bio: "bio", socials: "social icons", buttons: "link buttons", presence: "now playing & games", projects: "projects",
+  badges: "badges", bio: "bio", socials: "social icons", buttons: "link buttons", presence: "now playing & games", projects: "projects",
   embeds: "embeds", text: "text block", countdown: "countdown", server: "discord server", clock: "clock card", github: "github card", pages: "extra page buttons",
 };
 
@@ -62,7 +62,7 @@ const SCHEMA = {
   details: {
     location: S(40), timezone: { t: "tz", d: "" }, occupation: S(40), languages: S(60), weather: B(false), units: E(["c", "f"], "c"), github: { t: "re", re: /^[A-Za-z0-9-]{1,39}$/, d: "" },
   },
-  underName: { style: E(["plain", "pills"], "plain"), handle: B(true), status: B(true), location: B(true), time: B(true), joined: B(false) },
+  underName: { style: E(["plain", "pills"], "plain"), handle: B(true), discordName: B(false), statusDot: B(true), status: B(true), discordStyle: E(["box", "pill", "plain"], "box"), location: B(true), time: B(true), joined: B(false) },
   avatar: {
     src: IMG(), shape: E(["circle", "rounded", "square", "blob", "capsule"], "circle"), hover: E(["none", "grow", "spin", "tilt", "bounce"], "none"), decoration: E(DECORATIONS, "ring"), discordDecoration: B(false),
     size: N(56, 160, 104), border: N(0, 8, 0), borderColor: C(), hidden: B(false),
@@ -141,7 +141,7 @@ const SCHEMA = {
     progressRing: B(false), pausedCard: B(true), recentWhenIdle: B(true), gameArt: B(true), hideApps: S(200), renames: { t: "list", max: 10, item: { from: S(60), to: S(40) }, need: "from" },
     artSpin: B(false), songAnim: B(true), upNext: B(false), friends: B(true), statusBadge: E(["dot", "emoji", "bubble"], "dot"), gameRank: B(true), combine: B(false), albumColor: B(true), discordCard: B(true), hideWithCard: B(true), discordBadges: B(true), onRepeat: B(true), repeatAt: N(2, 5, 3), status: B(true), spotify: B(true), lyrics: B(true), games: B(true), customStatus: B(true), listeningLabel: S(30, "listening on spotify"), playingLabel: S(30, "playing") },
   visibility: { hidden: B(false), countOwn: B(false), anonymousVisits: B(false) },
-  badgeRow: { color: C(), style: E(["tile", "plain", "glow"], "tile"), items: { t: "list", max: 40, item: { slug: { t: "re", re: /^[a-z0-9-]{1,48}$/, d: "" }, color: C(), hidden: B(false) }, need: "slug" } },
+  badgeRow: { color: C(), style: E(["tile", "plain", "glow"], "tile"), position: E(["under-row", "under-name", "beside", "above-name", "corner", "section"], "under-row"), size: N(16, 40, 28), items: { t: "list", max: 40, item: { slug: { t: "re", re: /^[a-z0-9-]{1,48}$/, d: "" }, color: C(), hidden: B(false) }, need: "slug" } },
   social: { likes: B(false), comments: B(false) },
   share: { colorBar: C(), noindex: B(false), tabTitle: S(60), animateTitle: B(false), awayTitle: S(60), tabIcon: E(["picture", "site", "custom"], "picture"), favicon: IMG(), ogImage: IMG(), ogLarge: B(false), shareButton: B(false) },
   meta: { title: S(60), description: S(160) },
