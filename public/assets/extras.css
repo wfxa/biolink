@@ -306,3 +306,6 @@ body .bio{font-size:var(--bio-fs,14px)}
 body .taglines{font-size:var(--tl-fs,13px)}
 body .head .line{font-size:var(--row-fs,12px)}
 body .head .line svg{width:calc(var(--row-fs,12px) + 1px);height:calc(var(--row-fs,12px) + 1px)}
+/* status dot sits on the corner for square-ish pictures (on a circle the 4% spot is already on the edge) */
+.av-rounded .avatar .dot,.av-square .avatar .dot{right:-5px;bottom:-5px}
+.av-rounded .avatar .sbadge,.av-square .avatar .sbadge{right:-8px;bottom:-8px}
