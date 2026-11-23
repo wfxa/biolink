@@ -318,7 +318,6 @@ body .name.grad .ch{background:linear-gradient(90deg,var(--g1),var(--g2))!import
 .name.grad.ne-glitch::before{filter:hue-rotate(35deg) brightness(1.2)}
 .name.grad.ne-glitch::after{filter:hue-rotate(-35deg)}
 /* even spacing around the name: trim the empty room fonts keep above capital letters */
-.who .name{text-box:trim-start cap alphabetic}
 /* header spacing, matched to mori: greeting a little apart, bio snug under the name, the rest evenly spaced */
 .who{gap:8px}
 .who > .above{margin-top:4px}
@@ -326,3 +325,8 @@ body .name.grad .ch{background:linear-gradient(90deg,var(--g1),var(--g2))!import
 .who .bio-head .bio,.who .bio-head .taglines{line-height:1.35;min-height:0}
 .who > .bio-head.bh-under-name{margin-top:-2px}
 .who > .line + .badges,.who > .badges + .line{margin-top:2px}
+/* banner: fade out with a mask so it melts into any card (glass, solid, tinted) instead of fading to a fixed colour */
+.banner{-webkit-mask-image:linear-gradient(#000 45%,transparent);mask-image:linear-gradient(#000 45%,transparent)}
+.banner::after{display:none}
+/* the picture overlaps the bottom of the banner (the old rule pointed at the wrong element) */
+.head.has-banner .avatar{margin-top:calc(var(--av-size) * -0.5);position:relative;z-index:2}
