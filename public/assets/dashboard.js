@@ -660,29 +660,57 @@
   const rowsOf = (list) => [...list.children].filter((c) => c.matches(ROW_SEL) && c.querySelector(".grip"));
   const orderOf = (list) => rowsOf(list).map((c) => Number(c.querySelector(".grip").dataset.gi));
   const keyOf = (list) => list.dataset.sortlist || (list.closest("[data-key]") || {}).dataset?.key;
+  // grab the handle, or anywhere on the box that isn't a text box/button. The box follows the pointer
+  // and the other rows slide out of its way. Listens on the whole page, because moving the row in the
+  // page would drop a pointer capture on the handle.
   document.addEventListener("pointerdown", (e) => {
-    const g = e.target.closest(".grip"); if (!g || e.button) return;
-    const row = g.closest(ROW_SEL), list = row && row.parentElement; if (!list) return;
-    e.preventDefault();
-    const start = orderOf(list).join(), key = keyOf(list);
-    row.classList.add("dragging"); list.classList.add("sorting");
-    // scroll the page when dragging near the top or bottom edge
+    if (e.button) return;
+    const row = e.target.closest(ROW_SEL); if (!row || !row.querySelector(".grip")) return;
+    const onGrip = !!e.target.closest(".grip");
+    if (!onGrip && e.target.closest("input, select, textarea, button, a, label, [contenteditable]")) return;
+    const list = row.parentElement; if (!list || rowsOf(list).length < 2) return;
+    if (onGrip) e.preventDefault();
+    const startX = e.clientX, startY = e.clientY, start = orderOf(list).join(), key = keyOf(list);
+    let started = false, grabOff = 0, lastY = startY, raf = 0;
     const scroller = (() => { let el = list; while (el && el !== document.body) { const cs = getComputedStyle(el); if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight) return el; el = el.parentElement; } return document.scrollingElement; })();
-    let lastY = e.clientY, raf = 0;
-    const tick = () => { const H = innerHeight, d = lastY < 70 ? -(70 - lastY) / 4 : lastY > H - 70 ? (lastY - (H - 70)) / 4 : 0; if (d) { scroller.scrollTop += d; onMove({ clientY: lastY }); } raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick);
-    const onMove = (ev) => { lastY = ev.clientY;
-      const others = rowsOf(list).filter((r) => r !== row);
-      const before = others.find((r) => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
-      if (before) { if (row.nextElementSibling !== before) list.insertBefore(row, before); }
-      else if (others.length) { const last = others[others.length - 1]; if (last.nextElementSibling !== row) last.after(row); }
+    // keep the box under the pointer wherever it sits in the list
+    const follow = () => { row.style.transform = "none"; const top = row.getBoundingClientRect().top; row.style.transform = `translateY(${lastY - grabOff - top}px) scale(1.02)`; };
+    // FLIP: remember where the other rows were, change the order, then animate them into their new spots
+    const slide = (fn) => {
+      const others = rowsOf(list).filter((r) => r !== row), was = new Map(others.map((r) => [r, r.getBoundingClientRect().top]));
+      fn();
+      others.forEach((r) => { const d = was.get(r) - r.getBoundingClientRect().top; if (!d) return; r.style.transition = "none"; r.style.transform = `translateY(${d}px)`; requestAnimationFrame(() => { r.style.transition = "transform .18s ease"; r.style.transform = ""; }); });
+    };
+    const reorder = () => {
+      const others = rowsOf(list).filter((r) => r !== row), mid = lastY - grabOff + row.offsetHeight / 2;
+      const before = others.find((r) => { const b = r.getBoundingClientRect(); return mid < b.top + b.height / 2; });
+      if (before) { if (row.nextElementSibling !== before) slide(() => list.insertBefore(row, before)); }
+      else if (others.length) { const last = others[others.length - 1]; if (last.nextElementSibling !== row) slide(() => last.after(row)); }
+      follow();
+    };
+    // scroll the page when dragging near the top or bottom edge
+    const tick = () => { const H = innerHeight, d = lastY < 70 ? -(70 - lastY) / 4 : lastY > H - 70 ? (lastY - (H - 70)) / 4 : 0; if (d) { scroller.scrollTop += d; reorder(); } raf = requestAnimationFrame(tick); };
+    const begin = () => {
+      started = true; grabOff = startY - row.getBoundingClientRect().top;
+      row.classList.add("dragging"); list.classList.add("sorting"); row.style.transition = "none";
+      document.getSelection()?.removeAllRanges(); raf = requestAnimationFrame(tick); follow();
+    };
+    const onMove = (ev) => {
+      lastY = ev.clientY;
+      if (!started) { if (Math.abs(ev.clientY - startY) < 4 && Math.abs(ev.clientX - startX) < 4) return; begin(); }
+      ev.preventDefault(); reorder();
     };
     const onUp = () => {
-      cancelAnimationFrame(raf); document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); document.removeEventListener("pointercancel", onUp); row.classList.remove("dragging"); list.classList.remove("sorting");
-      const order = orderOf(list); if (order.join() !== start) applyOrder(key, order);
+      document.removeEventListener("pointermove", onMove); document.removeEventListener("pointerup", onUp); document.removeEventListener("pointercancel", onUp);
+      if (!started) return;
+      cancelAnimationFrame(raf); list.classList.remove("sorting");
+      row.style.transition = "transform .16s ease"; row.style.transform = ""; // settle into its slot
+      setTimeout(() => {
+        row.classList.remove("dragging"); row.style.transition = "";
+        const order = orderOf(list); if (order.join() !== start) applyOrder(key, order);
+      }, 170);
     };
-    // listen on the whole page: moving the row in the page would drop a capture on the handle
-    document.addEventListener("pointermove", onMove); document.addEventListener("pointerup", onUp); document.addEventListener("pointercancel", onUp);
+    document.addEventListener("pointermove", onMove, { passive: false }); document.addEventListener("pointerup", onUp); document.addEventListener("pointercancel", onUp);
   });
   document.addEventListener("keydown", (e) => {
     const g = e.target.closest && e.target.closest(".grip"); if (!g || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;

@@ -457,5 +457,9 @@ a.vrow:hover{background:rgba(255,255,255,.04)}
 .berow .acts .grip{width:26px;height:30px;border-radius:7px}
 .wrow .acts{display:flex;gap:4px;align-items:center}
 .sorting,.sorting *{cursor:grabbing!important;user-select:none}
-.dragging{position:relative;z-index:5;opacity:.92;box-shadow:0 14px 34px -10px rgba(0,0,0,.7),0 0 0 1.5px var(--accent);border-radius:12px;transform:scale(1.01);transition:none!important}
+.dragging{position:relative;z-index:20;box-shadow:0 22px 44px -12px rgba(0,0,0,.8),0 0 0 1.5px var(--accent);border-radius:12px;cursor:grabbing;will-change:transform}
+.row:has(.grip),.secrow,.berow,.wrow{cursor:grab}
+.row:has(.grip) :is(input,select,textarea,label),.berow :is(input,label),.wrow :is(input,select){cursor:auto}
+.row:has(.grip) button,.berow button,.wrow button{cursor:pointer}
+.grip{cursor:grab!important}
 .dragging .grip{color:var(--accent)}
