@@ -474,6 +474,7 @@
       P("Extra screens", "Used when any section is on screen 2 or later.", [
         F.chips("scroll.transition", "Transition", [["snap", "Smooth snap"], ["free", "Free scroll"]]),
         F.toggle("scroll.hint", "Scroll hint", { hint: "a small arrow nudging people down" }), F.toggle("scroll.dots", "Screen dots", { hint: "a dot for each screen at the side" }),
+        F.chips("scroll.dotStyle", "Dot style", [["pill", "Glowing pill"], ["dots", "Dots"], ["lines", "Lines"], ["numbers", "Numbers"]]), F.chips("scroll.dotSide", "Side", [["right", "Right"], ["left", "Left"]]),
       ]),
     ] },
 

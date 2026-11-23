@@ -414,3 +414,20 @@ body .name.grad.name:has(.ch){background:none!important}
 .lsn-serif .lsn-now .lsn-tx b{font-size:17px}
 .lsn-serif .lsn-tx small:first-child{font-family:var(--font)}
 .card.card-bare .sec-head.sec-big{margin-bottom:26px}
+/* page dots: styles */
+.dots.dsd-left{right:auto;left:16px}
+.dots button{cursor:pointer;border:0;padding:0}
+/* glowing pill (like mori): small dots, the current page is a tall white pill */
+.dots.dst-pill{gap:9px;align-items:center}
+.dots.dst-pill button{width:7px;height:7px;border-radius:99px;background:color-mix(in srgb,var(--text) 35%,transparent);transform:none;transition:height .35s cubic-bezier(.2,.8,.2,1),background .25s,box-shadow .25s}
+.dots.dst-pill button[aria-current=true]{height:34px;width:8px;transform:none;background:var(--text);box-shadow:0 0 10px color-mix(in srgb,var(--text) 70%,transparent),0 0 22px color-mix(in srgb,var(--text) 35%,transparent)}
+.dots.dst-pill button:not([aria-current=true]):hover{background:color-mix(in srgb,var(--text) 70%,transparent)}
+/* lines */
+.dots.dst-lines{gap:7px;align-items:flex-end}
+.dots.dst-lines button{width:14px;height:2px;border-radius:2px;background:color-mix(in srgb,var(--text) 35%,transparent);transform:none;transition:width .3s,background .2s}
+.dots.dst-lines.dsd-left{align-items:flex-start}
+.dots.dst-lines button[aria-current=true]{width:28px;background:var(--text);transform:none}
+/* numbers */
+.dots.dst-numbers{gap:6px}
+.dots.dst-numbers button{width:auto;height:auto;min-width:22px;padding:3px 0;border-radius:6px;background:none;font:600 11px/1 var(--font);color:color-mix(in srgb,var(--text) 45%,transparent);transform:none}
+.dots.dst-numbers button[aria-current=true]{color:var(--text);background:rgba(255,255,255,.08);transform:none}

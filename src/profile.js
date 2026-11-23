@@ -127,7 +127,7 @@ const SCHEMA = {
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),
   },
   sections: { t: "sections" },
-  scroll: { transition: E(["snap", "free"], "snap"), hint: B(true), dots: B(true) },
+  scroll: { transition: E(["snap", "free"], "snap"), hint: B(true), dots: B(true), dotStyle: E(["pill", "dots", "lines", "numbers"], "pill"), dotSide: E(["right", "left"], "right") },
   socials: { t: "list", max: LIMITS.socials, item: { id: { t: "id" }, platform: E(PLATFORMS, "website"), url: { t: "url" } }, need: "url" },
   linkButtons: { t: "list", max: LIMITS.buttons, item: { id: { t: "id" }, label: S(40), url: { t: "url" }, icon: { t: "enum", list: ["", ...PLATFORMS], d: "" }, highlight: B(false), hoverLabel: S(40) }, need: "url" },
   projects: { t: "list", max: LIMITS.projects, item: { id: { t: "id" }, name: S(40), tag: S(20), desc: S(140), url: { t: "url" }, icon: E(PROJECT_ICONS, "code") }, need: "name" },

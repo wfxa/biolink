@@ -106,8 +106,8 @@
       </div>`;
 
     if (pagesN > 1) {
-      if (p.scroll.dots) { const dots = document.createElement("nav"); dots.className = "dots"; dots.setAttribute("aria-label", "Pages");
-        dots.innerHTML = screens.map((_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}"></button>`).join(""); document.body.appendChild(dots); }
+      if (p.scroll.dots) { const dots = document.createElement("nav"); dots.className = `dots dst-${p.scroll.dotStyle || "pill"} dsd-${p.scroll.dotSide || "right"}`; dots.setAttribute("aria-label", "Pages");
+        dots.innerHTML = screens.map((_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}">${p.scroll.dotStyle === "numbers" ? i + 1 : ""}</button>`).join(""); document.body.appendChild(dots); }
       if (p.scroll.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = "scroll for more ↓"; root.querySelector(".screen").appendChild(h); }
       setupScroll();
     }
