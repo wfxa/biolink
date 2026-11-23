@@ -404,8 +404,9 @@
         F.chips("enter.type", "Style", [["fade", "Fade"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["glitch", "Glitch"], ["boot", "Boot up"], ["zoom", "Zoom"], ["bottle", "Pill bottle"], ["hack", "Hacking"]], { rerender: true }),
         ...(draft.enter.type === "hack" ? [F.chips("enter.hackPreset", "Hack script", [["dose", "Dose"], ["breach", "Breach"], ["mainframe", "Mainframe"], ["custom", "Write my own"]], { rerender: true }),
           ...(draft.enter.hackPreset === "custom" ? [F.area("enter.hackLines", "Your lines", { rows: 5, max: 800, ph: "one line each\nbypassing firewall\nACCESS GRANTED" })] : [])] : []),
-        F.text("enter.text", "Text", { ph: "click to enter", max: 40 }), F.text("enter.sub", "Small text", { ph: "turn your sound on", max: 80, hint: "optional" }),
-        F.chips("enter.backdrop", "Background", [["blur", "Blur"], ["dark", "Dark"], ["minimal", "Minimal"], ["picture", "My picture, blurred"], ["gradient", "Moving gradient"], ["aurora", "Aurora"], ["frosted", "Frosted glass"], ["grain", "Film grain"], ["scanlines", "Old TV"], ["stars", "Starry night"], ["vignette", "Spotlight"]].map(([v, l]) => [v, l, `<span class="pv pv-scene epv epv-${v}"${v === "picture" && (draft.banner || draft.avatar.src) ? ` style="--ebg:url('${esc(draft.banner || draft.avatar.src)}')"` : ""}><b>click to enter</b></span>`]), { pv: true }),
+        F.text("enter.big", "Big word", { ph: "e.g. die", max: 30, hint: "optional · huge, above the text" }), F.text("enter.text", "Text", { ph: "click to enter", max: 40 }), F.text("enter.sub", "Small text", { ph: "turn your sound on", max: 80, hint: "optional" }),
+        F.chips("enter.backdrop", "Background", [["blur", "Blur"], ["dark", "Dark"], ["minimal", "Minimal"], ["splash", "Picture"], ["picture", "My picture, blurred"], ["gradient", "Moving gradient"], ["aurora", "Aurora"], ["frosted", "Frosted glass"], ["grain", "Film grain"], ["scanlines", "Old TV"], ["stars", "Starry night"], ["vignette", "Spotlight"]].map(([v, l]) => [v, l, `<span class="pv pv-scene epv epv-${v}"${(v === "picture" || v === "splash") && (draft.enter.image || draft.banner || draft.avatar.src) ? ` style="--ebg:url('${esc(draft.enter.image || draft.banner || draft.avatar.src)}')"` : ""}><b>click to enter</b></span>`]), { pv: true }),
+        F.upload("enter.image", "banner", "Picture for the click to enter screen", { link: true, accept: "image/png,image/jpeg,image/gif,image/webp", note: "for Picture / My picture, blurred · empty uses your banner" }),
         F.toggle("enter.showMe", "Show your picture and name", { hint: "above the text, with a soft ring of light" }),
         F.toggle("enter.warning", "Heads-up notice", { hint: "for flashing lights or loud audio" }),
         ...(draft.enter.warning ? [F.text("enter.warningText", "Notice text", { max: 120, wide: true })] : []),
@@ -479,10 +480,14 @@
 
     sections: { title: "Arrange", icon: "repo", lead: "Move sections up and down, hide them, give them a heading, or send them to another screen further down.", panels: () => [
       P("Order", "", [F.custom("sections", "Section order", () => listSections(), bindSections)]),
+      P("Chapters", "Manga-style screens: each chapter gets a full screen with a title and a big picture, after your other screens.", premium ? [
+        F.custom("chapters", "Chapters", () => listChapters(), bindChapters),
+        ...(draft.chapters.length ? [F.chips("chapterStyle", "Look", [["manga", "Manga panel"], ["clean", "Clean"], ["polaroid", "Polaroid"]])] : []),
+      ] : [F.note(`<b>Premium</b> · Turn your page into a manga: chapters with Japanese titles, big panels and page numbers, each on its own screen. Get Premium to unlock it.`)]),
       P("Extra screens", "Used when any section is on screen 2 or later.", [
         F.chips("scroll.transition", "Transition", [["snap", "Smooth snap"], ["free", "Free scroll"]]),
         F.toggle("scroll.hint", "Scroll hint", { hint: "a small arrow nudging people down" }), F.toggle("scroll.dots", "Screen dots", { hint: "a dot for each screen at the side" }),
-        F.chips("scroll.dotStyle", "Dot style", [["pill", "Glowing pill"], ["dots", "Dots"], ["lines", "Lines"], ["numbers", "Numbers"]]), F.chips("scroll.dotSide", "Side", [["right", "Right"], ["left", "Left"]]),
+        F.chips("scroll.dotStyle", "Dot style", [["pill", "Glowing pill"], ["dots", "Dots"], ["lines", "Lines"], ["numbers", "Numbers"], ["bar", "Icon bar at the bottom"]]), F.chips("scroll.dotSide", "Side", [["right", "Right"], ["left", "Left"]]),
       ]),
     ] },
 
@@ -594,7 +599,7 @@
     side.innerHTML = `<a class="logo" href="/"><i></i>${esc(me.site)}</a>` + NAV.map(([g, ids]) => (g ? `<div class="grp">${g}</div>` : "") + ids.map((id) => {
       const v = VIEWS[id] || SIMPLE[id]; return `<button data-s="${id}" aria-current="${id === view}">${svgIcon(v.icon)}${v.title}</button>`;
     }).join("")).join("") + (isStaff ? `<div class="grp">Site</div><button onclick="location.href='/admin'">${svgIcon("crown")}Owner panel</button>` : "") +
-      (premium ? "" : `<div class="upsell"><span class="capsule" style="--w:34px"></span><b>Extra strength</b><small>Video backgrounds, your own CSS, more songs and links.</small></div>`) +
+      (premium ? "" : `<div class="upsell"><span class="capsule" style="--w:34px"></span><b>Extra strength</b><small>Manga chapters, video backgrounds, your own CSS, more songs and links.</small></div>`) +
       `<div class="me"><span class="av">${draft.avatar.src ? `<img src="${esc(draft.avatar.src)}" alt="">` : esc(me.username.slice(0, 2))}</span><span style="min-width:0;flex:1"><b>${esc(me.username)}</b><span class="muted">#${me.memberNo}${premium ? " · premium" : " · free"}</span></span></div>`;
     $$("[data-s]", side).forEach((b) => (b.onclick = () => show(b.dataset.s)));
   }
@@ -933,6 +938,16 @@
     $$("[data-sf]", root).forEach((inp) => inp.addEventListener(inp.type === "text" ? "input" : "change", () => {
       const s = draft.sections[Number(inp.dataset.i)]; s[inp.dataset.sf] = inp.type === "checkbox" ? inp.checked : inp.dataset.sf === "page" ? Number(inp.value) : inp.value; changed();
     }));
+  }
+  const listChapters = () => `<div class="field wide" data-key="chapters"><div class="list">${draft.chapters.map((c, i) => `<div class="row chrow"><label class="pcov chcov" title="${c.image ? "Change picture" : "Add a picture"}">${c.image ? `<img src="${esc(c.image)}" alt="">` : svgIcon("brush")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-chimg="${i}" hidden></label>
+      <div class="chf"><input type="text" data-f="jp" data-i="${i}" value="${esc(c.jp)}" placeholder="japanese title, e.g. ゆめうつつ" maxlength="40"><input type="text" data-f="title" data-i="${i}" value="${esc(c.title)}" placeholder="title, e.g. between dream and waking" maxlength="60">
+      <input type="text" data-f="sub" data-i="${i}" value="${esc(c.sub)}" placeholder="small line (optional)" maxlength="80"><input type="text" data-f="label" data-i="${i}" value="${esc(c.label)}" placeholder="page ${String(i + 7).padStart(2, "0")}" maxlength="20"></div>${acts(i, draft.chapters.length)}</div>`).join("") || `<p class="muted">No chapters yet.</p>`}</div>
+    ${draft.chapters.length < 10 ? `<div class="upload"><div class="thumb">${svgIcon("brush")}</div><div style="display:flex;flex-direction:column;gap:6px"><b style="font-size:12.5px">Add a chapter</b><div class="ub"><label class="btn small primary">Pick its picture<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" id="addCh" hidden></label></div><small>each chapter gets a screen of its own, after your other screens</small></div></div>` : ""}</div>`;
+  function bindChapters() {
+    const root = main.querySelector('[data-key="chapters"]'); if (!root) return;
+    bindList(root, "chapters", reView);
+    $$("[data-chimg]", root).forEach((inp) => inp.addEventListener("change", () => { const f = inp.files[0]; if (!f) return; const i = Number(inp.dataset.chimg); upload(f, "banner", null, (url) => { draft.chapters[i].image = url; changed(); reView(); }); }));
+    const add = $("#addCh"); if (add) add.addEventListener("change", () => { const f = add.files[0]; if (!f) return; upload(f, "banner", null, (url) => { draft.chapters.push({ id: newId(), jp: "", title: "", sub: "", image: url, label: "" }); changed(); reView(); }); });
   }
   const listPlaylist = () => `<div class="field wide" data-key="playlist"><div class="list">${draft.playlist.map((s, i) => `<div class="row" style="grid-template-columns:40px 1fr auto"><label class="pcov" title="${s.cover ? "Change cover" : "Add a cover picture"}">${s.cover ? `<img src="${esc(s.cover)}" alt="">` : svgIcon("brush")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-cov="${i}" hidden></label>
       <input type="text" data-f="title" data-i="${i}" value="${esc(s.title)}" placeholder="artist – song (the dash splits artist and title)" maxlength="60">${acts(i, draft.playlist.length)}</div>`).join("") || `<p class="muted">No songs yet.</p>`}</div>

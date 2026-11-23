@@ -93,21 +93,26 @@
     const pagesN = d.subpage ? 1 : Math.max(1, ...sections.map((s) => s.page));
     const screens = [];
     for (let i = 1; i <= pagesN; i++) screens.push(sections.filter((s) => s.page === i));
+    const chapters = d.subpage ? [] : (p.chapters || []).filter((c) => c.image);
+    const totalScreens = screens.length + chapters.length;
 
     root.innerHTML = `
       ${backgroundHtml(p)}
       <canvas class="fx" aria-hidden="true"></canvas>${p.fx.overlay2 !== "none" ? `<canvas class="fx fx2" aria-hidden="true"></canvas>` : ""}
       ${p.texture !== "none" ? `<div class="texture tx-${p.texture}"></div>` : ""}
       <div class="vignette"></div>
-      <div class="scroller ${p.scroll.transition === "snap" && pagesN > 1 ? "snap" : ""}">
+      <div class="scroller ${p.scroll.transition === "snap" && totalScreens > 1 ? "snap" : ""}">
         ${d.subpage ? subpageHtml(p, d) : screens.map((secs, i) => `<section class="screen" data-screen="${i}"><div class="wrap">
           ${i === 0 ? firstScreen(p, d, secs) : p.card.oneCard ? `<div class="card">${spot(p)}${secs.map((s) => sectionHtml(s, p, d)).join("")}</div>` : secs.map((s) => `<div class="card">${spot(p)}${sectionHtml(s, p, d)}</div>`).join("")}
         </div></section>`).join("")}
+        ${chapters.map((c, k) => `<section class="screen chapter-screen" data-screen="${screens.length + k}"><div class="wrap">${chapterHtml(c, k, p)}</div></section>`).join("")}
       </div>`;
 
-    if (pagesN > 1) {
+    if (totalScreens > 1) {
       if (p.scroll.dots) { const dots = document.createElement("nav"); dots.className = `dots dst-${p.scroll.dotStyle || "pill"} dsd-${p.scroll.dotSide || "right"}`; dots.setAttribute("aria-label", "Pages");
-        dots.innerHTML = screens.map((_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}">${p.scroll.dotStyle === "numbers" ? i + 1 : ""}</button>`).join(""); document.body.appendChild(dots); }
+        // icon bar: home for the first screen, a music note for a screen with your listening section, chapter numbers for chapters
+        const barIcon = (i) => i === 0 ? svgIcon("heart") : i < screens.length ? (screens[i].some((s) => s.id === "listening") ? svgIcon("music") : `<b>${i + 1}</b>`) : `<b>${i - screens.length + 1}</b>`;
+        dots.innerHTML = Array.from({ length: totalScreens }, (_, i) => `<button aria-label="Page ${i + 1}" aria-current="${i === 0}">${p.scroll.dotStyle === "numbers" ? i + 1 : p.scroll.dotStyle === "bar" ? barIcon(i) : ""}</button>`).join(""); document.body.appendChild(dots); }
       if (p.scroll.hint) { const h = document.createElement("div"); h.className = "hint"; h.textContent = "scroll for more ↓"; root.querySelector(".screen").appendChild(h); }
       setupScroll();
     }
@@ -269,6 +274,16 @@
   }
   // true for light colours (e.g. Roblox white), so brand-coloured icons can use a dark symbol
   function lightHex(h) { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return false; const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return 0.299 * r + 0.587 * g + 0.114 * b > 186; }
+  /* manga-style chapters: each one is a full screen with a title, subtitle, a big picture and a page label */
+  function chapterHtml(c, k, p) {
+    const n = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"][k] || k + 1;
+    const label = c.label || `page ${String(k + 7).padStart(2, "0")}`;
+    return `<article class="chap chs-${p.chapterStyle || "manga"}" style="--k:${k}">
+      <header class="chap-h"><span class="chap-no">第${n}話</span>${c.jp ? `<span class="chap-jp">${esc(c.jp)}</span>` : ""}</header>
+      ${c.title ? `<h2 class="chap-t">${esc(c.title)}</h2>` : ""}${c.sub ? `<p class="chap-s">${esc(c.sub)}</p>` : ""}
+      <figure class="chap-f"><img src="${esc(c.image)}" alt="${esc(c.title || "chapter " + (k + 1))}" loading="lazy"><figcaption>${esc(label)}</figcaption></figure>
+    </article>`;
+  }
   function setupBeam(p) {
     const c = p.card || {};
     const sel = [c.beamCard && ".card", c.beamLinks && ".buttons a", c.beamIcons && ".socials a", c.beamWidgets && ".wg", c.beamBoxes && ".box", c.beamLive && ".pcard, .pstrip"].filter(Boolean).join(", ");
@@ -1262,14 +1277,14 @@
     document.body.classList.add("pre");
     const en = p.enter, el = document.createElement("div");
     el.className = `enter e-${en.type} eb-${en.backdrop || "blur"}`;
-    if (en.backdrop === "picture") { const pic = p.banner || (p.background && p.background.type === "image" && p.background.image) || (p.avatar && p.avatar.src); if (pic) el.style.setProperty("--ebg", `url("${String(pic).replace(/"/g, "%22")}")`); } el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", en.text);
+    if (en.backdrop === "picture" || en.backdrop === "splash") { const pic = en.image || p.banner || (p.background && p.background.type === "image" && p.background.image) || (p.avatar && p.avatar.src); if (pic) el.style.setProperty("--ebg", `url("${String(pic).replace(/"/g, "%22")}")`); } el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-label", en.text);
     const panes = { curtain: 2, slice: 3, shutter: 8 }[en.type] || 0;
     const warn = en.warning ? `<span class="warn">${esc(en.warningText)}</span>` : "";
     // optional picture + name above the text, and a small line under it
     const meName = p.displayName || d.username, meAv = p.avatar && p.avatar.src;
     const me = en.showMe ? `<span class="eme"><span class="eav">${meAv ? `<img src="${esc(meAv)}" alt="">` : esc(meName.slice(0, 2))}</span><b class="enm">${esc(meName)}</b></span>` : "";
     const sub = en.sub ? `<small class="esub">${esc(en.sub)}</small>` : "";
-    el.innerHTML = en.type === "hack" ? `<div class="hk"><div class="hkbar"><span>root@${esc(window.__SITE)}:~</span><i></i><i></i><i></i></div><pre class="hklog"></pre><div class="hkprog"><i></i><span>0%</span></div><div class="hkgo" hidden>${esc(en.text)}</div>${warn ? `<div class="hkwarn">${warn}</div>` : ""}</div>` : en.type === "boot" ? `<pre></pre>` : en.type === "bottle" ? `<div class="bottle"><div class="cap"><i></i></div><div class="neck"></div><div class="jar"><div class="blabel"><b><i>Rx</i> ${esc(d.displayName || p.displayName || d.username)}</b><span>${esc(en.text)}</span><small>No. ${String(d.memberNo).padStart(4, "0")} · take one</small></div></div>${Array.from({ length: 10 }, (_, i) => `<em class="pl" style="--dx:${Math.round((Math.random() - 0.5) * 70)}vw;--dy:${Math.round(-20 - Math.random() * 60)}vh;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(i * 0.03).toFixed(2)}s;--c:${["var(--accent)", "#fff", "#ffd27a", "#9ad8ff"][i % 4]}"></em>`).join("")}</div>${warn ? `<span class="label" style="position:absolute;bottom:8vh">${warn}</span>` : ""}` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${me}<span class="etx">${esc(en.text)}</span>${sub}${warn}</span>`;
+    el.innerHTML = en.type === "hack" ? `<div class="hk"><div class="hkbar"><span>root@${esc(window.__SITE)}:~</span><i></i><i></i><i></i></div><pre class="hklog"></pre><div class="hkprog"><i></i><span>0%</span></div><div class="hkgo" hidden>${esc(en.text)}</div>${warn ? `<div class="hkwarn">${warn}</div>` : ""}</div>` : en.type === "boot" ? `<pre></pre>` : en.type === "bottle" ? `<div class="bottle"><div class="cap"><i></i></div><div class="neck"></div><div class="jar"><div class="blabel"><b><i>Rx</i> ${esc(d.displayName || p.displayName || d.username)}</b><span>${esc(en.text)}</span><small>No. ${String(d.memberNo).padStart(4, "0")} · take one</small></div></div>${Array.from({ length: 10 }, (_, i) => `<em class="pl" style="--dx:${Math.round((Math.random() - 0.5) * 70)}vw;--dy:${Math.round(-20 - Math.random() * 60)}vh;--r:${Math.round(Math.random() * 720 - 360)}deg;--d:${(i * 0.03).toFixed(2)}s;--c:${["var(--accent)", "#fff", "#ffd27a", "#9ad8ff"][i % 4]}"></em>`).join("")}</div>${warn ? `<span class="label" style="position:absolute;bottom:8vh">${warn}</span>` : ""}` : Array.from({ length: panes }, (_, i) => `<span class="pane" style="${en.type === "shutter" ? `top:${i * 12.5}%;transition-delay:${i * 0.04}s` : ""}"></span>`).join("") + `<span class="label">${me}${en.big ? `<b class="ebig">${esc(en.big)}</b>` : ""}<span class="etx">${esc(en.text)}</span>${sub}${warn}</span>`;
     document.body.appendChild(el);
     let ready = en.type !== "boot" && en.type !== "hack";
     if (en.type === "hack") {

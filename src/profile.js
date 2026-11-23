@@ -76,7 +76,7 @@ const SCHEMA = {
   overlay: { t: "enum", list: OVERLAYS, d: "particles", premiumValues: PREMIUM_OVERLAYS },
   texture: E(TEXTURES, "none"),
   viewCounter: E(VIEW_STYLES, "inline"),
-  enter: { show: B(true), type: E(ENTER_SCREENS, "fade"), text: S(40, "click to enter"), sub: S(80), backdrop: E(["blur", "dark", "minimal", "picture", "gradient", "aurora", "frosted", "grain", "scanlines", "stars", "vignette"], "blur"), showMe: B(false), warning: B(false), warningText: S(120, "This page has flashing lights and loud audio."),
+  enter: { show: B(true), type: E(ENTER_SCREENS, "fade"), text: S(40, "click to enter"), sub: S(80), big: S(30), backdrop: E(["blur", "dark", "minimal", "splash", "picture", "gradient", "aurora", "frosted", "grain", "scanlines", "stars", "vignette"], "blur"), showMe: B(false), warning: B(false), warningText: S(120, "This page has flashing lights and loud audio."),
     hackPreset: E(["dose", "breach", "mainframe", "custom"], "dose"), hackLines: S(800), image: IMG() },
   cursor: {
     effect: E(CURSORS, "sparkle"), image: IMG(), imageHover: IMG(), imageDown: IMG(), click: E(CLICK_EFFECTS, "none"), sound: E(CLICK_SOUNDS, "none"), soundFile: UP("sound"),
@@ -110,6 +110,8 @@ const SCHEMA = {
     visualizer: B(false), overlay2: { t: "enum", list: OVERLAYS, d: "none", premiumValues: PREMIUM_OVERLAYS }, atmoColor: C(), density: N(25, 200, 100), speed: N(25, 200, 100), streams: B(false), scrollbar: E(["default", "thin", "hidden", "accent"], "default") },
   terminal: { theme: E(["green", "amber", "accent", "white"], "green"), prompt: S(30), motd: S(200), typing: B(true), sounds: B(false), autorun: S(60, "neofetch") },
   discordSync: { banner: B(false), accent: B(false) },
+  chapters: P({ t: "list", max: 10, item: { id: { t: "id" }, jp: S(40), title: S(60), sub: S(80), image: IMG(), label: S(20) }, need: "image", d: [] }), // Premium
+  chapterStyle: P(E(["manga", "clean", "polaroid"], "manga")),
   listening: { on: B(false), source: E(["auto", "lastfm", "dose"], "auto"), lastfm: { t: "re", re: /^[A-Za-z0-9_-]{0,30}$/, d: "" }, period: E(["7day", "1month", "12month", "overall"], "1month"),
     showNow: B(true), showRecent: B(true), showTop: B(true), recentCount: N(3, 30, 8), topCount: N(3, 10, 8), showArt: B(true),
     layout: E(["auto", "side", "stacked"], "auto"), look: E(["boxes", "plain", "compact"], "boxes"), covers: E(["rounded", "square", "circle"], "rounded"),
@@ -127,7 +129,7 @@ const SCHEMA = {
     width: N(340, 760, 460), entrance: E(["rise", "fade", "zoom", "none"], "rise"),
   },
   sections: { t: "sections" },
-  scroll: { transition: E(["snap", "free"], "snap"), hint: B(true), dots: B(true), dotStyle: E(["pill", "dots", "lines", "numbers"], "pill"), dotSide: E(["right", "left"], "right") },
+  scroll: { transition: E(["snap", "free"], "snap"), hint: B(true), dots: B(true), dotStyle: E(["pill", "dots", "lines", "numbers", "bar"], "pill"), dotSide: E(["right", "left"], "right") },
   socials: { t: "list", max: LIMITS.socials, item: { id: { t: "id" }, platform: E(PLATFORMS, "website"), url: { t: "url" } }, need: "url" },
   linkButtons: { t: "list", max: LIMITS.buttons, item: { id: { t: "id" }, label: S(40), url: { t: "url" }, icon: { t: "enum", list: ["", ...PLATFORMS], d: "" }, highlight: B(false), hoverLabel: S(40) }, need: "url" },
   projects: { t: "list", max: LIMITS.projects, item: { id: { t: "id" }, name: S(40), tag: S(20), desc: S(140), url: { t: "url" }, icon: E(PROJECT_ICONS, "code") }, need: "name" },
