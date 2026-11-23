@@ -445,3 +445,51 @@ body.ilk-glow .socials a svg{filter:drop-shadow(0 0 6px color-mix(in srgb,curren
 body.ilk-brand .socials a{background:var(--bc,#555);border-color:transparent;color:var(--bfg,#fff)!important}
 body.ilk-brand .socials a:hover{box-shadow:0 10px 22px -10px var(--bc,#555)}
 body.ilk-plain .socials a{background:none;border-color:transparent;box-shadow:none}
+/* ===== click to enter: background styles, picture + name, small text ===== */
+.enter .label{animation:none}
+.enter .etx{animation:epulse 2s ease-in-out infinite}
+.enter .esub{font-family:var(--font);font-weight:400;font-size:11.5px;letter-spacing:.04em;text-transform:none;color:color-mix(in srgb,var(--text) 55%,transparent);margin-top:-6px}
+.enter .eme{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:6px;letter-spacing:0;text-transform:none}
+.enter .eav{width:84px;height:84px;border-radius:var(--av-radius,50%);overflow:hidden;display:grid;place-items:center;background:#15111a;font-size:22px;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 55%,transparent),0 0 34px 4px color-mix(in srgb,var(--accent) 35%,transparent);animation:eglow 3s ease-in-out infinite}
+.enter .eav img{width:100%;height:100%;object-fit:cover}
+.enter .enm{font-family:var(--name-font);font-size:22px;font-weight:700;letter-spacing:0}
+@keyframes eglow{50%{box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 80%,transparent),0 0 46px 8px color-mix(in srgb,var(--accent) 45%,transparent)}}
+/* blur (the default look) */
+.enter.eb-blur.e-curtain .pane,.enter.eb-blur.e-slice .pane,.enter.eb-blur.e-shutter .pane{background:rgba(5,4,8,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+/* dark: solid black, nothing shows through */
+.enter.eb-dark:is(.e-fade,.e-zoom,.e-glitch,.e-aperture){background:#000;-webkit-backdrop-filter:none;backdrop-filter:none}
+.enter.eb-dark .pane{background:#000}
+/* minimal: black with a faint dot grid, small spaced-out capitals */
+.enter.eb-minimal:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-minimal .pane{background:#070709 radial-gradient(rgba(255,255,255,.09) 1px,transparent 1.2px) 0 0/16px 16px;-webkit-backdrop-filter:none;backdrop-filter:none}
+.enter.eb-minimal .etx{font-family:var(--font);font-weight:500;font-size:12px;letter-spacing:.35em;text-transform:uppercase;animation:none;opacity:.85}
+@media (prefers-reduced-motion:reduce){.enter .etx,.enter .eav{animation:none}}
+/* ===== more click to enter backgrounds ===== (full-screen styles, and the panes of curtain / slice / shutter) */
+.enter[class*="eb-"]:is(.e-fade,.e-zoom,.e-glitch,.e-aperture){--eb-on:1}
+/* your picture, big and blurred */
+.enter.eb-picture:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-picture .pane{background:linear-gradient(rgba(5,4,8,.55),rgba(5,4,8,.75)),var(--ebg,linear-gradient(135deg,#2a2140,#0d1720)) center/cover fixed;-webkit-backdrop-filter:none;backdrop-filter:none}
+.enter.eb-picture:is(.e-fade,.e-zoom,.e-glitch,.e-aperture)::before{content:"";position:absolute;inset:-40px;background:inherit;filter:blur(28px) saturate(1.2);z-index:0}
+/* moving gradient in your accent colour */
+.enter.eb-gradient:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-gradient .pane{background:linear-gradient(120deg,#07060a,color-mix(in srgb,var(--accent) 45%,#07060a),#07060a,color-mix(in srgb,var(--accent) 25%,#120a20),#07060a) 0 0/400% 400% fixed;animation:ebgrad 12s ease infinite;-webkit-backdrop-filter:none;backdrop-filter:none}
+@keyframes ebgrad{50%{background-position:100% 100%}}
+/* aurora: soft coloured lights drifting */
+.enter.eb-aurora:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-aurora .pane{background:radial-gradient(60% 50% at 20% 30%,color-mix(in srgb,var(--accent) 45%,transparent),transparent 70%) fixed,radial-gradient(50% 45% at 80% 70%,rgba(80,140,255,.35),transparent 70%) fixed,radial-gradient(45% 40% at 60% 20%,rgba(190,90,255,.3),transparent 70%) fixed,#06060b;background-size:180% 180%;animation:ebaur 14s ease-in-out infinite alternate;-webkit-backdrop-filter:none;backdrop-filter:none}
+@keyframes ebaur{to{background-position:60% 40%,30% 70%,80% 10%,0 0}}
+/* frosted glass: light and milky, your page shows through */
+.enter.eb-frosted:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-frosted .pane{background:rgba(235,235,245,.14);-webkit-backdrop-filter:blur(24px) saturate(1.4);backdrop-filter:blur(24px) saturate(1.4)}
+/* film grain */
+.enter.eb-grain:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-grain .pane{background:#0a0a0c;-webkit-backdrop-filter:none;backdrop-filter:none}
+.enter.eb-grain::after{content:"";position:absolute;inset:-50%;z-index:1;pointer-events:none;opacity:.22;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");animation:ebgrain .6s steps(4) infinite}
+@keyframes ebgrain{25%{transform:translate(-4%,3%)}50%{transform:translate(3%,-5%)}75%{transform:translate(-2%,-3%)}}
+.enter.eb-grain.out::after{opacity:0;transition:opacity .3s}
+/* old TV: scanlines and a little flicker */
+.enter.eb-scanlines:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-scanlines .pane{background:repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 3px) fixed,radial-gradient(ellipse at center,#121418,#030304 75%) fixed;-webkit-backdrop-filter:none;backdrop-filter:none}
+.enter.eb-scanlines .label{text-shadow:1px 0 rgba(255,60,90,.6),-1px 0 rgba(60,200,255,.6);animation:ebflick 4s infinite}
+@keyframes ebflick{0%,96%,100%{opacity:1}97%{opacity:.6}98%{opacity:1}99%{opacity:.75}}
+/* starry night */
+.enter.eb-stars:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-stars .pane{background:radial-gradient(1.2px 1.2px at 12% 18%,#fff,transparent) fixed,radial-gradient(1px 1px at 33% 72%,#fff,transparent) fixed,radial-gradient(1.4px 1.4px at 58% 28%,#fff,transparent) fixed,radial-gradient(1px 1px at 77% 63%,#fff,transparent) fixed,radial-gradient(1.2px 1.2px at 88% 12%,#fff,transparent) fixed,radial-gradient(1px 1px at 22% 88%,#fff,transparent) fixed,radial-gradient(1px 1px at 47% 47%,rgba(255,255,255,.8),transparent) fixed,radial-gradient(1.3px 1.3px at 66% 90%,#fff,transparent) fixed,radial-gradient(ellipse at bottom,#0d1022,#020205 70%) fixed;-webkit-backdrop-filter:none;backdrop-filter:none}
+.enter.eb-stars::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:radial-gradient(1px 1px at 8% 40%,#fff,transparent),radial-gradient(1.2px 1.2px at 42% 12%,#fff,transparent),radial-gradient(1px 1px at 71% 38%,#fff,transparent),radial-gradient(1.2px 1.2px at 92% 80%,#fff,transparent),radial-gradient(1px 1px at 28% 55%,#fff,transparent);animation:ebtw 3s ease-in-out infinite}
+@keyframes ebtw{50%{opacity:.2}}
+.enter.eb-stars.out::before{opacity:0}
+/* spotlight: your page shows in the middle, the edges fade to black */
+.enter.eb-vignette:is(.e-fade,.e-zoom,.e-glitch,.e-aperture),.enter.eb-vignette .pane{background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.35) 0,rgba(0,0,0,.85) 45%,#000 75%) fixed;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+@media (prefers-reduced-motion:reduce){.enter[class*="eb-"],.enter[class*="eb-"] .pane,.enter[class*="eb-"]::before,.enter[class*="eb-"]::after{animation:none!important}}

@@ -399,15 +399,17 @@
         F.toggle("motion.spotlight", "Pointer light", { hint: "your card brightens where the pointer is" }),
         F.toggle("motion.glint", "Sheen", { hint: "now and then, light slides across your card" }),
       ]),
-      P("Opening screen", "Visitors tap through it before your page appears, which also lets your music play straight away.", [
-        F.toggle("enter.show", "Use an opening screen", { wide: true }),
+      P("Click to enter screen", "Visitors click through it before your page appears, which also lets your music play straight away.", [
+        F.toggle("enter.show", "Show click to enter screen", { wide: true }),
         F.chips("enter.type", "Style", [["fade", "Fade"], ["curtain", "Curtain"], ["aperture", "Aperture"], ["slice", "Slice"], ["shutter", "Shutter"], ["glitch", "Glitch"], ["boot", "Boot up"], ["zoom", "Zoom"], ["bottle", "Pill bottle"], ["hack", "Hacking"]], { rerender: true }),
         ...(draft.enter.type === "hack" ? [F.chips("enter.hackPreset", "Hack script", [["dose", "Dose"], ["breach", "Breach"], ["mainframe", "Mainframe"], ["custom", "Write my own"]], { rerender: true }),
           ...(draft.enter.hackPreset === "custom" ? [F.area("enter.hackLines", "Your lines", { rows: 5, max: 800, ph: "one line each\nbypassing firewall\nACCESS GRANTED" })] : [])] : []),
-        F.text("enter.text", "Words on it", { ph: "click to enter", max: 40 }),
+        F.text("enter.text", "Text", { ph: "click to enter", max: 40 }), F.text("enter.sub", "Small text", { ph: "turn your sound on", max: 80, hint: "optional" }),
+        F.chips("enter.backdrop", "Background", [["blur", "Blur"], ["dark", "Dark"], ["minimal", "Minimal"], ["picture", "My picture, blurred"], ["gradient", "Moving gradient"], ["aurora", "Aurora"], ["frosted", "Frosted glass"], ["grain", "Film grain"], ["scanlines", "Old TV"], ["stars", "Starry night"], ["vignette", "Spotlight"]].map(([v, l]) => [v, l, `<span class="pv pv-scene epv epv-${v}"${v === "picture" && (draft.banner || draft.avatar.src) ? ` style="--ebg:url('${esc(draft.banner || draft.avatar.src)}')"` : ""}><b>click to enter</b></span>`]), { pv: true }),
+        F.toggle("enter.showMe", "Show your picture and name", { hint: "above the text, with a soft ring of light" }),
         F.toggle("enter.warning", "Heads-up notice", { hint: "for flashing lights or loud audio" }),
         ...(draft.enter.warning ? [F.text("enter.warningText", "Notice text", { max: 120, wide: true })] : []),
-        F.note("The preview skips the opening screen. Save, then open your page to see it."),
+        F.note("The preview skips the click to enter screen. Save, then open your page to see it."),
       ]),
     ] },
 

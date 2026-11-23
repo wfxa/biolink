@@ -76,7 +76,7 @@ const SCHEMA = {
   overlay: { t: "enum", list: OVERLAYS, d: "particles", premiumValues: PREMIUM_OVERLAYS },
   texture: E(TEXTURES, "none"),
   viewCounter: E(VIEW_STYLES, "inline"),
-  enter: { show: B(true), type: E(ENTER_SCREENS, "fade"), text: S(40, "click to enter"), warning: B(false), warningText: S(120, "This page has flashing lights and loud audio."),
+  enter: { show: B(true), type: E(ENTER_SCREENS, "fade"), text: S(40, "click to enter"), sub: S(80), backdrop: E(["blur", "dark", "minimal", "picture", "gradient", "aurora", "frosted", "grain", "scanlines", "stars", "vignette"], "blur"), showMe: B(false), warning: B(false), warningText: S(120, "This page has flashing lights and loud audio."),
     hackPreset: E(["dose", "breach", "mainframe", "custom"], "dose"), hackLines: S(800), image: IMG() },
   cursor: {
     effect: E(CURSORS, "sparkle"), image: IMG(), imageHover: IMG(), imageDown: IMG(), click: E(CLICK_EFFECTS, "none"), sound: E(CLICK_SOUNDS, "none"), soundFile: UP("sound"),
