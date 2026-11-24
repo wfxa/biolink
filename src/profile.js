@@ -119,7 +119,7 @@ const SCHEMA = {
     showTimes: B(true), bars: B(true), links: E(["source", "spotify", "none"], "source"), accent: B(false), bare: B(false), serif: B(false) },
   name: {
     autoSize: B(true), size: N(20, 80, 40), weight: N(300, 900, 800), spacing: N(-8, 12, -2), uppercase: B(false),
-    gradient: B(false), gradientMove: B(false), gradientSpeed: N(2, 20, 6), from: C("#ffffff"), to: C("#5ef2b0"), preset: E(["none", "sunset", "ocean", "toxic", "candy", "ice", "fire"], "none"),
+    gradient: B(false), gradientMove: B(false), gradientSpeed: N(2, 20, 6), shimmer: B(false), shimmerSpeed: N(1, 10, 4), from: C("#ffffff"), to: C("#5ef2b0"), preset: E(["none", "sunset", "ocean", "toxic", "candy", "ice", "fire"], "none"),
     shadowColor: C(), shadowBlur: N(0, 40, 0), shadowX: N(-20, 20, 0), shadowY: N(-20, 20, 0), outlineColor: C(), outlineWidth: N(0, 6, 0), effect: E(NAME_EFFECTS, "glow"), showUid: B(true),
     cycle: { t: "list", max: 5, item: S(40) }, cycleSpeed: N(2, 10, 3), cycleStyle: E(["scramble", "fade", "type", "morph"], "scramble"), extras: { t: "list", max: 2, item: E(NAME_EXTRAS, "sp-white") },
   },

@@ -568,3 +568,9 @@ body:has(.player) .turnbtn{bottom:84px}
 @media (prefers-reduced-motion:reduce){.anim-paper i{animation:none}}
 .bg .anim-paper{position:absolute;inset:0;overflow:hidden;filter:none}
 body:has(.turnbtn) .hint{display:none}
+/* shimmer: a band of light sweeps across the name (on top of the gradient, or any colour) */
+.name.gshim:not(.ne-glitch):not(.ne-typewriter):not(.ne-scramble)::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;z-index:2;white-space:inherit;
+  background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.55) 45%,#fff 50%,rgba(255,255,255,.55) 55%,transparent 62%) 0 0/300% 100% no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;text-shadow:none;filter:none;
+  animation:gshim var(--shim-t,4s) ease-in-out infinite}
+@keyframes gshim{0%{background-position:100% 0}55%,100%{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.name.gshim::after{animation:none;opacity:0}}

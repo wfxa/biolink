@@ -70,7 +70,8 @@
     { // one gradient system: your own two colours, or a moving preset (which also sets a third colour)
       const NP = { sunset: ["#ff5f6d", "#ffc371", "#ff8fb3"], ocean: ["#00c6ff", "#0072ff", "#6ef2ff"], toxic: ["#a8ff3e", "#32ff7e", "#e8ff3e"], candy: ["#ff9ad5", "#b28dff", "#8ff7ff"], ice: ["#ffffff", "#9be7ff", "#c5d8ff"], fire: ["#ff3d00", "#ffb300", "#ff6a00"] }[p.name.preset];
       R.setProperty("--g1", NP ? NP[0] : p.name.from); R.setProperty("--g2", NP ? NP[1] : p.name.to); R.setProperty("--g3", NP ? NP[2] : p.name.to);
-      R.setProperty("--gspeed", (NP ? 5 : p.name.gradientSpeed || 6) + "s");
+      R.setProperty("--shim-t", (12 - (p.name.shimmerSpeed || 4)) * 0.5 + 1 + "s");
+    R.setProperty("--gspeed", (NP ? 5 : p.name.gradientSpeed || 6) + "s");
     }
     R.setProperty("--av-size", p.avatar.size + "px"); R.setProperty("--av-radius", { circle: "50%", rounded: "22%", square: "6px", blob: "42% 58% 63% 37% / 41% 44% 56% 59%", capsule: "999px" }[p.avatar.shape]);
     R.setProperty("--av-w", p.avatar.shape === "capsule" ? "0.72" : "1");
@@ -203,7 +204,7 @@
     if (p.details.languages) items.push(`<span>${svgIcon("comment")}${esc(p.details.languages)}</span>`);
     if (u.joined) items.push(`<span>${svgIcon("calendar")}joined ${ago(d.joined)}</span>`);
     if (["inline", "pill", "counter"].includes(p.viewCounter)) items.push(`<span class="vc">${svgIcon("eye")}<span class="views" data-n="${d.views}">${p.viewCounter === "counter" ? 0 : Number(d.views).toLocaleString()}</span></span>`);
-    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", (p.name.gradient || p.name.preset !== "none") && !["chrome", "fire", "ice", "rainbow", "toxic", "stroke", "outline-glow"].includes(p.name.effect) && "grad", (p.name.preset !== "none" || (p.name.gradient && p.name.gradientMove)) && "gmove", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
+    const nameCls = ["name", `ne-${p.name.effect}`, p.name.uppercase && "upper", (p.name.gradient || p.name.preset !== "none") && !["chrome", "fire", "ice", "rainbow", "toxic", "stroke", "outline-glow"].includes(p.name.effect) && "grad", (p.name.preset !== "none" || (p.name.gradient && p.name.gradientMove)) && "gmove", p.name.shimmer && "gshim", p.colors.nameGlow && p.name.effect !== "neon" && "nglow"].filter(Boolean).join(" ");
     return `
       ${p.banner ? `<div class="banner" style="background-image:url('${esc(p.banner)}')"></div>` : ""}
       ${p.layout.arrangement === "rx" ? `<div class="rxtop"><b><i>Rx</i> ${esc(window.__SITE)}</b><span>No. ${String(d.memberNo).padStart(4, "0")}</span></div>` : ""}
